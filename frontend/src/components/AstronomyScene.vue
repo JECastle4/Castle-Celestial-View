@@ -24,9 +24,9 @@
           </span>
         </div>
         <div class="progress-label">
-          Loading data... <span v-if="sseExpectedFrameCount > 0">{{ Math.round(sseProgress * 100) }}%</span>
+          {{ t('ui.status.loading') }} <span v-if="sseExpectedFrameCount > 0">{{ Math.round(sseProgress * 100) }}%</span>
         </div>
-        <button class="cancel-btn" @click="cancelSSE" type="button">Cancel</button>
+        <button class="cancel-btn" @click="cancelSSE" type="button">{{ t('buttons.cancel') }}</button>
       </div>
       
       <div v-if="error" class="error">
@@ -35,7 +35,7 @@
       
       <div v-if="!hasData" class="input-form">
         <div class="form-group">
-          <label for="latitude">Latitude:</label>
+          <label for="latitude">{{ t('forms.labels.latitude') }}:</label>
           <input 
             id="latitude"
             v-model.number="params.latitude" 
@@ -47,12 +47,12 @@
             :class="{ invalid: !isLatitudeValid }"
           />
           <span v-if="!isLatitudeValid" class="error-message">
-            Latitude must be between -90° and 90°
+            {{ t('validation.latitudeRange') }}
           </span>
         </div>
         
         <div class="form-group">
-          <label for="longitude">Longitude:</label>
+          <label for="longitude">{{ t('forms.labels.longitude') }}:</label>
           <input 
             id="longitude"
             v-model.number="params.longitude" 
@@ -64,33 +64,33 @@
             :class="{ invalid: !isLongitudeValid }"
           />
           <span v-if="!isLongitudeValid" class="error-message">
-            Longitude must be between -180° and 180°
+            {{ t('validation.longitudeRange') }}
           </span>
         </div>
         
         <div class="form-group">
-          <label for="start-date">Start Date:</label>
+          <label for="start-date">{{ t('forms.labels.startDate') }}:</label>
           <input id="start-date" v-model="params.start_date" type="date" />
         </div>
         
         <div class="form-group">
-          <label for="start-time">Start Time:</label>
+          <label for="start-time">{{ t('forms.labels.startTime') }}:</label>
           <input id="start-time" v-model="params.start_time" type="time" step="1" />
         </div>
         
         <div class="form-group">
-          <label for="end-date">End Date:</label>
+          <label for="end-date">{{ t('forms.labels.endDate') }}:</label>
           <input id="end-date" v-model="params.end_date" type="date" />
         </div>
         
       
         <div class="form-group">
-          <label for="end-time">End Time:</label>
+          <label for="end-time">{{ t('forms.labels.endTime') }}:</label>
           <input id="end-time" v-model="params.end_time" type="time" step="1" />
         </div>
         
         <div class="form-group frames-per-day-group">
-          <label for="frames-per-day">Frames per day:</label>
+          <label for="frames-per-day">{{ t('forms.labels.framesPerDay') }}:</label>
           <input
             id="frames-per-day"
             v-model.number="framesPerDay"
@@ -99,11 +99,11 @@
             max="1440"
             step="1"
           />
-          <span>{{ framesPerDay }} frames/day</span>
+          <span>{{ framesPerDay }} {{ t('ui.units.framesPerDay') }}</span>
         </div>
 
         <div class="form-group">
-          <label for="frame-count">Frame Count:</label>
+          <label for="frame-count">{{ t('forms.labels.frameCount') }}:</label>
           <input
             id="frame-count"
             v-model.number="params.frame_count"
@@ -112,44 +112,44 @@
             required
             readonly
           />
-          <span>{{ params.frame_count }} total frames</span>
+          <span>{{ params.frame_count }} {{ t('ui.units.totalFrames') }}</span>
         </div>
         
-        <button @click="loadData" :disabled="loading || !isFormValid">Load Data</button>
+        <button @click="loadData" :disabled="loading || !isFormValid">{{ t('buttons.loadData') }}</button>
       </div>
       
       <div v-if="hasData" class="animation-controls">
-        <p>Frames: {{ frameCount }}</p>
+        <p>{{ t('astronomy.frames') }}: {{ frameCount }}</p>
         
         <div class="view-toggle">
           <button @click="setViewMode('3D')" :class="{ active: viewMode === '3D' }">
-            3D View
+            {{ t('views.threeD') }}
           </button>
           <button @click="setViewMode('SKY')" :class="{ active: viewMode === 'SKY' }">
-            Sky View
+            {{ t('views.sky') }}
           </button>
         </div>
         
         <button @click="toggleAnimation">
-          {{ isAnimating ? 'Pause' : 'Play' }}
+          {{ isAnimating ? t('buttons.pause') : t('buttons.play') }}
         </button>
-        <button @click="resetAnimation">Reset</button>
-        <button @click="clearData">New Query</button>
+        <button @click="resetAnimation">{{ t('buttons.reset') }}</button>
+        <button @click="clearData">{{ t('buttons.newQuery') }}</button>
         
         <div class="form-group">
-          <label for="animation-speed">Animation Speed:</label>
+          <label for="animation-speed">{{ t('forms.labels.animationSpeed') }}:</label>
           <input id="animation-speed" v-model.number="animationSpeed" type="range" min="0.1" max="5" step="0.1" />
           <span>{{ animationSpeed.toFixed(1) }}x</span>
         </div>
         
         <div v-if="currentFrame" class="current-info">
-          <p><strong>Time:</strong> {{ currentFrame.datetime }}</p>
-            <p><strong>Sun Alt:</strong> {{ typeof currentFrame.sun.altitude === 'number' ? currentFrame.sun.altitude.toFixed(1) : 'N/A' }}°</p>
-            <p><strong>Sun Visible:</strong> {{ currentFrame.sun.is_visible ? 'Yes' : 'No' }}</p>
-            <p><strong>Moon Alt:</strong> {{ typeof currentFrame.moon.altitude === 'number' ? currentFrame.moon.altitude.toFixed(1) : 'N/A' }}°</p>
-            <p><strong>Moon Visible:</strong> {{ currentFrame.moon.is_visible ? 'Yes' : 'No' }}</p>
-          <p><strong>Moon Phase:</strong> {{ currentFrame.moon_phase.phase_name }}</p>
-          <p><strong>Illumination:</strong> {{ (currentFrame.moon_phase.illumination * 100).toFixed(1) }}%</p>
+          <p><strong>{{ t('astronomy.time') }}:</strong> {{ currentFrame.datetime }}</p>
+            <p><strong>{{ t('astronomy.sunAltitude') }}:</strong> {{ typeof currentFrame.sun.altitude === 'number' ? currentFrame.sun.altitude.toFixed(1) : 'N/A' }}{{ t('ui.units.degrees') }}</p>
+            <p><strong>{{ t('astronomy.sunVisible') }}:</strong> {{ currentFrame.sun.is_visible ? t('astronomy.yes') : t('astronomy.no') }}</p>
+            <p><strong>{{ t('astronomy.moonAltitude') }}:</strong> {{ typeof currentFrame.moon.altitude === 'number' ? currentFrame.moon.altitude.toFixed(1) : 'N/A' }}{{ t('ui.units.degrees') }}</p>
+            <p><strong>{{ t('astronomy.moonVisible') }}:</strong> {{ currentFrame.moon.is_visible ? t('astronomy.yes') : t('astronomy.no') }}</p>
+          <p><strong>{{ t('astronomy.moonPhase') }}:</strong> {{ currentFrame.moon_phase.phase_name }}</p>
+          <p><strong>{{ t('astronomy.illumination') }}:</strong> {{ (currentFrame.moon_phase.illumination * 100).toFixed(1) }}{{ t('ui.units.percent') }}</p>
         </div>
       </div>
     </div>
