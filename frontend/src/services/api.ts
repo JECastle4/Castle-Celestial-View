@@ -1,7 +1,7 @@
 import { API_CONFIG, API_ENDPOINTS } from './config';
 export { API_CONFIG };
 import type { BatchEarthObservationsResponse } from '@/types/api.types';
-import { i18n } from '@/i18n'
+import { i18n } from '@/i18n';
 
 /**
  * API Client for astronomy data

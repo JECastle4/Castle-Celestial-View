@@ -1,6 +1,6 @@
 import { createI18n } from 'vue-i18n'
 import en from './locales/en.json'
-// xx-reverse is imported only in dev. Vite resolves import.meta.env.DEV at build
+// xx-reverse is always imported, but Vite resolves import.meta.env.DEV at build
 // time, so the ternary below tree-shakes this locale out of production bundles.
 import xxReverse from './locales/xx-reverse.json'
 

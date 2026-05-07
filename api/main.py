@@ -52,11 +52,13 @@ app.add_middleware(
 
 @app.middleware("http")
 async def locale_middleware(request: Request, call_next):
-    """Read Accept-Language header and set the request-scoped locale.
+    """Read locale from the request and set the request-scoped locale.
 
     Priority:
-    1. Accept-Language header (used by POST requests)
-    2. ?lang= query parameter (fallback for SSE/EventSource which can't set headers)
+    1. ?lang= query parameter (explicit per-request override; used by SSE/EventSource
+       which cannot set custom headers)
+    2. Accept-Language header (used by standard POST requests)
+    3. 'en' default
 
     Falls back to 'en' for any unsupported locale.
     """

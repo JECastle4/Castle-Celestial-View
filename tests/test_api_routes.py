@@ -1025,9 +1025,8 @@ class TestAcceptLanguage:
         )
         assert response.status_code == 200
         phase = response.json()["phase_name"]
-        # Reversed locale reverses each character — just verify it differs from English
-        assert phase == phase[::-1][::-1]   # round-trip sanity
-        assert phase != "Full Moon"          # not English
+        # 2025-01-13 22:00 UTC is a Full Moon; xx-reverse reverses each character
+        assert phase == "Full Moon"[::-1]
 
     # --- ?lang= query parameter (SSE fallback, EventSource can't set headers) ---
 

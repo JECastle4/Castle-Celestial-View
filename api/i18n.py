@@ -3,7 +3,6 @@ i18n (internationalization) module for the API.
 Handles loading and providing localized strings.
 """
 import json
-import os
 from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -79,6 +78,8 @@ class I18n:
                 return value.format(**kwargs)
             except KeyError as e:
                 return f"[Missing interpolation variable: {e}] {value}"
+            except ValueError as e:
+                return f"[Malformed translation string: {e}] {value}"
         
         return value
     

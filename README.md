@@ -2,7 +2,7 @@
 John's python code - probably astronomy related
 
 # For Check In
-## Make sure that npm install works as per a clean checkout. Remove node modules and package-lock.json. Clear npm caches and makes sure it installs and builds.
+## Before checking in, validate a clean install: remove node_modules (keep package-lock.json), optionally clear the npm cache, then confirm `npm ci` and `npm run build` succeed.
 
 # To start the app:
 ## PowerShell terminal 1

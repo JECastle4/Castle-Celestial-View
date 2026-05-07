@@ -5,9 +5,10 @@ import type { BatchEarthObservationsResponse } from '@/types/api.types';
 
 // Mock useToast composable
 const mockDismiss = vi.fn();
+const mockToastSuccess = vi.fn(() => ({ dismiss: mockDismiss }));
 vi.mock('@/composables/useToast', () => ({
   useToast: () => ({
-    success: vi.fn(() => ({ dismiss: mockDismiss })),
+    success: mockToastSuccess,
     error: vi.fn(),
     info: vi.fn(),
     warning: vi.fn(),
@@ -306,6 +307,7 @@ describe('useAstronomyData', () => {
     });
 
     expect(data.value?.metadata.frame_count).toBe(1);
+    expect(mockToastSuccess).toHaveBeenCalledWith('Successfully loaded 1 frame');
   });
 
   it('should handle ApiError correctly', async () => {

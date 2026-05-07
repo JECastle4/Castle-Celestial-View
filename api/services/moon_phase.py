@@ -6,7 +6,7 @@ from astropy.coordinates import get_sun, get_body, EarthLocation
 from astropy.coordinates.baseframe import NonRotationTransformationWarning
 import astropy.units as u
 import numpy as np
-from api.i18n import t, get_i18n
+from api.i18n import get_i18n
 
 
 def calculate_moon_phase(
