@@ -298,13 +298,6 @@ jobs:
         if [ -f pyproject.toml ]; then pip install -e .; fi
       working-directory: .
 
-    - name: Start FastAPI backend
-      run: |
-        uvicorn api.main:app --host 127.0.0.1 --port 8000 &
-        sleep 5
-        curl --retry 10 --retry-connrefused --retry-delay 2 http://127.0.0.1:8000/docs
-      working-directory: .
-
     - name: Install Playwright Browsers
       run: |
         npx playwright install --with-deps
