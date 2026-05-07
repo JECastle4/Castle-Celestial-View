@@ -1,6 +1,9 @@
 # Python
 John's python code - probably astronomy related
 
+# For Check In
+## Make sure that npm install works as per a clean checkout. Remove node modules and package-lock.json. Clear npm caches and makes sure it installs and builds.
+
 # To start the app:
 ## PowerShell terminal 1
 cd frontend; npm run dev
