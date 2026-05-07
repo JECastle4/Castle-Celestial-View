@@ -4,9 +4,11 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const backendRoot = path.resolve(__dirname, '..');
-const pythonExe = process.platform === 'win32'
-  ? path.join(backendRoot, '.venv', 'Scripts', 'python.exe')
-  : path.join(backendRoot, '.venv', 'bin', 'python');
+const pythonExe = process.env.CI
+  ? 'python'
+  : process.platform === 'win32'
+    ? path.join(backendRoot, '.venv', 'Scripts', 'python.exe')
+    : path.join(backendRoot, '.venv', 'bin', 'python');
 
 /**
  * Playwright configuration for E2E tests
