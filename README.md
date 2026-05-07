@@ -2,8 +2,11 @@
 John's python code - probably astronomy related
 
 # For Check In
-## Before checking in, validate a clean install: remove node_modules (keep package-lock.json), optionally clear the npm cache, then confirm `npm ci` and `npm run build` succeed.
-
+ ## Pre-commit checklist
+ - Remove `node_modules` (keep `package-lock.json`).
+ - Optionally clear the npm cache.
+ - Confirm `npm ci` and `npm run build` succeed.
+ 
 # To start the app:
 ## PowerShell terminal 1
 cd frontend; npm run dev

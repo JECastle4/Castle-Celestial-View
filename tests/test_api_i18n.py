@@ -54,6 +54,12 @@ class TestI18nGet:
         result = self.i18n.get('validation.latitudeRange', wrong_var=95)
         assert '[Missing interpolation variable:' in result
 
+    def test_malformed_translation_string_returns_error(self):
+        # Patch a translation value with a malformed format string to trigger ValueError
+        with patch.object(self.i18n, 'translations', {'bad': 'unclosed { brace'}):
+            result = self.i18n.get('bad', value=1)
+        assert '[Malformed translation string:' in result
+
 
 class TestI18nSetLocale:
     """Tests for I18n.set_locale()."""

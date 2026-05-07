@@ -1,9 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import type { Ref } from 'vue';
-
-function setLocale(i18n: { global: { locale: unknown } }, locale: string) {
-  (i18n.global.locale as unknown as Ref<string>).value = locale;
-}
+import { getCurrentLocale, setCurrentLocale } from '@/i18n';
 
 describe('i18n module', () => {
   beforeEach(() => {
@@ -16,8 +12,8 @@ describe('i18n module', () => {
   });
 
   it('creates an i18n instance with en as default locale', async () => {
-    const { i18n } = await import('@/i18n');
-    expect((i18n.global.locale as unknown as Ref<string>).value).toBe('en');
+    await import('@/i18n');
+    expect(getCurrentLocale()).toBe('en');
   });
 
   it('includes xx-reverse messages in dev mode', async () => {
@@ -28,22 +24,22 @@ describe('i18n module', () => {
   });
 
   it('can switch locale to xx-reverse', async () => {
-    const { i18n } = await import('@/i18n');
-    setLocale(i18n, 'xx-reverse');
-    expect((i18n.global.locale as unknown as Ref<string>).value).toBe('xx-reverse');
-    setLocale(i18n, 'en');
+    await import('@/i18n');
+    setCurrentLocale('xx-reverse');
+    expect(getCurrentLocale()).toBe('xx-reverse');
+    setCurrentLocale('en');
   });
 
   it('translates a key correctly in en', async () => {
     const { i18n } = await import('@/i18n');
-    setLocale(i18n, 'en');
+    setCurrentLocale('en');
     expect(i18n.global.t('astronomy.dayNames.sunday')).toBe('Sunday');
   });
 
   it('translates a key correctly in xx-reverse', async () => {
-    const { i18n } = await import('@/i18n');
-    setLocale(i18n, 'xx-reverse');
+    const { i18n, setCurrentLocale: setLocale } = await import('@/i18n');
+    setLocale('xx-reverse');
     expect(i18n.global.t('astronomy.dayNames.sunday')).toBe('yadnuS');
-    setLocale(i18n, 'en');
+    setLocale('en');
   });
 });

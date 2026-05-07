@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue';
-import { i18n } from '@/i18n';
+import { i18n, getCurrentLocale } from '@/i18n';
 import { astronomyApi, ApiError } from '@/services/api';
 import type { AstronomyApi, BatchObservationsParams } from '@/services/api';
 import { API_CONFIG } from '@/services/config';
@@ -56,7 +56,7 @@ export function useAstronomyData(api: AstronomyApi = astronomyApi) {
       };
       const query = new URLSearchParams({
         ...paramsObj as any,
-        lang: (i18n.global.locale as unknown as { value: string }).value,
+        lang: getCurrentLocale(),
       }).toString();
       const url = `${API_CONFIG.baseUrl}/api/v1/batch-earth-observations-stream?${query}`;
       const eventSource = new EventSource(url);

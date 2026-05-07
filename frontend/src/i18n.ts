@@ -1,3 +1,4 @@
+import type { Ref } from 'vue'
 import { createI18n } from 'vue-i18n'
 import en from './locales/en.json'
 // xx-reverse is always imported, but Vite resolves import.meta.env.DEV at build
@@ -12,3 +13,11 @@ export const i18n = createI18n({
     ? { en, 'xx-reverse': xxReverse }
     : /* c8 ignore next */ { en },
 })
+
+export function getCurrentLocale(): string {
+  return (i18n.global.locale as unknown as Ref<string>).value
+}
+
+export function setCurrentLocale(locale: string): void {
+  ;(i18n.global.locale as unknown as Ref<string>).value = locale
+}

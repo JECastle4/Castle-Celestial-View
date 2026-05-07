@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
-import { i18n } from './i18n'
+import { setCurrentLocale } from './i18n'
 
 // xx-reverse is a dev-only debug locale — excluded from production bundles
 // import.meta.env.DEV is resolved at build time, so the locale and its route
@@ -39,7 +39,7 @@ const router = createRouter({
 router.beforeEach((to) => {
   const locale = to.params.locale as string | undefined
   if (locale && SUPPORTED_LOCALES.includes(locale)) {
-    ;(i18n.global.locale as unknown as { value: string }).value = locale
+    setCurrentLocale(locale)
   }
 })
 

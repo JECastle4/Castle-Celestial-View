@@ -6,7 +6,7 @@ from astropy.coordinates import get_sun, get_body, EarthLocation
 from astropy.coordinates.baseframe import NonRotationTransformationWarning
 import astropy.units as u
 import numpy as np
-from api.i18n import get_i18n
+from api.i18n import get_i18n, t
 
 
 def calculate_moon_phase(
@@ -15,6 +15,7 @@ def calculate_moon_phase(
     latitude: float,
     longitude: float,
     elevation: float = 0.0,
+    locale: str | None = None,
 ) -> dict:
     """
     Calculate the moon's phase information including illumination, phase angle, and name.
@@ -43,9 +44,9 @@ def calculate_moon_phase(
     """
     # Validate coordinates
     if not -90 <= latitude <= 90:
-        raise ValueError(f"Latitude must be between -90 and 90 degrees, got {latitude}")
+        raise ValueError(get_i18n(locale).get('validation.latitudeRange', value=latitude))
     if not -180 <= longitude <= 180:
-        raise ValueError(f"Longitude must be between -180 and 180 degrees, got {longitude}")
+        raise ValueError(get_i18n(locale).get('validation.longitudeRange', value=longitude))
     
     # Combine date and time (ISO 8601 format)
     datetime_str = f"{date_str}T{time_str}"
@@ -62,7 +63,7 @@ def calculate_moon_phase(
     sun = get_sun(time)
     moon = get_body("moon", time, location=location)
 
-    return _process_moon_phase(sun, moon, time, datetime_str, latitude, longitude, elevation)
+    return _process_moon_phase(sun, moon, time, datetime_str, latitude, longitude, elevation, locale=locale)
 
 
 def _process_moon_phase(

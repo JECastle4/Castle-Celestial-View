@@ -234,7 +234,8 @@ async def get_moon_phase(request: MoonPhaseRequest):
             request.time,
             request.latitude,
             request.longitude,
-            request.elevation
+            request.elevation,
+            locale=get_i18n().locale,
         )
         return MoonPhaseResponse(**result)
         

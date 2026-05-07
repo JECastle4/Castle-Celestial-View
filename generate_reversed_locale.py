@@ -1,11 +1,8 @@
 import json
 import re
+from pathlib import Path
 
-# Read the English locale
-with open('frontend/src/locales/en.json', 'r', encoding='utf-8') as f:
-    en_data = json.load(f)
 
-# Reverse a string while preserving {placeholder} tokens intact
 def reverse_string_with_placeholders(s):
     # Split on {placeholder} tokens, keeping the delimiters
     parts = re.split(r'(\{[^}]+\})', s)
@@ -16,7 +13,7 @@ def reverse_string_with_placeholders(s):
     ]
     return ''.join(reversed_parts)
 
-# Function to reverse strings recursively
+
 def reverse_strings(obj):
     if isinstance(obj, dict):
         return {k: reverse_strings(v) for k, v in obj.items()}
@@ -25,15 +22,22 @@ def reverse_strings(obj):
     else:
         return obj
 
-# Create reversed version
-xx_reverse = reverse_strings(en_data)
 
-# Write to file
-with open('frontend/src/locales/xx-reverse.json', 'w', encoding='utf-8') as f:
-    json.dump(xx_reverse, f, ensure_ascii=False, indent=2)
+if __name__ == '__main__':
+    repo_root = Path(__file__).resolve().parent
+    input_path = repo_root / 'frontend' / 'src' / 'locales' / 'en.json'
+    output_path = repo_root / 'frontend' / 'src' / 'locales' / 'xx-reverse.json'
 
-print('✓ Created xx-reverse.json with reversed strings')
-print('Sample reversals:')
-print(f'  "Load Data" → "{xx_reverse["buttons"]["loadData"]}"')
-print(f'  "Latitude" → "{xx_reverse["forms"]["labels"]["latitude"]}"')
-print(f'  "New Moon" → "{xx_reverse["astronomy"]["phaseNames"]["newMoon"]}"')
+    with open(input_path, 'r', encoding='utf-8') as f:
+        en_data = json.load(f)
+
+    xx_reverse = reverse_strings(en_data)
+
+    with open(output_path, 'w', encoding='utf-8') as f:
+        json.dump(xx_reverse, f, ensure_ascii=False, indent=2)
+
+    print('✓ Created xx-reverse.json with reversed strings')
+    print('Sample reversals:')
+    print(f'  "Load Data" → "{xx_reverse["buttons"]["loadData"]}"')
+    print(f'  "Latitude" → "{xx_reverse["forms"]["labels"]["latitude"]}"')
+    print(f'  "New Moon" → "{xx_reverse["astronomy"]["phaseNames"]["newMoon"]}"')

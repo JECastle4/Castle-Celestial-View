@@ -1,7 +1,7 @@
 import { API_CONFIG, API_ENDPOINTS } from './config';
 export { API_CONFIG };
 import type { BatchEarthObservationsResponse } from '@/types/api.types';
-import { i18n } from '@/i18n';
+import { getCurrentLocale } from '@/i18n';
 
 /**
  * API Client for astronomy data
@@ -55,7 +55,7 @@ export class AstronomyApiClient {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
-          'Accept-Language': (i18n.global.locale as unknown as { value: string }).value,
+          'Accept-Language': getCurrentLocale(),
         },
         body: JSON.stringify(params),
         signal: controller.signal,
