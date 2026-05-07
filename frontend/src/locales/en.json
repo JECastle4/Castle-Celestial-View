@@ -48,13 +48,14 @@
     "sseConnectionError": "SSE connection error",
     "loadingFailed": "Failed to load observations",
     "connectionError": "Connection error",
-    "cancelled": "Loading cancelled by user",
+    "cancelled": "Loading cancelled by user.",
     "unknown": "An unknown error occurred",
     "apiError": "API Error ({status})",
     "calculationError": "Error calculating"
   },
   "success": {
-    "loaded": "Successfully loaded {count} frame | Successfully loaded {count} frames"
+    "loadedFrame": "Successfully loaded 1 frame",
+    "loadedFrames": "Successfully loaded {count} frames"
   },
   "astronomy": {
     "sunAltitude": "Sun Alt",

@@ -3,9 +3,10 @@ Main FastAPI application for Astronomy API
 """
 import os
 import logging
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from api.routes import router
+from api.i18n import set_request_locale, SUPPORTED_LOCALES
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -45,8 +46,34 @@ app.add_middleware(
     allow_origins=allowed_origins,
     allow_credentials=False,  # No authentication required
     allow_methods=["GET", "POST"],  # Only methods used by the API
-    allow_headers=["Content-Type", "Accept"],  # Standard headers for JSON API
+    allow_headers=["Content-Type", "Accept", "Accept-Language"],
 )
+
+
+@app.middleware("http")
+async def locale_middleware(request: Request, call_next):
+    """Read Accept-Language header and set the request-scoped locale.
+
+    Priority:
+    1. Accept-Language header (used by POST requests)
+    2. ?lang= query parameter (fallback for SSE/EventSource which can't set headers)
+
+    Falls back to 'en' for any unsupported locale.
+    """
+    accept_language = request.headers.get("accept-language", "")
+    lang_param = request.query_params.get("lang", "")
+
+    raw = accept_language or lang_param or "en"
+    first_tag = raw.split(",")[0].split(";")[0].strip().lower()
+    # Try exact match, then language prefix (e.g. 'en-us' → 'en')
+    if first_tag in SUPPORTED_LOCALES:
+        locale = first_tag
+    else:
+        prefix = first_tag.split("-")[0]
+        locale = prefix if prefix in SUPPORTED_LOCALES else 'en'
+    set_request_locale(locale)
+    return await call_next(request)
+
 
 # Include the routes
 app.include_router(router, prefix="/api/v1", tags=["astronomy"])

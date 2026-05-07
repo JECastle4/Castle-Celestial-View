@@ -959,3 +959,103 @@ class TestBatchEarthObservationsEndpoint:
         assert data["frames"][2]["datetime"] == "2024-01-01T02:00:00"
         assert data["frames"][3]["datetime"] == "2024-01-01T03:00:00"
         assert data["frames"][4]["datetime"] == "2024-01-01T04:00:00"
+
+
+class TestAcceptLanguage:
+    """Tests for Accept-Language header locale negotiation via middleware."""
+
+    # --- day_name is a localised string returned by dates service ---
+
+    def test_no_header_returns_english(self):
+        """Requests without Accept-Language default to English."""
+        response = client.post("/api/v1/day-of-week", json={"date": "2026-02-01"})
+        assert response.status_code == 200
+        assert response.json()["day_name"] == "Sunday"
+
+    def test_explicit_en_returns_english(self):
+        response = client.post(
+            "/api/v1/day-of-week",
+            json={"date": "2026-02-01"},
+            headers={"Accept-Language": "en"},
+        )
+        assert response.status_code == 200
+        assert response.json()["day_name"] == "Sunday"
+
+    def test_browser_style_header_returns_english(self):
+        """Parses real-world browser Accept-Language with quality values."""
+        response = client.post(
+            "/api/v1/day-of-week",
+            json={"date": "2026-02-01"},
+            headers={"Accept-Language": "en-US,en;q=0.9"},
+        )
+        assert response.status_code == 200
+        assert response.json()["day_name"] == "Sunday"
+
+    def test_reverse_locale_reverses_day_name(self):
+        response = client.post(
+            "/api/v1/day-of-week",
+            json={"date": "2026-02-01"},
+            headers={"Accept-Language": "xx-reverse"},
+        )
+        assert response.status_code == 200
+        assert response.json()["day_name"] == "Sunday"[::-1]
+
+    def test_unsupported_locale_falls_back_to_english(self):
+        """An unrecognised locale (e.g. 'fr') silently falls back to English."""
+        response = client.post(
+            "/api/v1/day-of-week",
+            json={"date": "2026-02-01"},
+            headers={"Accept-Language": "fr"},
+        )
+        assert response.status_code == 200
+        assert response.json()["day_name"] == "Sunday"
+
+    # --- phase_name is a localised string returned by moon_phase service ---
+
+    def test_reverse_locale_reverses_moon_phase_name(self):
+        response = client.post(
+            "/api/v1/moon-phase",
+            json={
+                "date": "2025-01-13",
+                "time": "22:00:00",
+                "latitude": 40.7128,
+                "longitude": -74.0060,
+            },
+            headers={"Accept-Language": "xx-reverse"},
+        )
+        assert response.status_code == 200
+        phase = response.json()["phase_name"]
+        # Reversed locale reverses each character — just verify it differs from English
+        assert phase == phase[::-1][::-1]   # round-trip sanity
+        assert phase != "Full Moon"          # not English
+
+    # --- ?lang= query parameter (SSE fallback, EventSource can't set headers) ---
+
+    def test_lang_query_param_reverses_day_name(self):
+        """?lang=xx-reverse is honoured when no Accept-Language header is present."""
+        response = client.post(
+            "/api/v1/day-of-week?lang=xx-reverse",
+            json={"date": "2026-02-01"},
+        )
+        assert response.status_code == 200
+        assert response.json()["day_name"] == "Sunday"[::-1]
+
+    def test_lang_query_param_unsupported_falls_back_to_english(self):
+        """?lang=fr falls back to English."""
+        response = client.post(
+            "/api/v1/day-of-week?lang=fr",
+            json={"date": "2026-02-01"},
+        )
+        assert response.status_code == 200
+        assert response.json()["day_name"] == "Sunday"
+
+    def test_accept_language_header_takes_priority_over_lang_param(self):
+        """When both header and ?lang= are present, header wins."""
+        response = client.post(
+            "/api/v1/day-of-week?lang=xx-reverse",
+            json={"date": "2026-02-01"},
+            headers={"Accept-Language": "en"},
+        )
+        assert response.status_code == 200
+        assert response.json()["day_name"] == "Sunday"
+

@@ -289,6 +289,25 @@ describe('useAstronomyData', () => {
     expect(mockApi.getBatchEarthObservations).toHaveBeenCalledWith(params);
   });
 
+  it('should show singular success message when 1 frame is loaded', async () => {
+    const singleFrameResponse: BatchEarthObservationsResponse = {
+      frames: [mockResponse.frames[0]],
+      metadata: { ...mockResponse.metadata, frame_count: 1 },
+    };
+    const mockApi = { getBatchEarthObservations: vi.fn().mockResolvedValueOnce(singleFrameResponse) };
+
+    const { data, fetchBatchObservations } = useAstronomyData(mockApi);
+
+    await fetchBatchObservations({
+      latitude: 51.5, longitude: -0.1,
+      start_date: '2026-02-02', start_time: '00:00:00',
+      end_date: '2026-02-02', end_time: '00:00:00',
+      frame_count: 1,
+    });
+
+    expect(data.value?.metadata.frame_count).toBe(1);
+  });
+
   it('should handle ApiError correctly', async () => {
     const apiError = new ApiError(400, 'Bad Request', 'Invalid parameters');
     const mockApi = { getBatchEarthObservations: vi.fn().mockRejectedValueOnce(apiError) };

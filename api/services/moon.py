@@ -3,6 +3,7 @@
 from astropy.time import Time
 from astropy.coordinates import get_body, AltAz, EarthLocation
 import astropy.units as u
+from api.i18n import t
 
 
 def calculate_moon_position(
@@ -36,9 +37,9 @@ def calculate_moon_position(
     """
     # Validate coordinates
     if not -90 <= latitude <= 90:
-        raise ValueError(f"Latitude must be between -90 and 90 degrees, got {latitude}")
+        raise ValueError(t('validation.latitudeRange', value=latitude))
     if not -180 <= longitude <= 180:
-        raise ValueError(f"Longitude must be between -180 and 180 degrees, got {longitude}")
+        raise ValueError(t('validation.longitudeRange', value=longitude))
     
     # Combine date and time (ISO 8601 format)
     datetime_str = f"{date_str}T{time_str}"

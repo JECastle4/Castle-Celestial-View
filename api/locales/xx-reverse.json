@@ -1,0 +1,31 @@
+{
+  "dayNames": {
+    "0": "yadnuS",
+    "1": "yadnoM",
+    "2": "yadseuT",
+    "3": "yadsendeW",
+    "4": "yadsruhT",
+    "5": "yadirF",
+    "6": "yadrutaS"
+  },
+  "moonPhases": {
+    "newMoon": "nooM weN",
+    "waxingCrescent": "tnecserC gnixaW",
+    "firstQuarter": "retrauQ tsriF",
+    "waxingGibbous": "suobbiG gnixaW",
+    "fullMoon": "nooM lluF",
+    "waningGibbous": "suobbiG gninaW",
+    "lastQuarter": "retrauQ tsaL",
+    "waningCrescent": "tnecserC gninaW"
+  },
+  "validation": {
+    "latitudeRange": "}eulav{ tog ,seerged 09 dna 09- neewteb eb tsum edutitaL",
+    "longitudeRange": "}eulav{ tog ,seerged 081 dna 081- neewteb eb tsum edutignoL",
+    "invalidDateTime": "}rorre{ :tamrof emit ro etad dilavnI",
+    "endTimeAfterStart": "emitetad_trats retfa eb tsum emitetad_dne",
+    "frameCountMinimum": "}eulav{ tog ,2 tsael ta eb tsum tnuoc_emarf"
+  },
+  "errors": {
+    "unknown": "derrucco rorre nwonknu nA"
+  }
+}

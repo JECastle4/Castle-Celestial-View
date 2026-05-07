@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue';
-import { useI18n } from 'vue-i18n';
+import { i18n } from '@/i18n';
 import { astronomyApi, ApiError } from '@/services/api';
 import type { AstronomyApi, BatchObservationsParams } from '@/services/api';
 import { API_CONFIG } from '@/services/config';
@@ -11,7 +11,7 @@ import { useToast } from './useToast';
  * Composable for fetching and managing astronomy data
  */
 export function useAstronomyData(api: AstronomyApi = astronomyApi) {
-  const { t, tc } = useI18n();
+  const t = i18n.global.t;
   const data = ref<BatchEarthObservationsResponse | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
@@ -54,7 +54,10 @@ export function useAstronomyData(api: AstronomyApi = astronomyApi) {
         longitude: params.longitude,
         elevation: params.elevation ?? 0.0,
       };
-      const query = new URLSearchParams(paramsObj as any).toString();
+      const query = new URLSearchParams({
+        ...paramsObj as any,
+        lang: (i18n.global.locale as unknown as { value: string }).value,
+      }).toString();
       const url = `${API_CONFIG.baseUrl}/api/v1/batch-earth-observations-stream?${query}`;
       const eventSource = new EventSource(url);
       currentEventSource = eventSource;
@@ -93,7 +96,9 @@ export function useAstronomyData(api: AstronomyApi = astronomyApi) {
           loading.value = false;
           eventSource.close();
           currentEventSource = null;
-          const successMsg = tc('success.loaded', sseExpectedFrameCount.value, { count: sseExpectedFrameCount.value });
+          const successMsg = sseExpectedFrameCount.value === 1 
+            ? t('success.loadedFrame')
+            : t('success.loadedFrames', { count: sseExpectedFrameCount.value });
           activeSuccessToast = toast.success(successMsg);
           // Delay resolve to allow toast to display before scene transition (300ms)
           setTimeout(resolve, 300);
@@ -125,7 +130,9 @@ export function useAstronomyData(api: AstronomyApi = astronomyApi) {
     try {
       const response = await api.getBatchEarthObservations(params);
       data.value = response;
-      const successMsg = tc('success.loaded', response.metadata.frame_count, { count: response.metadata.frame_count });
+      const successMsg = response.metadata.frame_count === 1 
+        ? t('success.loadedFrame')
+        : t('success.loadedFrames', { count: response.metadata.frame_count });
       toast.success(successMsg);
     } catch (err) {
       if (err instanceof ApiError) {

@@ -6,6 +6,7 @@ from astropy.coordinates import get_sun, get_body, EarthLocation
 from astropy.coordinates.baseframe import NonRotationTransformationWarning
 import astropy.units as u
 import numpy as np
+from api.i18n import t
 
 
 def calculate_moon_phase(
@@ -112,26 +113,26 @@ def _process_moon_phase(
 
     if phase_angle < 180:  # Waxing
         if illum_pct < 3:
-            phase_name = "New Moon"
+            phase_name = t('moonPhases.newMoon')
         elif illum_pct < 47:
-            phase_name = "Waxing Crescent"
+            phase_name = t('moonPhases.waxingCrescent')
         elif illum_pct < 53:
-            phase_name = "First Quarter"
+            phase_name = t('moonPhases.firstQuarter')
         elif illum_pct < 97:
-            phase_name = "Waxing Gibbous"
+            phase_name = t('moonPhases.waxingGibbous')
         else:
-            phase_name = "Full Moon"
+            phase_name = t('moonPhases.fullMoon')
     else:  # Waning
         if illum_pct > 97:
-            phase_name = "Full Moon"
+            phase_name = t('moonPhases.fullMoon')
         elif illum_pct > 53:
-            phase_name = "Waning Gibbous"
+            phase_name = t('moonPhases.waningGibbous')
         elif illum_pct > 47:
-            phase_name = "Last Quarter"
+            phase_name = t('moonPhases.lastQuarter')
         elif illum_pct > 3:
-            phase_name = "Waning Crescent"
+            phase_name = t('moonPhases.waningCrescent')
         else:
-            phase_name = "New Moon"
+            phase_name = t('moonPhases.newMoon')
 
     return {
         "illumination": illumination,

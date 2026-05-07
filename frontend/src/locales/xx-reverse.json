@@ -54,7 +54,8 @@
     "calculationError": "gnitaluclac rorrE"
   },
   "success": {
-    "loaded": "semarf }tnuoc{ dedaol yllufsseccuS | emarf }tnuoc{ dedaol yllufsseccuS"
+    "loadedFrame": "emarf 1 dedaol yllufsseccuS",
+    "loadedFrames": "semarf }tnuoc{ dedaol yllufsseccuS"
   },
   "astronomy": {
     "sunAltitude": "tlA nuS",
