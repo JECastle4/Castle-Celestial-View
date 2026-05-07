@@ -6,7 +6,7 @@ from astropy.coordinates import get_sun, get_body, EarthLocation
 from astropy.coordinates.baseframe import NonRotationTransformationWarning
 import astropy.units as u
 import numpy as np
-from api.i18n import t
+from api.i18n import t, get_i18n
 
 
 def calculate_moon_phase(
@@ -72,7 +72,8 @@ def _process_moon_phase(
     datetime_str: str,
     latitude: float,
     longitude: float,
-    elevation: float
+    elevation: float,
+    locale: str | None = None,
 ) -> dict:
     """
     Process moon phase data from sun and moon positions.
@@ -110,29 +111,30 @@ def _process_moon_phase(
 
     # Determine phase name based on illumination and whether waxing/waning
     illum_pct = illumination * 100
+    _t = get_i18n(locale).get
 
     if phase_angle < 180:  # Waxing
         if illum_pct < 3:
-            phase_name = t('moonPhases.newMoon')
+            phase_name = _t('moonPhases.newMoon')
         elif illum_pct < 47:
-            phase_name = t('moonPhases.waxingCrescent')
+            phase_name = _t('moonPhases.waxingCrescent')
         elif illum_pct < 53:
-            phase_name = t('moonPhases.firstQuarter')
+            phase_name = _t('moonPhases.firstQuarter')
         elif illum_pct < 97:
-            phase_name = t('moonPhases.waxingGibbous')
+            phase_name = _t('moonPhases.waxingGibbous')
         else:
-            phase_name = t('moonPhases.fullMoon')
+            phase_name = _t('moonPhases.fullMoon')
     else:  # Waning
         if illum_pct > 97:
-            phase_name = t('moonPhases.fullMoon')
+            phase_name = _t('moonPhases.fullMoon')
         elif illum_pct > 53:
-            phase_name = t('moonPhases.waningGibbous')
+            phase_name = _t('moonPhases.waningGibbous')
         elif illum_pct > 47:
-            phase_name = t('moonPhases.lastQuarter')
+            phase_name = _t('moonPhases.lastQuarter')
         elif illum_pct > 3:
-            phase_name = t('moonPhases.waningCrescent')
+            phase_name = _t('moonPhases.waningCrescent')
         else:
-            phase_name = t('moonPhases.newMoon')
+            phase_name = _t('moonPhases.newMoon')
 
     return {
         "illumination": illumination,

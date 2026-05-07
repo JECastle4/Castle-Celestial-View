@@ -1049,13 +1049,15 @@ class TestAcceptLanguage:
         assert response.status_code == 200
         assert response.json()["day_name"] == "Sunday"
 
-    def test_accept_language_header_takes_priority_over_lang_param(self):
-        """When both header and ?lang= are present, header wins."""
+    def test_lang_param_takes_priority_over_accept_language_header(self):
+        """When both ?lang= and Accept-Language header are present, ?lang= wins.
+        This matters for SSE: EventSource always sends the browser's Accept-Language
+        header, so ?lang= must override it."""
         response = client.post(
             "/api/v1/day-of-week?lang=xx-reverse",
             json={"date": "2026-02-01"},
             headers={"Accept-Language": "en"},
         )
         assert response.status_code == 200
-        assert response.json()["day_name"] == "Sunday"
+        assert response.json()["day_name"] == "Sunday"[::-1]
 

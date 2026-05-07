@@ -63,7 +63,10 @@ async def locale_middleware(request: Request, call_next):
     accept_language = request.headers.get("accept-language", "")
     lang_param = request.query_params.get("lang", "")
 
-    raw = accept_language or lang_param or "en"
+    # ?lang= takes priority — it's an explicit per-request override used by SSE
+    # (EventSource cannot set custom headers, so the frontend appends ?lang=).
+    # Fall back to Accept-Language header (POST requests), then 'en'.
+    raw = lang_param or accept_language or "en"
     first_tag = raw.split(",")[0].split(";")[0].strip().lower()
     # Try exact match, then language prefix (e.g. 'en-us' → 'en')
     if first_tag in SUPPORTED_LOCALES:

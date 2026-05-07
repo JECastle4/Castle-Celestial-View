@@ -18,6 +18,7 @@ def calculate_batch_earth_observations(
     latitude: float,
     longitude: float,
     elevation: float = 0.0,
+    locale: str | None = None,
 ):
     """
     Calculate batch observations of sun and moon positions from Earth.
@@ -102,7 +103,8 @@ def calculate_batch_earth_observations(
             datetime_str=datetime_str,
             latitude=latitude,
             longitude=longitude,
-            elevation=elevation
+            elevation=elevation,
+            locale=locale,
         )
         frame = {
             "datetime": f"{date_part}T{time_part}",
