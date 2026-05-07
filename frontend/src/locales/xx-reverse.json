@@ -48,14 +48,14 @@
     "sseConnectionError": "rorre noitcennoc ESS",
     "loadingFailed": "snoitavresbo daol ot deliaF",
     "connectionError": "rorre noitcennoC",
-    "cancelled": "resu yb dellecnac gnidaoL",
+    "cancelled": ".resu yb dellecnac gnidaoL",
     "unknown": "derrucco rorre nwonknu nA",
-    "apiError": ")}sutats{( rorrE IPA",
+    "apiError": "){status}( rorrE IPA",
     "calculationError": "gnitaluclac rorrE"
   },
   "success": {
     "loadedFrame": "emarf 1 dedaol yllufsseccuS",
-    "loadedFrames": "semarf }tnuoc{ dedaol yllufsseccuS"
+    "loadedFrames": "semarf {count} dedaol yllufsseccuS"
   },
   "astronomy": {
     "sunAltitude": "tlA nuS",

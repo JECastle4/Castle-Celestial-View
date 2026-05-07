@@ -2,7 +2,6 @@
 Unit tests for api/i18n.py
 """
 import pytest
-from pathlib import Path
 from unittest.mock import patch
 from api.i18n import I18n, get_i18n, t, set_request_locale, SUPPORTED_LOCALES, _current_locale
 
@@ -76,12 +75,14 @@ class TestI18nSetLocale:
 class TestI18nLoadLocale:
     """Tests for locale loading error handling."""
 
-    def test_missing_non_default_locale_falls_back_to_english(self, capsys):
-        i18n = I18n('zz-nonexistent')
+    def test_missing_non_default_locale_falls_back_to_english(self, caplog):
+        import logging
+        with caplog.at_level(logging.WARNING, logger='api.i18n'):
+            i18n = I18n('zz-nonexistent')
         # Should have fallen back to English translations
         assert i18n.get('dayNames.0') == 'Sunday'
-        captured = capsys.readouterr()
-        assert 'zz-nonexistent' in captured.out
+        assert i18n.locale == 'en'
+        assert 'zz-nonexistent' in caplog.text
 
     def test_missing_default_locale_raises(self, tmp_path):
         i18n = I18n.__new__(I18n)

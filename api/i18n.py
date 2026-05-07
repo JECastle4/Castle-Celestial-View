@@ -3,9 +3,12 @@ i18n (internationalization) module for the API.
 Handles loading and providing localized strings.
 """
 import json
+import logging
 from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, Dict, Optional
+
+logger = logging.getLogger(__name__)
 
 
 class I18n:
@@ -28,8 +31,9 @@ class I18n:
         if not locale_path.exists():
             if locale != 'en':
                 # Fallback to English if locale doesn't exist
-                print(f"Locale '{locale}' not found, falling back to 'en'")
+                logger.warning("Locale '%s' not found, falling back to 'en'", locale)
                 self._load_locale('en')
+                self.locale = 'en'
                 return
             else:
                 raise FileNotFoundError(f"Default locale file not found: {locale_path}")
@@ -112,10 +116,14 @@ def set_request_locale(locale: str) -> None:
 
 def get_i18n(locale: Optional[str] = None) -> I18n:
     """Return a cached I18n instance for *locale* (defaults to current request locale)."""
-    resolved = locale if locale is not None else _current_locale.get()
-    if resolved not in _locale_cache:
-        _locale_cache[resolved] = I18n(resolved)
-    return _locale_cache[resolved]
+    requested = locale if locale is not None else _current_locale.get()
+    if requested not in _locale_cache:
+        instance = I18n(requested)
+        # Cache under the resolved locale so missing locales that fall back to
+        # 'en' share the same instance rather than creating duplicate entries.
+        _locale_cache[instance.locale] = instance
+        _locale_cache[requested] = instance
+    return _locale_cache[requested]
 
 
 def t(key: str, default: Optional[str] = None, **kwargs) -> str:
