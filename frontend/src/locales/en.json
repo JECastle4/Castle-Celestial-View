@@ -96,7 +96,6 @@
     "ariaLabel": "Interactive map",
     "pinTool": {
       "buttonTitle": "Place Pin",
-      "buttonAlt": "Pin Tool",
       "activeDescription": "Pin placement tool active. Use arrow keys to pan the map. Press Enter to place a pin at the centre. Press Escape to cancel.",
       "placed": "Pin placed.",
       "cancelled": "Pin placement tool cancelled."

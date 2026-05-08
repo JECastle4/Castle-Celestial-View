@@ -17,22 +17,24 @@ test.describe('BaseMap - Pin Tool', () => {
   // ── activate / deactivate via button ─────────────────────────────────────
 
   test('pin button activates pin mode: crosshair visible, description updated, live region announced', async ({ page }) => {
-    const pinButton = page.locator('button[title="Place Pin"]');
+    const pinButton = page.getByRole('button', { name: 'Place Pin' });
     const crosshair = page.locator('.map-crosshair');
     const mapDesc = page.locator('[id$="-desc"]');
     const mapAnnounce = page.locator('[id$="-announce"]');
 
     await expect(crosshair).not.toBeVisible();
+    await expect(pinButton).toHaveAttribute('aria-pressed', 'false');
 
     await pinButton.click();
 
     await expect(crosshair).toBeVisible();
+    await expect(pinButton).toHaveAttribute('aria-pressed', 'true');
     await expect(mapDesc).toContainText('Pin placement tool active');
     await expect(mapAnnounce).toContainText('Pin placement tool active');
   });
 
   test('pressing pin button again (toggle off) cancels pin mode: crosshair hidden, description restored, cancellation announced', async ({ page }) => {
-    const pinButton = page.locator('button[title="Place Pin"]');
+    const pinButton = page.getByRole('button', { name: 'Place Pin' });
     const crosshair = page.locator('.map-crosshair');
     const mapDesc = page.locator('[id$="-desc"]');
     const mapAnnounce = page.locator('[id$="-announce"]');
@@ -44,6 +46,7 @@ test.describe('BaseMap - Pin Tool', () => {
     await pinButton.click();
 
     await expect(crosshair).not.toBeVisible();
+    await expect(pinButton).toHaveAttribute('aria-pressed', 'false');
     await expect(mapDesc).toContainText('Interactive map');
     await expect(mapAnnounce).toContainText('Pin placement tool cancelled');
   });
@@ -51,7 +54,7 @@ test.describe('BaseMap - Pin Tool', () => {
   // ── Escape cancellation ───────────────────────────────────────────────────
 
   test('Escape key cancels pin mode: crosshair hidden, description restored, cancellation announced', async ({ page }) => {
-    const pinButton = page.locator('button[title="Place Pin"]');
+    const pinButton = page.getByRole('button', { name: 'Place Pin' });
     const map = page.getByRole('application', { name: 'Interactive map' });
     const crosshair = page.locator('.map-crosshair');
     const mapDesc = page.locator('[id$="-desc"]');
@@ -64,6 +67,7 @@ test.describe('BaseMap - Pin Tool', () => {
     await map.press('Escape');
 
     await expect(crosshair).not.toBeVisible();
+    await expect(pinButton).toHaveAttribute('aria-pressed', 'false');
     await expect(mapDesc).toContainText('Interactive map');
     await expect(mapAnnounce).toContainText('Pin placement tool cancelled');
   });
@@ -71,7 +75,7 @@ test.describe('BaseMap - Pin Tool', () => {
   // ── Enter to place ────────────────────────────────────────────────────────
 
   test('Enter key places a pin at the map centre: crosshair hidden, "Pin placed" announced', async ({ page }) => {
-    const pinButton = page.locator('button[title="Place Pin"]');
+    const pinButton = page.getByRole('button', { name: 'Place Pin' });
     const map = page.getByRole('application', { name: 'Interactive map' });
     const crosshair = page.locator('.map-crosshair');
     const mapAnnounce = page.locator('[id$="-announce"]');
@@ -83,11 +87,12 @@ test.describe('BaseMap - Pin Tool', () => {
     await map.press('Enter');
 
     await expect(crosshair).not.toBeVisible();
+    await expect(pinButton).toHaveAttribute('aria-pressed', 'false');
     await expect(mapAnnounce).toContainText('Pin placed');
   });
 
   test('Enter key in pin mode emits pin-placed and description is restored', async ({ page }) => {
-    const pinButton = page.locator('button[title="Place Pin"]');
+    const pinButton = page.getByRole('button', { name: 'Place Pin' });
     const map = page.getByRole('application', { name: 'Interactive map' });
     const mapDesc = page.locator('[id$="-desc"]');
 
@@ -116,22 +121,24 @@ test.describe('BaseMap - Pin Tool', () => {
   // ── pin button icon reflects state ───────────────────────────────────────
 
   test('pin button icon switches to selected state when active and back when cancelled', async ({ page }) => {
-    const pinImg = page.locator('button[title="Place Pin"] img');
+    const pinButton = page.getByRole('button', { name: 'Place Pin' });
+    const pinImg = pinButton.locator('img');
 
     await expect(pinImg).toHaveAttribute('src', /map-pin\.png/);
 
-    await page.locator('button[title="Place Pin"]').click();
+    await pinButton.click();
     await expect(pinImg).toHaveAttribute('src', /map-pin-selected\.png/);
 
-    await page.locator('button[title="Place Pin"]').click();
+    await pinButton.click();
     await expect(pinImg).toHaveAttribute('src', /map-pin\.png/);
   });
 
   test('pin button icon resets to default after Enter-to-place', async ({ page }) => {
-    const pinImg = page.locator('button[title="Place Pin"] img');
+    const pinButton = page.getByRole('button', { name: 'Place Pin' });
+    const pinImg = pinButton.locator('img');
     const map = page.getByRole('application', { name: 'Interactive map' });
 
-    await page.locator('button[title="Place Pin"]').click();
+    await pinButton.click();
     await expect(pinImg).toHaveAttribute('src', /map-pin-selected\.png/);
 
     await map.focus();

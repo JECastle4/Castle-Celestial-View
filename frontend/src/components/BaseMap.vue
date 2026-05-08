@@ -1,7 +1,7 @@
 <template>
   <div class="ol-map-wrapper">
-    <span :id="`${instanceId}-desc`" ref="mapDesc" class="sr-only">{{ t('map.description') }}</span>
-    <span :id="`${instanceId}-announce`" ref="mapAnnounce" class="sr-only" aria-live="polite" aria-atomic="true"></span>
+    <span :id="`${instanceId}-desc`" class="sr-only">{{ mapDescText }}</span>
+    <span :id="`${instanceId}-announce`" class="sr-only" aria-live="polite" aria-atomic="true">{{ mapAnnounceText }}</span>
     <div
       ref="mapContainer"
       class="ol-map"
@@ -18,15 +18,18 @@
 // Custom OpenLayers control for pin tool
 import Control from 'ol/control/Control'
 
-function createPinToolControl(onClick, { buttonTitle, buttonAlt } = {}) {
+function createPinToolControl(onClick, { buttonTitle } = {}) {
   const img = document.createElement('img')
   img.src = '/map-pin.png'
-  img.alt = buttonAlt ?? 'Pin Tool'
+  img.alt = ''
+  img.setAttribute('aria-hidden', 'true')
   img.width = 20
   img.height = 20
   const button = document.createElement('button')
   button.appendChild(img)
   button.title = buttonTitle ?? 'Place Pin'
+  button.setAttribute('aria-label', buttonTitle ?? 'Place Pin')
+  button.setAttribute('aria-pressed', 'false')
   button.style.padding = '0px'
   button.style.background = '#fff'
   button.style.border = '0px solid #ccc'
@@ -37,7 +40,7 @@ function createPinToolControl(onClick, { buttonTitle, buttonAlt } = {}) {
   const element = document.createElement('div')
   element.className = 'ol-control ol-pin-tool'
   element.appendChild(button)
-  return { control: new Control({ element }), img }
+  return { control: new Control({ element }), img, button }
 }
 import { onMounted, ref, onBeforeUnmount, getCurrentInstance } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -66,13 +69,14 @@ const instanceId = `map-${getCurrentInstance().uid}`
 
 const mapContainer = ref(null)
 const crosshairOverlay = ref(null)
-const mapDesc = ref(null)
-const mapAnnounce = ref(null)
+const mapDescText = ref(t('map.description'))
+const mapAnnounceText = ref('')
 let mapInstance = null
 let pinLayer = null
 let pinSource = null
 let keydownHandler = null
 let pinToolImg = null
+let pinToolButton = null
 
 onMounted(() => {
       // Ensure map resizes after mount
@@ -84,22 +88,22 @@ onMounted(() => {
     function activatePinMode() {
       pinMode = true
       if (pinToolImg) pinToolImg.src = '/map-pin-selected.png'
+      if (pinToolButton) pinToolButton.setAttribute('aria-pressed', 'true')
       mapContainer.value.style.cursor = 'crosshair'
       if (crosshairOverlay.value) crosshairOverlay.value.style.display = 'block'
-      const activeDesc = t('map.pinTool.activeDescription')
-      mapDesc.value.textContent = activeDesc
-      mapAnnounce.value.textContent = activeDesc
+      mapDescText.value = t('map.pinTool.activeDescription')
+      mapAnnounceText.value = t('map.pinTool.activeDescription')
       mapContainer.value.focus()
     }
 
     function deactivatePinMode(reason = 'cancelled') {
       pinMode = false
       if (pinToolImg) pinToolImg.src = '/map-pin.png'
+      if (pinToolButton) pinToolButton.setAttribute('aria-pressed', 'false')
       mapContainer.value.style.cursor = ''
       if (crosshairOverlay.value) crosshairOverlay.value.style.display = 'none'
-      mapDesc.value.textContent = t('map.description')
-      mapAnnounce.value.textContent =
-        reason === 'placed' ? t('map.pinTool.placed') : t('map.pinTool.cancelled')
+      mapDescText.value = t('map.description')
+      mapAnnounceText.value = reason === 'placed' ? t('map.pinTool.placed') : t('map.pinTool.cancelled')
     }
 
   mapInstance = new Map({
@@ -116,14 +120,15 @@ onMounted(() => {
     controls: [
       new Zoom(),
       ...(props.enablePinTool ? (() => {
-        const { control, img } = createPinToolControl(() => {
+        const { control, img, button } = createPinToolControl(() => {
           if (pinMode) {
             deactivatePinMode('cancelled')
           } else {
             activatePinMode()
           }
-        }, { buttonTitle: t('map.pinTool.buttonTitle'), buttonAlt: t('map.pinTool.buttonAlt') })
+        }, { buttonTitle: t('map.pinTool.buttonTitle') })
         pinToolImg = img
+        pinToolButton = button
         return [control]
       })() : []),
       new Attribution({
