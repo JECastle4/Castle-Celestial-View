@@ -72,9 +72,12 @@ def _resolve_accept_language(header: str) -> str:
                 try:
                     q = float(segment[2:])
                 except ValueError:
-                    q = 1.0
+                    q = 0.0  # invalid q — treat as "not acceptable"
+                else:
+                    q = max(0.0, min(1.0, q))  # clamp to [0, 1] per RFC 9110
                 break
-        if tag:
+        # q=0 means "not acceptable" per RFC 9110 §12.4.2; skip these entirely.
+        if tag and q > 0.0:
             tags.append((q, tag))
     # Higher q first; equal-q entries retain their original (left-to-right) order.
     tags.sort(key=lambda x: x[0], reverse=True)

@@ -1080,3 +1080,23 @@ class TestAcceptLanguage:
         assert response.status_code == 200
         assert response.json()["day_name"] == "Sunday"
 
+    def test_q0_excluded_so_lower_preference_wins(self):
+        """xx-reverse;q=0 is not acceptable; valid lower-preference 'en' wins."""
+        response = client.post(
+            "/api/v1/day-of-week",
+            json={"date": "2026-02-01"},
+            headers={"Accept-Language": "xx-reverse;q=0, en;q=0.5"},
+        )
+        assert response.status_code == 200
+        assert response.json()["day_name"] == "Sunday"
+
+    def test_bogus_q_treated_as_not_acceptable(self):
+        """xx-reverse;q=bogus is skipped; valid lower-preference 'en' wins."""
+        response = client.post(
+            "/api/v1/day-of-week",
+            json={"date": "2026-02-01"},
+            headers={"Accept-Language": "xx-reverse;q=bogus, en;q=0.9"},
+        )
+        assert response.status_code == 200
+        assert response.json()["day_name"] == "Sunday"
+
