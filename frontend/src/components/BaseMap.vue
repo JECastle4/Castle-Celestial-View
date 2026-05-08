@@ -42,7 +42,7 @@ function createPinToolControl(onClick, { buttonTitle } = {}) {
   element.appendChild(button)
   return { control: new Control({ element }), img, button }
 }
-import { onMounted, ref, onBeforeUnmount, getCurrentInstance } from 'vue'
+import { onMounted, ref, computed, onBeforeUnmount, getCurrentInstance } from 'vue'
 import { useI18n } from 'vue-i18n'
 import 'ol/ol.css'
 import Map from 'ol/Map'
@@ -69,8 +69,14 @@ const instanceId = `map-${getCurrentInstance().uid}`
 
 const mapContainer = ref(null)
 const crosshairOverlay = ref(null)
-const mapDescText = ref(t('map.description'))
-const mapAnnounceText = ref('')
+const pinModeActive = ref(false)
+const announceKey = ref('')
+const mapDescText = computed(() =>
+  pinModeActive.value ? t('map.pinTool.activeDescription') : t('map.description')
+)
+const mapAnnounceText = computed(() =>
+  announceKey.value ? t(`map.pinTool.${announceKey.value}`) : ''
+)
 let mapInstance = null
 let pinLayer = null
 let pinSource = null
@@ -83,27 +89,24 @@ onMounted(() => {
       setTimeout(() => {
         if (mapInstance) mapInstance.updateSize();
       }, 0);
-    let pinMode = false
 
     function activatePinMode() {
-      pinMode = true
+      pinModeActive.value = true
       if (pinToolImg) pinToolImg.src = '/map-pin-selected.png'
       if (pinToolButton) pinToolButton.setAttribute('aria-pressed', 'true')
       mapContainer.value.style.cursor = 'crosshair'
       if (crosshairOverlay.value) crosshairOverlay.value.style.display = 'block'
-      mapDescText.value = t('map.pinTool.activeDescription')
-      mapAnnounceText.value = t('map.pinTool.activeDescription')
+      announceKey.value = 'activeDescription'
       mapContainer.value.focus()
     }
 
     function deactivatePinMode(reason = 'cancelled') {
-      pinMode = false
+      pinModeActive.value = false
       if (pinToolImg) pinToolImg.src = '/map-pin.png'
       if (pinToolButton) pinToolButton.setAttribute('aria-pressed', 'false')
       mapContainer.value.style.cursor = ''
       if (crosshairOverlay.value) crosshairOverlay.value.style.display = 'none'
-      mapDescText.value = t('map.description')
-      mapAnnounceText.value = reason === 'placed' ? t('map.pinTool.placed') : t('map.pinTool.cancelled')
+      announceKey.value = reason === 'placed' ? 'placed' : 'cancelled'
     }
 
   mapInstance = new Map({
@@ -121,7 +124,7 @@ onMounted(() => {
       new Zoom(),
       ...(props.enablePinTool ? (() => {
         const { control, img, button } = createPinToolControl(() => {
-          if (pinMode) {
+          if (pinModeActive.value) {
             deactivatePinMode('cancelled')
           } else {
             activatePinMode()
@@ -165,12 +168,12 @@ onMounted(() => {
     }
 
     mapInstance.on('click', function (evt) {
-      if (!pinMode) return
+      if (!pinModeActive.value) return
       placePinAt(evt.coordinate)
     })
 
     keydownHandler = function (e) {
-      if (!pinMode) return
+      if (!pinModeActive.value) return
       if (e.key === 'Escape') {
         deactivatePinMode()
       } else if (e.key === 'Enter' && e.currentTarget === mapContainer.value) {
