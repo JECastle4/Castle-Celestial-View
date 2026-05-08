@@ -3,6 +3,7 @@ Main FastAPI application for Astronomy API
 """
 import os
 import logging
+from astropy.utils import iers
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from api.routes import router
@@ -11,6 +12,15 @@ from api.i18n import set_request_locale, SUPPORTED_LOCALES
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Disable astropy's automatic IERS data download.  CI runners typically have
+# no outbound network access, causing every request to block for the full
+# timeout before falling back to the bundled IERS-A table anyway.  The bundled
+# data is accurate enough for all calculations this API performs.
+# auto_max_age=None suppresses the "predictive values > 30 days old" error
+# that astropy raises when auto_download is False and the bundled table ages.
+iers.conf.auto_download = False
+iers.conf.auto_max_age = None
 
 app = FastAPI(
     title="Astronomy API",
