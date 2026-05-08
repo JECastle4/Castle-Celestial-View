@@ -2,7 +2,7 @@
 John's python code - probably astronomy related
 
 # For Check In
- ## Pre-commit checklist
+## Pre-commit checklist
  - Remove `node_modules` (keep `package-lock.json`).
  - Optionally clear the npm cache.
  - Confirm `npm ci` and `npm run build` succeed.

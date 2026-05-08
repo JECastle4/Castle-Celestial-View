@@ -3,6 +3,7 @@
     <span id="map-desc" class="sr-only">
       Interactive map. Use the zoom controls or scroll to zoom. Click to place a pin when the pin tool is active.
     </span>
+    <span id="map-announce" class="sr-only" aria-live="polite" aria-atomic="true"></span>
     <div
       ref="mapContainer"
       class="ol-map"
@@ -11,6 +12,7 @@
       aria-describedby="map-desc"
       tabindex="0"
     ></div>
+    <div ref="crosshairOverlay" class="map-crosshair" aria-hidden="true"></div>
   </div>
 </template>
 
@@ -57,9 +59,11 @@ const props = defineProps({
 const emit = defineEmits(['pin-placed'])
 
 const mapContainer = ref(null)
+const crosshairOverlay = ref(null)
 let mapInstance = null
 let pinLayer = null
 let pinSource = null
+let keydownHandler = null
 
 onMounted(() => {
       // Ensure map resizes after mount
@@ -82,9 +86,17 @@ onMounted(() => {
       new Zoom(),
       ...(props.enablePinTool ? [createPinToolControl(() => {
         pinMode = !pinMode
-        // Optionally highlight button when active
         const img = document.querySelector('.map-pin-image')
-        if (img)img.src = pinMode ? '/map-pin-selected.png' : '/map-pin.png'
+        if (img) img.src = pinMode ? '/map-pin-selected.png' : '/map-pin.png'
+        mapContainer.value.style.cursor = pinMode ? 'crosshair' : ''
+        if (crosshairOverlay.value) crosshairOverlay.value.style.display = pinMode ? 'block' : 'none'
+        if (pinMode) {
+          document.getElementById('map-desc').textContent =
+            'Pin placement tool active. Use arrow keys to pan the map. Press Enter to place a pin at the centre. Press Escape to cancel.'
+          document.getElementById('map-announce').textContent =
+            'Pin placement tool active. Use arrow keys to pan the map. Press Enter to place a pin at the centre. Press Escape to cancel.'
+          mapContainer.value.focus()
+        }
       })] : []),
       new Attribution({
         collapsible: false,
@@ -95,6 +107,18 @@ onMounted(() => {
 
   // Pin tool setup
   if (props.enablePinTool) {
+    function deactivatePinMode(reason = 'cancelled') {
+      pinMode = false
+      const img = document.querySelector('.map-pin-image')
+      if (img) img.src = '/map-pin.png'
+      mapContainer.value.style.cursor = ''
+      if (crosshairOverlay.value) crosshairOverlay.value.style.display = 'none'
+      const defaultDesc = 'Interactive map. Use the zoom controls or scroll to zoom. Click to place a pin when the pin tool is active.'
+      document.getElementById('map-desc').textContent = defaultDesc
+      const announcement = reason === 'placed' ? 'Pin placed.' : 'Pin placement tool cancelled.'
+      document.getElementById('map-announce').textContent = announcement
+    }
+
     pinSource = new VectorSource()
     pinLayer = new VectorLayer({
       source: pinSource,
@@ -108,21 +132,40 @@ onMounted(() => {
     })
     mapInstance.addLayer(pinLayer)
 
-    mapInstance.on('click', function (evt) {
-      if (!pinMode) return
+    function placePinAt(coords) {
       pinSource.clear()
-      const coords = evt.coordinate
       const feature = new Feature({
         geometry: new Point(coords)
       })
       pinSource.addFeature(feature)
       const [lon, lat] = toLonLat(coords)
       emit('pin-placed', { lat, lon })
+      deactivatePinMode('placed')
+    }
+
+    mapInstance.on('click', function (evt) {
+      if (!pinMode) return
+      placePinAt(evt.coordinate)
     })
+
+    keydownHandler = function (e) {
+      if (!pinMode) return
+      if (e.key === 'Escape') {
+        deactivatePinMode()
+      } else if (e.key === 'Enter' && e.target === mapContainer.value) {
+        const center = mapInstance.getView().getCenter()
+        placePinAt(center)
+      }
+    }
+    mapContainer.value.addEventListener('keydown', keydownHandler)
   }
 })
 
 onBeforeUnmount(() => {
+  if (keydownHandler && mapContainer.value) {
+    mapContainer.value.removeEventListener('keydown', keydownHandler)
+    keydownHandler = null
+  }
   if (mapInstance) {
     mapInstance.setTarget(null)
     mapInstance = null
@@ -136,6 +179,43 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.ol-map-wrapper {
+  position: relative;
+}
+
+.map-crosshair {
+  display: none;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999;
+}
+
+.map-crosshair::before,
+.map-crosshair::after {
+  content: '';
+  position: absolute;
+  background: rgba(220, 50, 50, 0.85);
+}
+
+/* Horizontal line */
+.map-crosshair::before {
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  transform: translateY(-50%);
+}
+
+/* Vertical line */
+.map-crosshair::after {
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  transform: translateX(-50%);
+}
+
 .ol-pin-tool {
   position: absolute;
   left: 8px;
