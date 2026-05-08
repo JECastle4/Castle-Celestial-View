@@ -91,6 +91,17 @@
       "saturday": "yadrutaS"
     }
   },
+  "map": {
+    "description": ".evitca si loot nip eht nehw nip a ecalp ot kcilC .mooz ot llorcs ro slortnoc mooz eht esU .pam evitcaretnI",
+    "ariaLabel": "pam evitcaretnI",
+    "pinTool": {
+      "buttonTitle": "niP ecalP",
+      "buttonAlt": "looT niP",
+      "activeDescription": ".lecnac ot epacsE sserP .ertnec eht ta nip a ecalp ot retnE sserP .pam eht nap ot syek worra esU .evitca loot tnemecalp niP",
+      "placed": ".decalp niP",
+      "cancelled": ".dellecnac loot tnemecalp niP"
+    }
+  },
   "ui": {
     "status": {
       "loading": "...gnidaoL",

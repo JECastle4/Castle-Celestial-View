@@ -1,15 +1,13 @@
 <template>
   <div class="ol-map-wrapper">
-    <span id="map-desc" class="sr-only">
-      Interactive map. Use the zoom controls or scroll to zoom. Click to place a pin when the pin tool is active.
-    </span>
-    <span id="map-announce" class="sr-only" aria-live="polite" aria-atomic="true"></span>
+    <span :id="`${instanceId}-desc`" ref="mapDesc" class="sr-only">{{ t('map.description') }}</span>
+    <span :id="`${instanceId}-announce`" ref="mapAnnounce" class="sr-only" aria-live="polite" aria-atomic="true"></span>
     <div
       ref="mapContainer"
       class="ol-map"
       role="application"
-      aria-label="Interactive map"
-      aria-describedby="map-desc"
+      :aria-label="t('map.ariaLabel')"
+      :aria-describedby="`${instanceId}-desc`"
       tabindex="0"
     ></div>
     <div ref="crosshairOverlay" class="map-crosshair" aria-hidden="true"></div>
@@ -20,24 +18,29 @@
 // Custom OpenLayers control for pin tool
 import Control from 'ol/control/Control'
 
-function createPinToolControl(onClick) {
+function createPinToolControl(onClick, { buttonTitle, buttonAlt } = {}) {
+  const img = document.createElement('img')
+  img.src = '/map-pin.png'
+  img.alt = buttonAlt ?? 'Pin Tool'
+  img.width = 20
+  img.height = 20
   const button = document.createElement('button')
-  button.innerHTML = '<img class="map-pin-image" src="/map-pin.png" alt="Pin Tool" width="20" height="20"/>';
-  button.title = 'Place Pin'
+  button.appendChild(img)
+  button.title = buttonTitle ?? 'Place Pin'
   button.style.padding = '0px'
   button.style.background = '#fff'
   button.style.border = '0px solid #ccc'
   button.style.borderRadius = '0px'
   button.style.marginTop = '0px'
   button.style.cursor = 'pointer'
-  button.src = '/map-icon.png'
   button.addEventListener('click', onClick)
   const element = document.createElement('div')
   element.className = 'ol-control ol-pin-tool'
   element.appendChild(button)
-  return new Control({ element })
+  return { control: new Control({ element }), img }
 }
-import { onMounted, ref, onBeforeUnmount } from 'vue'
+import { onMounted, ref, onBeforeUnmount, getCurrentInstance } from 'vue'
+import { useI18n } from 'vue-i18n'
 import 'ol/ol.css'
 import Map from 'ol/Map'
 import View from 'ol/View'
@@ -58,12 +61,18 @@ const props = defineProps({
 })
 const emit = defineEmits(['pin-placed'])
 
+const { t } = useI18n()
+const instanceId = `map-${getCurrentInstance().uid}`
+
 const mapContainer = ref(null)
 const crosshairOverlay = ref(null)
+const mapDesc = ref(null)
+const mapAnnounce = ref(null)
 let mapInstance = null
 let pinLayer = null
 let pinSource = null
 let keydownHandler = null
+let pinToolImg = null
 
 onMounted(() => {
       // Ensure map resizes after mount
@@ -71,6 +80,28 @@ onMounted(() => {
         if (mapInstance) mapInstance.updateSize();
       }, 0);
     let pinMode = false
+
+    function activatePinMode() {
+      pinMode = true
+      if (pinToolImg) pinToolImg.src = '/map-pin-selected.png'
+      mapContainer.value.style.cursor = 'crosshair'
+      if (crosshairOverlay.value) crosshairOverlay.value.style.display = 'block'
+      const activeDesc = t('map.pinTool.activeDescription')
+      mapDesc.value.textContent = activeDesc
+      mapAnnounce.value.textContent = activeDesc
+      mapContainer.value.focus()
+    }
+
+    function deactivatePinMode(reason = 'cancelled') {
+      pinMode = false
+      if (pinToolImg) pinToolImg.src = '/map-pin.png'
+      mapContainer.value.style.cursor = ''
+      if (crosshairOverlay.value) crosshairOverlay.value.style.display = 'none'
+      mapDesc.value.textContent = t('map.description')
+      mapAnnounce.value.textContent =
+        reason === 'placed' ? t('map.pinTool.placed') : t('map.pinTool.cancelled')
+    }
+
   mapInstance = new Map({
     target: mapContainer.value,
     layers: [
@@ -84,20 +115,17 @@ onMounted(() => {
     }),
     controls: [
       new Zoom(),
-      ...(props.enablePinTool ? [createPinToolControl(() => {
-        pinMode = !pinMode
-        const img = document.querySelector('.map-pin-image')
-        if (img) img.src = pinMode ? '/map-pin-selected.png' : '/map-pin.png'
-        mapContainer.value.style.cursor = pinMode ? 'crosshair' : ''
-        if (crosshairOverlay.value) crosshairOverlay.value.style.display = pinMode ? 'block' : 'none'
-        if (pinMode) {
-          document.getElementById('map-desc').textContent =
-            'Pin placement tool active. Use arrow keys to pan the map. Press Enter to place a pin at the centre. Press Escape to cancel.'
-          document.getElementById('map-announce').textContent =
-            'Pin placement tool active. Use arrow keys to pan the map. Press Enter to place a pin at the centre. Press Escape to cancel.'
-          mapContainer.value.focus()
-        }
-      })] : []),
+      ...(props.enablePinTool ? (() => {
+        const { control, img } = createPinToolControl(() => {
+          if (pinMode) {
+            deactivatePinMode('cancelled')
+          } else {
+            activatePinMode()
+          }
+        }, { buttonTitle: t('map.pinTool.buttonTitle'), buttonAlt: t('map.pinTool.buttonAlt') })
+        pinToolImg = img
+        return [control]
+      })() : []),
       new Attribution({
         collapsible: false,
         className: 'ol-attribution bottom-left',
@@ -107,18 +135,6 @@ onMounted(() => {
 
   // Pin tool setup
   if (props.enablePinTool) {
-    function deactivatePinMode(reason = 'cancelled') {
-      pinMode = false
-      const img = document.querySelector('.map-pin-image')
-      if (img) img.src = '/map-pin.png'
-      mapContainer.value.style.cursor = ''
-      if (crosshairOverlay.value) crosshairOverlay.value.style.display = 'none'
-      const defaultDesc = 'Interactive map. Use the zoom controls or scroll to zoom. Click to place a pin when the pin tool is active.'
-      document.getElementById('map-desc').textContent = defaultDesc
-      const announcement = reason === 'placed' ? 'Pin placed.' : 'Pin placement tool cancelled.'
-      document.getElementById('map-announce').textContent = announcement
-    }
-
     pinSource = new VectorSource()
     pinLayer = new VectorLayer({
       source: pinSource,
@@ -152,7 +168,7 @@ onMounted(() => {
       if (!pinMode) return
       if (e.key === 'Escape') {
         deactivatePinMode()
-      } else if (e.key === 'Enter' && e.target === mapContainer.value) {
+      } else if (e.key === 'Enter' && e.currentTarget === mapContainer.value) {
         const center = mapInstance.getView().getCenter()
         placePinAt(center)
       }
