@@ -1060,3 +1060,23 @@ class TestAcceptLanguage:
         assert response.status_code == 200
         assert response.json()["day_name"] == "Sunday"[::-1]
 
+    def test_second_preference_used_when_first_unsupported(self):
+        """fr, xx-reverse;q=0.9 — first preference unsupported, second is picked."""
+        response = client.post(
+            "/api/v1/day-of-week",
+            json={"date": "2026-02-01"},
+            headers={"Accept-Language": "fr, xx-reverse;q=0.9"},
+        )
+        assert response.status_code == 200
+        assert response.json()["day_name"] == "Sunday"[::-1]
+
+    def test_prefix_match_on_second_preference(self):
+        """fr-CA, en;q=0.8 — fr-CA unsupported, 'en' prefix-matches on second tag."""
+        response = client.post(
+            "/api/v1/day-of-week",
+            json={"date": "2026-02-01"},
+            headers={"Accept-Language": "fr-CA, en;q=0.8"},
+        )
+        assert response.status_code == 200
+        assert response.json()["day_name"] == "Sunday"
+

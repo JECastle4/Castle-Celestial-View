@@ -50,6 +50,43 @@ app.add_middleware(
 )
 
 
+def _resolve_accept_language(header: str) -> str:
+    """Select the best supported locale from an Accept-Language header value.
+
+    Parses all language-ranges (including q= weights), sorts by preference
+    (highest q first, original order preserved for equal q), and returns the
+    first tag that matches a supported locale — exact match first, then
+    language-prefix match (e.g. 'en-US' → 'en').  Falls back to 'en' if
+    nothing matches.
+    """
+    if not header:
+        return 'en'
+    tags: list[tuple[float, str]] = []
+    for part in header.split(","):
+        segments = part.strip().split(";")
+        tag = segments[0].strip().lower()
+        q = 1.0
+        for segment in segments[1:]:
+            segment = segment.strip()
+            if segment.lower().startswith("q="):
+                try:
+                    q = float(segment[2:])
+                except ValueError:
+                    q = 1.0
+                break
+        if tag:
+            tags.append((q, tag))
+    # Higher q first; equal-q entries retain their original (left-to-right) order.
+    tags.sort(key=lambda x: x[0], reverse=True)
+    for _, tag in tags:
+        if tag in SUPPORTED_LOCALES:
+            return tag
+        prefix = tag.split("-")[0]
+        if prefix in SUPPORTED_LOCALES:
+            return prefix
+    return 'en'
+
+
 @app.middleware("http")
 async def locale_middleware(request: Request, call_next):
     """Read locale from the request and set the request-scoped locale.
@@ -57,25 +94,25 @@ async def locale_middleware(request: Request, call_next):
     Priority:
     1. ?lang= query parameter (explicit per-request override; used by SSE/EventSource
        which cannot set custom headers)
-    2. Accept-Language header (used by standard POST requests)
+    2. Accept-Language header — all language-ranges are parsed in q-value order,
+       with exact and prefix matching against SUPPORTED_LOCALES
     3. 'en' default
 
     Falls back to 'en' for any unsupported locale.
     """
-    accept_language = request.headers.get("accept-language", "")
     lang_param = request.query_params.get("lang", "")
-
-    # ?lang= takes priority — it's an explicit per-request override used by SSE
-    # (EventSource cannot set custom headers, so the frontend appends ?lang=).
-    # Fall back to Accept-Language header (POST requests), then 'en'.
-    raw = lang_param or accept_language or "en"
-    first_tag = raw.split(",")[0].split(";")[0].strip().lower()
-    # Try exact match, then language prefix (e.g. 'en-us' → 'en')
-    if first_tag in SUPPORTED_LOCALES:
-        locale = first_tag
+    if lang_param:
+        # ?lang= is an explicit per-request override used by SSE
+        # (EventSource cannot set custom headers, so the frontend appends ?lang=).
+        tag = lang_param.strip().lower()
+        if tag in SUPPORTED_LOCALES:
+            locale = tag
+        else:
+            prefix = tag.split("-")[0]
+            locale = prefix if prefix in SUPPORTED_LOCALES else 'en'
     else:
-        prefix = first_tag.split("-")[0]
-        locale = prefix if prefix in SUPPORTED_LOCALES else 'en'
+        # Parse the full Accept-Language header respecting q-values.
+        locale = _resolve_accept_language(request.headers.get("accept-language", ""))
     set_request_locale(locale)
     return await call_next(request)
 
