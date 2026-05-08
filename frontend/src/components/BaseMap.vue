@@ -42,7 +42,7 @@ function createPinToolControl(onClick, { buttonTitle } = {}) {
   element.appendChild(button)
   return { control: new Control({ element }), img, button }
 }
-import { onMounted, ref, computed, onBeforeUnmount, getCurrentInstance } from 'vue'
+import { onMounted, ref, computed, watch, onBeforeUnmount, getCurrentInstance } from 'vue'
 import { useI18n } from 'vue-i18n'
 import 'ol/ol.css'
 import Map from 'ol/Map'
@@ -71,6 +71,7 @@ const mapContainer = ref(null)
 const crosshairOverlay = ref(null)
 const pinModeActive = ref(false)
 const announceKey = ref('')
+const pinButtonTitle = computed(() => t('map.pinTool.buttonTitle'))
 const mapDescText = computed(() =>
   pinModeActive.value ? t('map.pinTool.activeDescription') : t('map.description')
 )
@@ -83,6 +84,13 @@ let pinSource = null
 let keydownHandler = null
 let pinToolImg = null
 let pinToolButton = null
+
+watch(pinButtonTitle, (newTitle) => {
+  if (pinToolButton) {
+    pinToolButton.setAttribute('aria-label', newTitle)
+    pinToolButton.title = newTitle
+  }
+})
 
 onMounted(() => {
       // Ensure map resizes after mount
@@ -129,7 +137,7 @@ onMounted(() => {
           } else {
             activatePinMode()
           }
-        }, { buttonTitle: t('map.pinTool.buttonTitle') })
+        }, { buttonTitle: pinButtonTitle.value })
         pinToolImg = img
         pinToolButton = button
         return [control]

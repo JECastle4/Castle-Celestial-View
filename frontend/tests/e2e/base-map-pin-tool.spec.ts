@@ -91,16 +91,19 @@ test.describe('BaseMap - Pin Tool', () => {
     await expect(mapAnnounce).toContainText('Pin placed');
   });
 
-  test('Enter key in pin mode emits pin-placed and description is restored', async ({ page }) => {
+  test('Enter key in pin mode updates the latitude and longitude inputs', async ({ page }) => {
     const pinButton = page.getByRole('button', { name: 'Place Pin' });
     const map = page.getByRole('application', { name: 'Interactive map' });
-    const mapDesc = page.locator('[id$="-desc"]');
+    const latInput = page.locator('#latitude');
+    const lonInput = page.locator('#longitude');
 
     await pinButton.click();
     await map.focus();
     await map.press('Enter');
 
-    await expect(mapDesc).toContainText('Interactive map');
+    // The map is centred at [0, 0]; pin-placed should write those coordinates to the form inputs.
+    await expect(latInput).toHaveValue('0');
+    await expect(lonInput).toHaveValue('0');
   });
 
   // ── map is not interactive in pin mode before Enter ───────────────────────
