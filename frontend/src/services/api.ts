@@ -44,7 +44,7 @@ export class AstronomyApiClient {
   async getBatchEarthObservations(
     params: BatchObservationsParams
   ): Promise<BatchEarthObservationsResponse> {
-    const url = `${this.baseUrl}${API_ENDPOINTS.batchEarthObservations}`;
+    const url = `${this.baseUrl}${API_ENDPOINTS.batchEarthObservations}?lang=${getCurrentLocale()}`;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
@@ -55,7 +55,6 @@ export class AstronomyApiClient {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
-          'Accept-Language': getCurrentLocale(),
         },
         body: JSON.stringify(params),
         signal: controller.signal,

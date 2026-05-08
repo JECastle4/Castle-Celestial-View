@@ -46,7 +46,7 @@ app.add_middleware(
     allow_origins=allowed_origins,
     allow_credentials=False,  # No authentication required
     allow_methods=["GET", "POST"],  # Only methods used by the API
-    allow_headers=["Content-Type", "Accept", "Accept-Language"],
+    allow_headers=["Content-Type", "Accept"],
 )
 
 
