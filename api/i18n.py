@@ -15,26 +15,23 @@ class I18n:
     """Manages localization for the API."""
     
     def __init__(self, locale: str = 'en'):
-        self.locale = locale
         self.translations: Dict[str, Any] = {}
-        self._load_locale(locale)
+        self.locale = self._load_locale(locale)
     
     def _get_locale_path(self, locale: str) -> Path:
         """Get the path to a locale JSON file."""
         locales_dir = Path(__file__).parent / 'locales'
         return locales_dir / f'{locale}.json'
     
-    def _load_locale(self, locale: str) -> None:
-        """Load translations for a given locale."""
+    def _load_locale(self, locale: str) -> str:
+        """Load translations for a given locale. Returns the resolved locale."""
         locale_path = self._get_locale_path(locale)
         
         if not locale_path.exists():
             if locale != 'en':
                 # Fallback to English if locale doesn't exist
                 logger.warning("Locale '%s' not found, falling back to 'en'", locale)
-                self._load_locale('en')
-                self.locale = 'en'
-                return
+                return self._load_locale('en')
             else:
                 raise FileNotFoundError(f"Default locale file not found: {locale_path}")
         
@@ -43,6 +40,8 @@ class I18n:
                 self.translations = json.load(f)
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON in locale file {locale_path}: {e}")
+        
+        return locale
     
     def get(self, key: str, default: Optional[str] = None, **kwargs) -> str:
         """
@@ -90,8 +89,7 @@ class I18n:
     def set_locale(self, locale: str) -> None:
         """Switch to a different locale."""
         if locale != self.locale:
-            self._load_locale(locale)
-            self.locale = locale
+            self.locale = self._load_locale(locale)
 
 
 SUPPORTED_LOCALES = {'en', 'xx-reverse'}

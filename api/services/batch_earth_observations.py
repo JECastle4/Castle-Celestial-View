@@ -1,5 +1,6 @@
 """Batch earth observations service for calculating multiple frames of celestial positions."""
 
+from typing import Optional
 from astropy.time import Time
 from astropy.coordinates import get_sun, get_body, AltAz, EarthLocation
 import astropy.units as u
@@ -18,7 +19,7 @@ def calculate_batch_earth_observations(
     latitude: float,
     longitude: float,
     elevation: float = 0.0,
-    locale: str | None = None,
+    locale: Optional[str] = None,
 ):
     """
     Calculate batch observations of sun and moon positions from Earth.

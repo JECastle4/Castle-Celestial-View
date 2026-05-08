@@ -1,6 +1,7 @@
 """Moon phase calculation service."""
 
 import warnings
+from typing import Optional
 from astropy.time import Time
 from astropy.coordinates import get_sun, get_body, EarthLocation
 from astropy.coordinates.baseframe import NonRotationTransformationWarning
@@ -15,7 +16,7 @@ def calculate_moon_phase(
     latitude: float,
     longitude: float,
     elevation: float = 0.0,
-    locale: str | None = None,
+    locale: Optional[str] = None,
 ) -> dict:
     """
     Calculate the moon's phase information including illumination, phase angle, and name.
@@ -74,7 +75,7 @@ def _process_moon_phase(
     latitude: float,
     longitude: float,
     elevation: float,
-    locale: str | None = None,
+    locale: Optional[str] = None,
 ) -> dict:
     """
     Process moon phase data from sun and moon positions.
