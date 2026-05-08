@@ -42,7 +42,7 @@ function createPinToolControl(onClick, { buttonTitle } = {}) {
   element.appendChild(button)
   return { control: new Control({ element }), img, button }
 }
-import { onMounted, ref, computed, watch, onBeforeUnmount, getCurrentInstance } from 'vue'
+import { onMounted, ref, computed, watch, onBeforeUnmount, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import 'ol/ol.css'
 import Map from 'ol/Map'
@@ -65,7 +65,7 @@ const props = defineProps({
 const emit = defineEmits(['pin-placed'])
 
 const { t } = useI18n()
-const instanceId = `map-${getCurrentInstance().uid}`
+const instanceId = `map-${useId()}`
 
 const mapContainer = ref(null)
 const crosshairOverlay = ref(null)
