@@ -4,6 +4,7 @@ Handles loading and providing localized strings.
 """
 import json
 import logging
+import threading
 from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -100,6 +101,7 @@ _current_locale: ContextVar[str] = ContextVar('current_locale', default='en')
 
 # Cache I18n instances by locale to avoid repeated file reads.
 _locale_cache: Dict[str, I18n] = {}
+_locale_cache_lock = threading.Lock()
 
 
 def set_request_locale(locale: str) -> None:
@@ -116,11 +118,16 @@ def get_i18n(locale: Optional[str] = None) -> I18n:
     """Return a cached I18n instance for *locale* (defaults to current request locale)."""
     requested = locale if locale is not None else _current_locale.get()
     if requested not in _locale_cache:
-        instance = I18n(requested)
-        # Cache under the resolved locale so missing locales that fall back to
-        # 'en' share the same instance rather than creating duplicate entries.
-        _locale_cache[instance.locale] = instance
-        _locale_cache[requested] = instance
+        with _locale_cache_lock:
+            # Re-check inside the lock in case another thread populated it
+            # while we were waiting.
+            if requested not in _locale_cache:
+                instance = I18n(requested)
+                # Cache under the resolved locale so missing locales that fall
+                # back to 'en' share the same instance rather than creating
+                # duplicate entries.
+                _locale_cache[instance.locale] = instance
+                _locale_cache[requested] = instance
     return _locale_cache[requested]
 
 
