@@ -5,10 +5,7 @@ from astropy.time import Time
 
 # Import from root module - works when package is installed
 from DayOfTheWeek import jd_to_weekday
-
-
-# Day names mapping
-DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+from api.i18n import t
 
 
 def calculate_day_of_week(date_str: str, time_str: str = "00:00:00") -> dict:
@@ -33,12 +30,12 @@ def calculate_day_of_week(date_str: str, time_str: str = "00:00:00") -> dict:
     datetime_str = f"{date_str}T{time_str}"
     
     # Convert to Julian Date using astropy
-    t = Time(datetime_str, format='isot', scale='utc')
-    jd = t.jd
+    t_obj = Time(datetime_str, format='isot', scale='utc')
+    jd = t_obj.jd
     
     # Calculate day of week
     day_index = jd_to_weekday(jd)
-    day_name = DAY_NAMES[day_index]
+    day_name = t(f'dayNames.{day_index}')
     
     return {
         "julian_date": jd,

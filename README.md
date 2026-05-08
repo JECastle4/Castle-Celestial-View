@@ -1,6 +1,12 @@
 # Python
 John's python code - probably astronomy related
 
+# For Check In
+ ## Pre-commit checklist
+ - Remove `node_modules` (keep `package-lock.json`).
+ - Optionally clear the npm cache.
+ - Confirm `npm ci` and `npm run build` succeed.
+ 
 # To start the app:
 ## PowerShell terminal 1
 cd frontend; npm run dev

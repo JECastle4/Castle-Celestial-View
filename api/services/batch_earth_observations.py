@@ -1,11 +1,13 @@
 """Batch earth observations service for calculating multiple frames of celestial positions."""
 
+from typing import Optional
 from astropy.time import Time
 from astropy.coordinates import get_sun, get_body, AltAz, EarthLocation
 import astropy.units as u
 from .sun import _process_sun_position
 from .moon import _process_moon_position
 from .moon_phase import _process_moon_phase
+from api.i18n import get_i18n
 
 
 def calculate_batch_earth_observations(
@@ -17,6 +19,7 @@ def calculate_batch_earth_observations(
     latitude: float,
     longitude: float,
     elevation: float = 0.0,
+    locale: Optional[str] = None,
 ):
     """
     Calculate batch observations of sun and moon positions from Earth.
@@ -34,20 +37,24 @@ def calculate_batch_earth_observations(
         latitude: Observer latitude in degrees (-90 to 90)
         longitude: Observer longitude in degrees (-180 to 180)
         elevation: Observer elevation in meters (default: 0.0)
+        locale: BCP 47 locale tag (e.g. 'en', 'xx-reverse') used to translate
+            validation error messages and moon phase names in each frame.
+            Defaults to English when None.
     
     Yields:
         dict: Frame data for each observation
         dict: Metadata after all frames
     """
+    _t = get_i18n(locale).get
     # Validate frame count
     if frame_count < 2:
-        raise ValueError(f"frame_count must be at least 2, got {frame_count}")
+        raise ValueError(_t('validation.frameCountMinimum', value=frame_count))
     # Max frame count is present in FE, but not required here since this is a backend function and designed to be scalable.
     # Validate coordinates
     if not -90 <= latitude <= 90:
-        raise ValueError(f"Latitude must be between -90 and 90 degrees, got {latitude}")
+        raise ValueError(_t('validation.latitudeRange', value=latitude))
     if not -180 <= longitude <= 180:
-        raise ValueError(f"Longitude must be between -180 and 180 degrees, got {longitude}")
+        raise ValueError(_t('validation.longitudeRange', value=longitude))
     # Create start and end times
     start_datetime_str = f"{start_date}T{start_time}"
     end_datetime_str = f"{end_date}T{end_time}"
@@ -55,7 +62,7 @@ def calculate_batch_earth_observations(
     end_t = Time(end_datetime_str, format="isot", scale="utc")
     # Validate time order
     if end_t <= start_t:
-        raise ValueError("end_datetime must be after start_datetime")
+        raise ValueError(_t('validation.endTimeAfterStart'))
     # Calculate time span
     time_span = end_t - start_t
     time_span_hours = float(time_span.to(u.hour).value)
@@ -68,19 +75,19 @@ def calculate_batch_earth_observations(
         lon=longitude * u.deg,
         height=elevation * u.m
     )
-    for t in times:
-        iso_parts = t.iso.split()
+    for obs_time in times:
+        iso_parts = obs_time.iso.split()
         date_part = iso_parts[0]
         time_part = iso_parts[1].split('.')[0]
         datetime_str = f"{date_part}T{time_part}"
-        altaz_frame = AltAz(obstime=t, location=location, pressure=0.0)
-        sun = get_sun(t)
-        moon = get_body("moon", t, location)
+        altaz_frame = AltAz(obstime=obs_time, location=location, pressure=0.0)
+        sun = get_sun(obs_time)
+        moon = get_body("moon", obs_time, location)
         sun_altaz = sun.transform_to(altaz_frame)
         moon_altaz = moon.transform_to(altaz_frame)
         sun_data = _process_sun_position(
             sun_altaz=sun_altaz,
-            time=t,
+            time=obs_time,
             datetime_str=datetime_str,
             latitude=latitude,
             longitude=longitude,
@@ -88,7 +95,7 @@ def calculate_batch_earth_observations(
         )
         moon_data = _process_moon_position(
             moon_altaz=moon_altaz,
-            time=t,
+            time=obs_time,
             datetime_str=datetime_str,
             latitude=latitude,
             longitude=longitude,
@@ -97,11 +104,12 @@ def calculate_batch_earth_observations(
         phase_data = _process_moon_phase(
             sun=sun,
             moon=moon,
-            time=t,
+            time=obs_time,
             datetime_str=datetime_str,
             latitude=latitude,
             longitude=longitude,
-            elevation=elevation
+            elevation=elevation,
+            locale=locale,
         )
         frame = {
             "datetime": f"{date_part}T{time_part}",

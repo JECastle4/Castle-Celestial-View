@@ -44,7 +44,7 @@ test.describe('Astronomy Scene - Initial Load', () => {
     await loadButton.click();
 
     // Verify the loading message appears
-    const loadingMessage = page.locator('.loading', { hasText: 'Loading data...' });
+    const loadingMessage = page.locator('.loading', { hasText: 'Loading...' });
     await expect(loadingMessage).toBeVisible();
 
     // Wait for the loading message to disappear (success or error)

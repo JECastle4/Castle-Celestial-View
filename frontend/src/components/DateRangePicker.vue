@@ -1,23 +1,24 @@
 <template>
   <div class="date-range-picker">
     <div class="calendar">
-      <label :for="idPrefix + '-start'">Start Date</label>
+      <label :for="idPrefix + '-start'">{{ t('forms.labels.startDate') }}</label>
       <input :id="idPrefix + '-start'" type="date" v-model="startDateString" @change="validateDates" />
     </div>
     <div class="calendar">
-      <label :for="idPrefix + '-end'">End Date</label>
+      <label :for="idPrefix + '-end'">{{ t('forms.labels.endDate') }}</label>
       <input :id="idPrefix + '-end'" type="date" v-model="endDateString" @change="validateDates" />
     </div>
     <div v-if="errorMessage" class="error-message">
       <span class="error-icon" aria-label="Error">&#9888;</span>
       {{ errorMessage }}
     </div>
-    <button :disabled="!isValid" @click="applyDates">Apply</button>
+    <button :disabled="!isValid" @click="applyDates">{{ t('buttons.apply') }}</button>
   </div>
 </template>
 
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 
 let instanceCounter = 0;
 
@@ -29,6 +30,7 @@ export default defineComponent({
   },
   emits: ['update:dates'],
   setup(props, { emit }) {
+    const { t } = useI18n();
     const idPrefix = `drp-${++instanceCounter}`;
     const startDateString = ref(props.initialStartDate);
     const endDateString = ref(props.initialEndDate);
@@ -48,7 +50,7 @@ export default defineComponent({
       const start = new Date(startDateString.value);
       const end = new Date(endDateString.value);
       if (start > end) {
-        errorMessage.value = 'Start date must be before end date.';
+        errorMessage.value = t('validation.startBeforeEnd');
       } else {
         errorMessage.value = '';
       }
@@ -80,7 +82,8 @@ export default defineComponent({
       errorMessage,
       isValid,
       validateDates,
-      applyDates
+      applyDates,
+      t
     };
   }
 });

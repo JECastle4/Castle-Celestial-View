@@ -1,0 +1,107 @@
+{
+  "app": {
+    "title": "noitaminA ymonortsA"
+  },
+  "forms": {
+    "labels": {
+      "latitude": "edutitaL",
+      "longitude": "edutignoL",
+      "startDate": "etaD tratS",
+      "startTime": "emiT tratS",
+      "endDate": "etaD dnE",
+      "endTime": "emiT dnE",
+      "framesPerDay": "yad rep semarF",
+      "frameCount": "tnuoC emarF",
+      "animationSpeed": "deepS noitaminA",
+      "elevation": "noitavelE"
+    },
+    "placeholders": {
+      "latitude": ")09 ot 09-( edutital retnE",
+      "longitude": ")081 ot 081-( edutignol retnE"
+    }
+  },
+  "buttons": {
+    "loadData": "ataD daoL",
+    "play": "yalP",
+    "pause": "esuaP",
+    "reset": "teseR",
+    "newQuery": "yreuQ weN",
+    "apply": "ylppA",
+    "cancel": "lecnaC"
+  },
+  "views": {
+    "threeD": "weiV D3",
+    "sky": "weiV ykS"
+  },
+  "validation": {
+    "latitudeRange": "°09 dna °09- neewteb eb tsum edutitaL",
+    "longitudeRange": "°081 dna °081- neewteb eb tsum edutignoL",
+    "startBeforeEnd": "etad dne erofeb eb tsum etad tratS",
+    "latitudeOutOfRange": "seerged 09 dna 09- neewteb eb tsum edutitaL",
+    "longitudeOutOfRange": "seerged 081 dna 081- neewteb eb tsum edutignoL",
+    "frameCountMinimum": "2 tsael ta eb tsum tnuoc emarF",
+    "endTimeAfterStart": "emit trats retfa eb tsum emit dnE",
+    "invalidDateFormat": "tamrof emit ro etad dilavnI",
+    "invalidInput": "tupni dilavnI"
+  },
+  "errors": {
+    "sseConnectionError": "rorre noitcennoc ESS",
+    "loadingFailed": "snoitavresbo daol ot deliaF",
+    "connectionError": "rorre noitcennoC",
+    "cancelled": ".resu yb dellecnac gnidaoL",
+    "unknown": "derrucco rorre nwonknu nA",
+    "apiError": "){status}( rorrE IPA",
+    "calculationError": "gnitaluclac rorrE"
+  },
+  "success": {
+    "loadedFrame": "emarf 1 dedaol yllufsseccuS",
+    "loadedFrames": "semarf {count} dedaol yllufsseccuS"
+  },
+  "astronomy": {
+    "sunAltitude": "tlA nuS",
+    "sunVisible": "elbisiV nuS",
+    "sunAzimuth": "htumizA nuS",
+    "moonAltitude": "tlA nooM",
+    "moonVisible": "elbisiV nooM",
+    "moonAzimuth": "htumizA nooM",
+    "moonPhase": "esahP nooM",
+    "illumination": "noitanimullI",
+    "time": "emiT",
+    "frames": "semarF",
+    "julianDate": "etaD nailuJ",
+    "yes": "seY",
+    "no": "oN",
+    "phaseNames": {
+      "newMoon": "nooM weN",
+      "waxingCrescent": "tnecserC gnixaW",
+      "firstQuarter": "retrauQ tsriF",
+      "waxingGibbous": "suobbiG gnixaW",
+      "fullMoon": "nooM lluF",
+      "waningGibbous": "suobbiG gninaW",
+      "lastQuarter": "retrauQ tsaL",
+      "waningCrescent": "tnecserC gninaW"
+    },
+    "dayNames": {
+      "sunday": "yadnuS",
+      "monday": "yadnoM",
+      "tuesday": "yadseuT",
+      "wednesday": "yadsendeW",
+      "thursday": "yadsruhT",
+      "friday": "yadirF",
+      "saturday": "yadrutaS"
+    }
+  },
+  "ui": {
+    "status": {
+      "loading": "...gnidaoL",
+      "yes": "seY",
+      "no": "oN"
+    },
+    "units": {
+      "degrees": "°",
+      "percent": "%",
+      "framesPerDay": "yad/semarf",
+      "totalFrames": "semarf latot"
+    }
+  }
+}

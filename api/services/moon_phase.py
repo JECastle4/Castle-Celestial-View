@@ -1,11 +1,13 @@
 """Moon phase calculation service."""
 
 import warnings
+from typing import Optional
 from astropy.time import Time
 from astropy.coordinates import get_sun, get_body, EarthLocation
 from astropy.coordinates.baseframe import NonRotationTransformationWarning
 import astropy.units as u
 import numpy as np
+from api.i18n import get_i18n
 
 
 def calculate_moon_phase(
@@ -14,6 +16,7 @@ def calculate_moon_phase(
     latitude: float,
     longitude: float,
     elevation: float = 0.0,
+    locale: Optional[str] = None,
 ) -> dict:
     """
     Calculate the moon's phase information including illumination, phase angle, and name.
@@ -42,9 +45,9 @@ def calculate_moon_phase(
     """
     # Validate coordinates
     if not -90 <= latitude <= 90:
-        raise ValueError(f"Latitude must be between -90 and 90 degrees, got {latitude}")
+        raise ValueError(get_i18n(locale).get('validation.latitudeRange', value=latitude))
     if not -180 <= longitude <= 180:
-        raise ValueError(f"Longitude must be between -180 and 180 degrees, got {longitude}")
+        raise ValueError(get_i18n(locale).get('validation.longitudeRange', value=longitude))
     
     # Combine date and time (ISO 8601 format)
     datetime_str = f"{date_str}T{time_str}"
@@ -61,7 +64,7 @@ def calculate_moon_phase(
     sun = get_sun(time)
     moon = get_body("moon", time, location=location)
 
-    return _process_moon_phase(sun, moon, time, datetime_str, latitude, longitude, elevation)
+    return _process_moon_phase(sun, moon, time, datetime_str, latitude, longitude, elevation, locale=locale)
 
 
 def _process_moon_phase(
@@ -71,7 +74,8 @@ def _process_moon_phase(
     datetime_str: str,
     latitude: float,
     longitude: float,
-    elevation: float
+    elevation: float,
+    locale: Optional[str] = None,
 ) -> dict:
     """
     Process moon phase data from sun and moon positions.
@@ -109,29 +113,30 @@ def _process_moon_phase(
 
     # Determine phase name based on illumination and whether waxing/waning
     illum_pct = illumination * 100
+    _t = get_i18n(locale).get
 
     if phase_angle < 180:  # Waxing
         if illum_pct < 3:
-            phase_name = "New Moon"
+            phase_name = _t('moonPhases.newMoon')
         elif illum_pct < 47:
-            phase_name = "Waxing Crescent"
+            phase_name = _t('moonPhases.waxingCrescent')
         elif illum_pct < 53:
-            phase_name = "First Quarter"
+            phase_name = _t('moonPhases.firstQuarter')
         elif illum_pct < 97:
-            phase_name = "Waxing Gibbous"
+            phase_name = _t('moonPhases.waxingGibbous')
         else:
-            phase_name = "Full Moon"
+            phase_name = _t('moonPhases.fullMoon')
     else:  # Waning
         if illum_pct > 97:
-            phase_name = "Full Moon"
+            phase_name = _t('moonPhases.fullMoon')
         elif illum_pct > 53:
-            phase_name = "Waning Gibbous"
+            phase_name = _t('moonPhases.waningGibbous')
         elif illum_pct > 47:
-            phase_name = "Last Quarter"
+            phase_name = _t('moonPhases.lastQuarter')
         elif illum_pct > 3:
-            phase_name = "Waning Crescent"
+            phase_name = _t('moonPhases.waningCrescent')
         else:
-            phase_name = "New Moon"
+            phase_name = _t('moonPhases.newMoon')
 
     return {
         "illumination": illumination,

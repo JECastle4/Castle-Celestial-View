@@ -4,6 +4,7 @@ API routes for astronomy calculations
 import json
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
+from api.i18n import get_i18n
 from api.models import (
     DateTimeRequest,
     DayOfWeekResponse,
@@ -46,6 +47,10 @@ async def stream_batch_earth_observations(
     elevation: float = Query(0.0)
 ):
     try:
+        # Capture the locale now (ContextVar is not copied into the sync
+        # streaming thread that StreamingResponse uses to iterate the generator)
+        locale = get_i18n().locale
+
         def event_generator():
             gen = calculate_batch_earth_observations(
                 start_date=start_date,
@@ -55,7 +60,8 @@ async def stream_batch_earth_observations(
                 frame_count=frame_count,
                 latitude=latitude,
                 longitude=longitude,
-                elevation=elevation
+                elevation=elevation,
+                locale=locale,
             )
             for idx, item in enumerate(gen):
                 if idx < frame_count:
@@ -228,7 +234,8 @@ async def get_moon_phase(request: MoonPhaseRequest):
             request.time,
             request.latitude,
             request.longitude,
-            request.elevation
+            request.elevation,
+            locale=get_i18n().locale,
         )
         return MoonPhaseResponse(**result)
         

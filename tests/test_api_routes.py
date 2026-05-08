@@ -959,3 +959,144 @@ class TestBatchEarthObservationsEndpoint:
         assert data["frames"][2]["datetime"] == "2024-01-01T02:00:00"
         assert data["frames"][3]["datetime"] == "2024-01-01T03:00:00"
         assert data["frames"][4]["datetime"] == "2024-01-01T04:00:00"
+
+
+class TestAcceptLanguage:
+    """Tests for Accept-Language header locale negotiation via middleware."""
+
+    # --- day_name is a localised string returned by dates service ---
+
+    def test_no_header_returns_english(self):
+        """Requests without Accept-Language default to English."""
+        response = client.post("/api/v1/day-of-week", json={"date": "2026-02-01"})
+        assert response.status_code == 200
+        assert response.json()["day_name"] == "Sunday"
+
+    def test_explicit_en_returns_english(self):
+        response = client.post(
+            "/api/v1/day-of-week",
+            json={"date": "2026-02-01"},
+            headers={"Accept-Language": "en"},
+        )
+        assert response.status_code == 200
+        assert response.json()["day_name"] == "Sunday"
+
+    def test_browser_style_header_returns_english(self):
+        """Parses real-world browser Accept-Language with quality values."""
+        response = client.post(
+            "/api/v1/day-of-week",
+            json={"date": "2026-02-01"},
+            headers={"Accept-Language": "en-US,en;q=0.9"},
+        )
+        assert response.status_code == 200
+        assert response.json()["day_name"] == "Sunday"
+
+    def test_reverse_locale_reverses_day_name(self):
+        response = client.post(
+            "/api/v1/day-of-week",
+            json={"date": "2026-02-01"},
+            headers={"Accept-Language": "xx-reverse"},
+        )
+        assert response.status_code == 200
+        assert response.json()["day_name"] == "Sunday"[::-1]
+
+    def test_unsupported_locale_falls_back_to_english(self):
+        """An unrecognised locale (e.g. 'fr') silently falls back to English."""
+        response = client.post(
+            "/api/v1/day-of-week",
+            json={"date": "2026-02-01"},
+            headers={"Accept-Language": "fr"},
+        )
+        assert response.status_code == 200
+        assert response.json()["day_name"] == "Sunday"
+
+    # --- phase_name is a localised string returned by moon_phase service ---
+
+    def test_reverse_locale_reverses_moon_phase_name(self):
+        response = client.post(
+            "/api/v1/moon-phase",
+            json={
+                "date": "2025-01-13",
+                "time": "22:00:00",
+                "latitude": 40.7128,
+                "longitude": -74.0060,
+            },
+            headers={"Accept-Language": "xx-reverse"},
+        )
+        assert response.status_code == 200
+        phase = response.json()["phase_name"]
+        # 2025-01-13 22:00 UTC is a Full Moon; xx-reverse reverses each character
+        assert phase == "Full Moon"[::-1]
+
+    # --- ?lang= query parameter (SSE fallback, EventSource can't set headers) ---
+
+    def test_lang_query_param_reverses_day_name(self):
+        """?lang=xx-reverse is honoured when no Accept-Language header is present."""
+        response = client.post(
+            "/api/v1/day-of-week?lang=xx-reverse",
+            json={"date": "2026-02-01"},
+        )
+        assert response.status_code == 200
+        assert response.json()["day_name"] == "Sunday"[::-1]
+
+    def test_lang_query_param_unsupported_falls_back_to_english(self):
+        """?lang=fr falls back to English."""
+        response = client.post(
+            "/api/v1/day-of-week?lang=fr",
+            json={"date": "2026-02-01"},
+        )
+        assert response.status_code == 200
+        assert response.json()["day_name"] == "Sunday"
+
+    def test_lang_param_takes_priority_over_accept_language_header(self):
+        """When both ?lang= and Accept-Language header are present, ?lang= wins.
+        This matters for SSE: EventSource always sends the browser's Accept-Language
+        header, so ?lang= must override it."""
+        response = client.post(
+            "/api/v1/day-of-week?lang=xx-reverse",
+            json={"date": "2026-02-01"},
+            headers={"Accept-Language": "en"},
+        )
+        assert response.status_code == 200
+        assert response.json()["day_name"] == "Sunday"[::-1]
+
+    def test_second_preference_used_when_first_unsupported(self):
+        """fr, xx-reverse;q=0.9 — first preference unsupported, second is picked."""
+        response = client.post(
+            "/api/v1/day-of-week",
+            json={"date": "2026-02-01"},
+            headers={"Accept-Language": "fr, xx-reverse;q=0.9"},
+        )
+        assert response.status_code == 200
+        assert response.json()["day_name"] == "Sunday"[::-1]
+
+    def test_prefix_match_on_second_preference(self):
+        """fr-CA, en;q=0.8 — fr-CA unsupported, 'en' prefix-matches on second tag."""
+        response = client.post(
+            "/api/v1/day-of-week",
+            json={"date": "2026-02-01"},
+            headers={"Accept-Language": "fr-CA, en;q=0.8"},
+        )
+        assert response.status_code == 200
+        assert response.json()["day_name"] == "Sunday"
+
+    def test_q0_excluded_so_lower_preference_wins(self):
+        """xx-reverse;q=0 is not acceptable; valid lower-preference 'en' wins."""
+        response = client.post(
+            "/api/v1/day-of-week",
+            json={"date": "2026-02-01"},
+            headers={"Accept-Language": "xx-reverse;q=0, en;q=0.5"},
+        )
+        assert response.status_code == 200
+        assert response.json()["day_name"] == "Sunday"
+
+    def test_bogus_q_treated_as_not_acceptable(self):
+        """xx-reverse;q=bogus is skipped; valid lower-preference 'en' wins."""
+        response = client.post(
+            "/api/v1/day-of-week",
+            json={"date": "2026-02-01"},
+            headers={"Accept-Language": "xx-reverse;q=bogus, en;q=0.9"},
+        )
+        assert response.status_code == 200
+        assert response.json()["day_name"] == "Sunday"
+

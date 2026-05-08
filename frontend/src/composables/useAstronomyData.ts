@@ -1,4 +1,5 @@
 import { ref, computed } from 'vue';
+import { i18n, getCurrentLocale } from '@/i18n';
 import { astronomyApi, ApiError } from '@/services/api';
 import type { AstronomyApi, BatchObservationsParams } from '@/services/api';
 import { API_CONFIG } from '@/services/config';
@@ -10,6 +11,7 @@ import { useToast } from './useToast';
  * Composable for fetching and managing astronomy data
  */
 export function useAstronomyData(api: AstronomyApi = astronomyApi) {
+  const t = i18n.global.t;
   const data = ref<BatchEarthObservationsResponse | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
@@ -52,7 +54,10 @@ export function useAstronomyData(api: AstronomyApi = astronomyApi) {
         longitude: params.longitude,
         elevation: params.elevation ?? 0.0,
       };
-      const query = new URLSearchParams(paramsObj as any).toString();
+      const query = new URLSearchParams({
+        ...paramsObj as any,
+        lang: getCurrentLocale(),
+      }).toString();
       const url = `${API_CONFIG.baseUrl}/api/v1/batch-earth-observations-stream?${query}`;
       const eventSource = new EventSource(url);
       currentEventSource = eventSource;
@@ -72,11 +77,12 @@ export function useAstronomyData(api: AstronomyApi = astronomyApi) {
       });
 
       eventSource.onerror = (_event) => {
-        error.value = 'SSE connection error';
+        error.value = t('errors.sseConnectionError');
         loading.value = false;
         eventSource.close();
         currentEventSource = null;
-        toast.error('Failed to load observations: Connection error');
+        const errorMsg = `${t('errors.loadingFailed')}: ${t('errors.connectionError')}`;
+        toast.error(errorMsg);
         reject(new Error('SSE connection error'));
       };
 
@@ -90,7 +96,10 @@ export function useAstronomyData(api: AstronomyApi = astronomyApi) {
           loading.value = false;
           eventSource.close();
           currentEventSource = null;
-          activeSuccessToast = toast.success(`Successfully loaded ${sseExpectedFrameCount.value} frames`);
+          const successMsg = sseExpectedFrameCount.value === 1 
+            ? t('success.loadedFrame')
+            : t('success.loadedFrames', { count: sseExpectedFrameCount.value });
+          activeSuccessToast = toast.success(successMsg);
           // Delay resolve to allow toast to display before scene transition (300ms)
           setTimeout(resolve, 300);
         }
@@ -109,7 +118,7 @@ export function useAstronomyData(api: AstronomyApi = astronomyApi) {
       currentEventSource.close();
       currentEventSource = null;
       loading.value = false;
-      error.value = 'Loading cancelled by user.';
+      error.value = t('errors.cancelled');
     }
   }
 
@@ -121,16 +130,20 @@ export function useAstronomyData(api: AstronomyApi = astronomyApi) {
     try {
       const response = await api.getBatchEarthObservations(params);
       data.value = response;
-      toast.success(`Successfully loaded ${response.metadata.frame_count} frames`);
+      const successMsg = response.metadata.frame_count === 1 
+        ? t('success.loadedFrame')
+        : t('success.loadedFrames', { count: response.metadata.frame_count });
+      toast.success(successMsg);
     } catch (err) {
       if (err instanceof ApiError) {
-        error.value = `API Error (${err.status}): ${err.message}`;
+        error.value = `${t('errors.apiError', { status: err.status })}: ${err.message}`;
         toast.error(error.value);
       } else if (err instanceof Error) {
         error.value = err.message;
-        toast.error(`Failed to load observations: ${error.value}`);
+        const errorMsg = `${t('errors.loadingFailed')}: ${error.value}`;
+        toast.error(errorMsg);
       } else {
-        error.value = 'An unknown error occurred';
+        error.value = t('errors.unknown');
         toast.error(error.value);
       }
     } finally {

@@ -1,5 +1,107 @@
 {
   "app": {
     "title": "Astronomy Animation"
+  },
+  "forms": {
+    "labels": {
+      "latitude": "Latitude",
+      "longitude": "Longitude",
+      "startDate": "Start Date",
+      "startTime": "Start Time",
+      "endDate": "End Date",
+      "endTime": "End Time",
+      "framesPerDay": "Frames per day",
+      "frameCount": "Frame Count",
+      "animationSpeed": "Animation Speed",
+      "elevation": "Elevation"
+    },
+    "placeholders": {
+      "latitude": "Enter latitude (-90 to 90)",
+      "longitude": "Enter longitude (-180 to 180)"
+    }
+  },
+  "buttons": {
+    "loadData": "Load Data",
+    "play": "Play",
+    "pause": "Pause",
+    "reset": "Reset",
+    "newQuery": "New Query",
+    "apply": "Apply",
+    "cancel": "Cancel"
+  },
+  "views": {
+    "threeD": "3D View",
+    "sky": "Sky View"
+  },
+  "validation": {
+    "latitudeRange": "Latitude must be between -90° and 90°",
+    "longitudeRange": "Longitude must be between -180° and 180°",
+    "startBeforeEnd": "Start date must be before end date",
+    "latitudeOutOfRange": "Latitude must be between -90 and 90 degrees",
+    "longitudeOutOfRange": "Longitude must be between -180 and 180 degrees",
+    "frameCountMinimum": "Frame count must be at least 2",
+    "endTimeAfterStart": "End time must be after start time",
+    "invalidDateFormat": "Invalid date or time format",
+    "invalidInput": "Invalid input"
+  },
+  "errors": {
+    "sseConnectionError": "SSE connection error",
+    "loadingFailed": "Failed to load observations",
+    "connectionError": "Connection error",
+    "cancelled": "Loading cancelled by user.",
+    "unknown": "An unknown error occurred",
+    "apiError": "API Error ({status})",
+    "calculationError": "Error calculating"
+  },
+  "success": {
+    "loadedFrame": "Successfully loaded 1 frame",
+    "loadedFrames": "Successfully loaded {count} frames"
+  },
+  "astronomy": {
+    "sunAltitude": "Sun Alt",
+    "sunVisible": "Sun Visible",
+    "sunAzimuth": "Sun Azimuth",
+    "moonAltitude": "Moon Alt",
+    "moonVisible": "Moon Visible",
+    "moonAzimuth": "Moon Azimuth",
+    "moonPhase": "Moon Phase",
+    "illumination": "Illumination",
+    "time": "Time",
+    "frames": "Frames",
+    "julianDate": "Julian Date",
+    "yes": "Yes",
+    "no": "No",
+    "phaseNames": {
+      "newMoon": "New Moon",
+      "waxingCrescent": "Waxing Crescent",
+      "firstQuarter": "First Quarter",
+      "waxingGibbous": "Waxing Gibbous",
+      "fullMoon": "Full Moon",
+      "waningGibbous": "Waning Gibbous",
+      "lastQuarter": "Last Quarter",
+      "waningCrescent": "Waning Crescent"
+    },
+    "dayNames": {
+      "sunday": "Sunday",
+      "monday": "Monday",
+      "tuesday": "Tuesday",
+      "wednesday": "Wednesday",
+      "thursday": "Thursday",
+      "friday": "Friday",
+      "saturday": "Saturday"
+    }
+  },
+  "ui": {
+    "status": {
+      "loading": "Loading...",
+      "yes": "Yes",
+      "no": "No"
+    },
+    "units": {
+      "degrees": "°",
+      "percent": "%",
+      "framesPerDay": "frames/day",
+      "totalFrames": "total frames"
+    }
   }
 }

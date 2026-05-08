@@ -4,6 +4,7 @@ Sun position calculation services
 from astropy.coordinates import get_sun, AltAz, EarthLocation
 from astropy.time import Time
 import astropy.units as u
+from api.i18n import t
 
 
 def calculate_sun_position(
@@ -37,15 +38,15 @@ def calculate_sun_position(
     """
     # Validate coordinates
     if not -90 <= latitude <= 90:
-        raise ValueError(f"Latitude must be between -90 and 90 degrees, got {latitude}")
+        raise ValueError(t('validation.latitudeRange', value=latitude))
     if not -180 <= longitude <= 180:
-        raise ValueError(f"Longitude must be between -180 and 180 degrees, got {longitude}")
+        raise ValueError(t('validation.longitudeRange', value=longitude))
     
     # Combine date and time (ISO 8601 format)
     datetime_str = f"{date_str}T{time_str}"
     
     # Convert to astropy Time
-    t = Time(datetime_str, format='isot', scale='utc')
+    obs_time = Time(datetime_str, format='isot', scale='utc')
     
     # Create Earth location
     location = EarthLocation(
@@ -55,12 +56,12 @@ def calculate_sun_position(
     )
     
     # Create AltAz frame (pressure=0 to ignore atmospheric refraction for simplicity)
-    altaz_frame = AltAz(obstime=t, location=location, pressure=0.0)
+    altaz_frame = AltAz(obstime=obs_time, location=location, pressure=0.0)
     
     # Get sun position and transform to AltAz coordinates
-    sun_altaz = get_sun(t).transform_to(altaz_frame)
+    sun_altaz = get_sun(obs_time).transform_to(altaz_frame)
     
-    return _process_sun_position(sun_altaz, t, datetime_str, latitude, longitude, elevation)
+    return _process_sun_position(sun_altaz, obs_time, datetime_str, latitude, longitude, elevation)
 
 
 def _process_sun_position(
