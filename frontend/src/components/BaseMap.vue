@@ -184,9 +184,12 @@ onMounted(() => {
       if (!pinModeActive.value) return
       if (e.key === 'Escape') {
         deactivatePinMode()
-      } else if (e.key === 'Enter' && e.currentTarget === mapContainer.value) {
+        e.stopPropagation()
+      } else if (e.key === 'Enter' && e.target === mapContainer.value) {
         const center = mapInstance.getView().getCenter()
         placePinAt(center)
+        e.preventDefault()
+        e.stopPropagation()
       }
     }
     mapContainer.value.addEventListener('keydown', keydownHandler)
