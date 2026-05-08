@@ -1,16 +1,16 @@
 <template>
   <div class="ol-map-wrapper">
-    <span id="map-desc" class="sr-only">
-      Interactive map. Use the zoom controls or scroll to zoom. Click to place a pin when the pin tool is active.
-    </span>
+    <span :id="`${instanceId}-desc`" class="sr-only">{{ mapDescText }}</span>
+    <span :id="`${instanceId}-announce`" class="sr-only" aria-live="polite" aria-atomic="true">{{ mapAnnounceText }}</span>
     <div
       ref="mapContainer"
       class="ol-map"
       role="application"
-      aria-label="Interactive map"
-      aria-describedby="map-desc"
+      :aria-label="t('map.ariaLabel')"
+      :aria-describedby="`${instanceId}-desc`"
       tabindex="0"
     ></div>
+    <div ref="crosshairOverlay" class="map-crosshair" aria-hidden="true"></div>
   </div>
 </template>
 
@@ -18,24 +18,32 @@
 // Custom OpenLayers control for pin tool
 import Control from 'ol/control/Control'
 
-function createPinToolControl(onClick) {
+function createPinToolControl(onClick, { buttonTitle } = {}) {
+  const img = document.createElement('img')
+  img.src = '/map-pin.png'
+  img.alt = ''
+  img.setAttribute('aria-hidden', 'true')
+  img.width = 20
+  img.height = 20
   const button = document.createElement('button')
-  button.innerHTML = '<img class="map-pin-image" src="/map-pin.png" alt="Pin Tool" width="20" height="20"/>';
-  button.title = 'Place Pin'
+  button.appendChild(img)
+  button.title = buttonTitle ?? 'Place Pin'
+  button.setAttribute('aria-label', buttonTitle ?? 'Place Pin')
+  button.setAttribute('aria-pressed', 'false')
   button.style.padding = '0px'
   button.style.background = '#fff'
   button.style.border = '0px solid #ccc'
   button.style.borderRadius = '0px'
   button.style.marginTop = '0px'
   button.style.cursor = 'pointer'
-  button.src = '/map-icon.png'
   button.addEventListener('click', onClick)
   const element = document.createElement('div')
   element.className = 'ol-control ol-pin-tool'
   element.appendChild(button)
-  return new Control({ element })
+  return { control: new Control({ element }), img, button }
 }
-import { onMounted, ref, onBeforeUnmount } from 'vue'
+import { onMounted, ref, computed, watch, onBeforeUnmount, useId } from 'vue'
+import { useI18n } from 'vue-i18n'
 import 'ol/ol.css'
 import Map from 'ol/Map'
 import View from 'ol/View'
@@ -56,17 +64,59 @@ const props = defineProps({
 })
 const emit = defineEmits(['pin-placed'])
 
+const { t } = useI18n()
+const instanceId = `map-${useId()}`
+
 const mapContainer = ref(null)
+const crosshairOverlay = ref(null)
+const pinModeActive = ref(false)
+const announceKey = ref('')
+const pinButtonTitle = computed(() => t('map.pinTool.buttonTitle'))
+const mapDescText = computed(() =>
+  pinModeActive.value ? t('map.pinTool.activeDescription') : t('map.description')
+)
+const mapAnnounceText = computed(() =>
+  announceKey.value ? t(`map.pinTool.${announceKey.value}`) : ''
+)
 let mapInstance = null
 let pinLayer = null
 let pinSource = null
+let keydownHandler = null
+let pinToolImg = null
+let pinToolButton = null
+
+watch(pinButtonTitle, (newTitle) => {
+  if (pinToolButton) {
+    pinToolButton.setAttribute('aria-label', newTitle)
+    pinToolButton.title = newTitle
+  }
+})
 
 onMounted(() => {
       // Ensure map resizes after mount
       setTimeout(() => {
         if (mapInstance) mapInstance.updateSize();
       }, 0);
-    let pinMode = false
+
+    function activatePinMode() {
+      pinModeActive.value = true
+      if (pinToolImg) pinToolImg.src = '/map-pin-selected.png'
+      if (pinToolButton) pinToolButton.setAttribute('aria-pressed', 'true')
+      mapContainer.value.style.cursor = 'crosshair'
+      if (crosshairOverlay.value) crosshairOverlay.value.style.display = 'block'
+      announceKey.value = 'activeDescription'
+      mapContainer.value.focus()
+    }
+
+    function deactivatePinMode(reason = 'cancelled') {
+      pinModeActive.value = false
+      if (pinToolImg) pinToolImg.src = '/map-pin.png'
+      if (pinToolButton) pinToolButton.setAttribute('aria-pressed', 'false')
+      mapContainer.value.style.cursor = ''
+      if (crosshairOverlay.value) crosshairOverlay.value.style.display = 'none'
+      announceKey.value = reason === 'placed' ? 'placed' : 'cancelled'
+    }
+
   mapInstance = new Map({
     target: mapContainer.value,
     layers: [
@@ -80,12 +130,18 @@ onMounted(() => {
     }),
     controls: [
       new Zoom(),
-      ...(props.enablePinTool ? [createPinToolControl(() => {
-        pinMode = !pinMode
-        // Optionally highlight button when active
-        const img = document.querySelector('.map-pin-image')
-        if (img)img.src = pinMode ? '/map-pin-selected.png' : '/map-pin.png'
-      })] : []),
+      ...(props.enablePinTool ? (() => {
+        const { control, img, button } = createPinToolControl(() => {
+          if (pinModeActive.value) {
+            deactivatePinMode('cancelled')
+          } else {
+            activatePinMode()
+          }
+        }, { buttonTitle: pinButtonTitle.value })
+        pinToolImg = img
+        pinToolButton = button
+        return [control]
+      })() : []),
       new Attribution({
         collapsible: false,
         className: 'ol-attribution bottom-left',
@@ -108,21 +164,43 @@ onMounted(() => {
     })
     mapInstance.addLayer(pinLayer)
 
-    mapInstance.on('click', function (evt) {
-      if (!pinMode) return
+    function placePinAt(coords) {
       pinSource.clear()
-      const coords = evt.coordinate
       const feature = new Feature({
         geometry: new Point(coords)
       })
       pinSource.addFeature(feature)
       const [lon, lat] = toLonLat(coords)
       emit('pin-placed', { lat, lon })
+      deactivatePinMode('placed')
+    }
+
+    mapInstance.on('click', function (evt) {
+      if (!pinModeActive.value) return
+      placePinAt(evt.coordinate)
     })
+
+    keydownHandler = function (e) {
+      if (!pinModeActive.value) return
+      if (e.key === 'Escape') {
+        deactivatePinMode()
+        e.stopPropagation()
+      } else if (e.key === 'Enter' && e.target === mapContainer.value) {
+        const center = mapInstance.getView().getCenter()
+        placePinAt(center)
+        e.preventDefault()
+        e.stopPropagation()
+      }
+    }
+    mapContainer.value.addEventListener('keydown', keydownHandler)
   }
 })
 
 onBeforeUnmount(() => {
+  if (keydownHandler && mapContainer.value) {
+    mapContainer.value.removeEventListener('keydown', keydownHandler)
+    keydownHandler = null
+  }
   if (mapInstance) {
     mapInstance.setTarget(null)
     mapInstance = null
@@ -136,6 +214,43 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.ol-map-wrapper {
+  position: relative;
+}
+
+.map-crosshair {
+  display: none;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999;
+}
+
+.map-crosshair::before,
+.map-crosshair::after {
+  content: '';
+  position: absolute;
+  background: rgba(220, 50, 50, 0.85);
+}
+
+/* Horizontal line */
+.map-crosshair::before {
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  transform: translateY(-50%);
+}
+
+/* Vertical line */
+.map-crosshair::after {
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  transform: translateX(-50%);
+}
+
 .ol-pin-tool {
   position: absolute;
   left: 8px;
