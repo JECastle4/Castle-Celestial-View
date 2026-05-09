@@ -20,6 +20,7 @@
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:update-snapshots": "playwright test --update-snapshots",
     "test:e2e:update-snapshots:firefox-linux": "LIBGL_ALWAYS_SOFTWARE=1 MESA_GL_VERSION_OVERRIDE=4.1 xvfb-run --server-args='-screen 0 1280x720x24' playwright test --project=firefox --headed --update-snapshots",
+    "test:e2e:update-snapshots:linux": "powershell -ExecutionPolicy Bypass -File ../Update-LinuxSnapshots.ps1",
     "lint:a11y": "eslint \"src/**/*.vue\""
   },
   "dependencies": {
