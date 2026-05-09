@@ -374,7 +374,7 @@ describe('AstronomyScene - With Data Loaded', () => {
 
   it('should have view toggle buttons', async () => {
     await wrapper.vm.$nextTick();
-    expect(wrapper.text()).toContain('3D View');
+    expect(wrapper.text()).toContain('Solar System View');
     expect(wrapper.text()).toContain('Sky View');
   });
 

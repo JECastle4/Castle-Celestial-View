@@ -30,7 +30,7 @@
     "cancel": "Cancel"
   },
   "views": {
-    "threeD": "3D View",
+    "solar3d": "Solar System View",
     "sky": "Sky View"
   },
   "validation": {

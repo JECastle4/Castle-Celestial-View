@@ -1,0 +1,18 @@
+# Dockerfile for updating Linux Playwright snapshots from a Windows dev machine.
+# Mirrors the CI environment (ubuntu-latest / Ubuntu Noble) so generated snapshots
+# match what GitHub Actions produces.
+#
+# Usage: see Update-LinuxSnapshots.ps1 or `npm run test:e2e:update-snapshots:linux`
+
+FROM mcr.microsoft.com/playwright:v1.59.1-noble
+
+# Add Python (Ubuntu Noble ships 3.12; python-is-python3 provides the `python` alias
+# that playwright.config.ts expects when CI=true).
+RUN apt-get update && apt-get install -y \
+        python3 \
+        python3-pip \
+        python-is-python3 \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip3 install --break-system-packages --ignore-installed wheel
+
+WORKDIR /app

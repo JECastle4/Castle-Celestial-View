@@ -123,7 +123,7 @@
         
         <div class="view-toggle">
           <button @click="setViewMode('3D')" :class="{ active: viewMode === '3D' }">
-            {{ t('views.threeD') }}
+            {{ t('views.solar3d') }}
           </button>
           <button @click="setViewMode('SKY')" :class="{ active: viewMode === 'SKY' }">
             {{ t('views.sky') }}

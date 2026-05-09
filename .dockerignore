@@ -1,0 +1,30 @@
+# .dockerignore for Dockerfile.playwright
+# The image itself doesn't COPY source files – the project is bind-mounted at
+# runtime – but Docker still sends the build context to the daemon, so exclude
+# large/irrelevant directories to keep the context small and the build fast.
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+htmlcov/
+.coverage
+coverage.xml
+bandit-report.json
+
+# Node
+frontend/node_modules/
+frontend/coverage/
+frontend/playwright-report/
+frontend/test-results/
+
+# Git / IDE
+.git/
+.vscode/
+*.md
+
+# Miscellaneous
+*.png
+*.jpg
