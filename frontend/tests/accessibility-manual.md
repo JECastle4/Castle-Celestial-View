@@ -38,8 +38,8 @@ Load data first (use default London coordinates, today's date, 48 frames).
 
 | # | Action | Expected |
 |---|--------|----------|
-| K14 | After load completes, press **Tab**. | Focus order: 3D View → Sky View → Play/Pause → Reset → New Query → Animation Speed slider → (repeats). |
-| K15 | Tab to **3D View** button and press **Enter**. Then tab to **Sky View** and press **Enter**. | Active view switches. Button receives the `active` class and its appearance reflects selection. |
+| K14 | After load completes, press **Tab**. | Focus order: Solar System View → Sky View → Play/Pause → Reset → New Query → Animation Speed slider → (repeats). |
+| K15 | Tab to **Solar System View** button and press **Enter**. Then tab to **Sky View** and press **Enter**. | Active view switches. Button receives the `active` class and its appearance reflects selection. |
 | K16 | Tab to **Play/Pause** and press **Enter** to play. Press **Enter** again to pause. | Button label updates to "Pause" then back to "Play". No focus is lost between presses. |
 | K17 | Tab to **Reset** and press **Enter**. | Animation resets to the first frame. |
 | K18 | Tab to **New Query** and press **Enter**. | Animation controls disappear and the input form is restored. Focus moves to a sensible location in the form (not lost to `<body>`). |
@@ -108,7 +108,7 @@ Test with **one** of the following combinations (both are Chromium-based and beh
 
 | # | Check | Expected |
 |---|-------|----------|
-| S15 | After load completes, Tab to **3D View** button. | Announced as "3D View, button" (or "3D View, button, pressed" if aria-pressed is set). |
+| S15 | After load completes, Tab to **Solar System View** button. | Announced as "Solar System View, button" (or "Solar System View, button, pressed" if aria-pressed is set). |
 | S16 | Tab to **Sky View** button. | Announced as "Sky View, button". |
 | S17 | Tab to **Play/Pause** button. | Announced as "Play, button" or "Pause, button" reflecting the current state. |
 | S18 | Tab to **Reset** and **New Query** buttons. | Each announced by its visible label. |

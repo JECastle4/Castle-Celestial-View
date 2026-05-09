@@ -25,6 +25,7 @@ npm run lint:a11y
 npm run type-check
 npm run test:coverage
 npm run test:e2e
+npm run test:e2e:update-snapshots
 
 # Accessibility
 
