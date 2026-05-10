@@ -5,6 +5,7 @@
     </main>
     <footer class="app-footer">
       <small>{{ t('app.copyright') }}</small>
+      <RouterLink :to="`/${currentLocale}/about`" class="footer-about-link">{{ t('app.about') }}</RouterLink>
     </footer>
   </div>
 </template>
@@ -12,9 +13,12 @@
 <script setup lang="ts">
 import { onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { RouterLink } from 'vue-router';
 import AstronomyScene from '@/components/AstronomyScene.vue';
+import { getCurrentLocale } from '@/i18n';
 
 const { t } = useI18n();
+const currentLocale = getCurrentLocale();
 onMounted(() => { document.title = t('app.title'); });
 </script>
 
@@ -47,11 +51,25 @@ html, body, #app {
 
 .app-footer {
   flex-shrink: 0;
-  text-align: center;
-  padding: 4px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 4px 12px;
   background: rgba(0, 0, 0, 0.6);
   color: rgba(255, 255, 255, 0.6);
   font-size: 0.7rem;
+}
+
+.footer-about-link {
+  color: rgba(255, 255, 255, 0.5);
+  text-decoration: none;
+  font-size: 0.7rem;
+}
+
+.footer-about-link:hover {
+  color: rgba(255, 255, 255, 0.9);
+  text-decoration: underline;
 }
 
 body {

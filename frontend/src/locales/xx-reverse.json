@@ -1,7 +1,18 @@
 {
   "app": {
-    "title": "noitaminA ymonortsA",
-    "copyright": ".esneciL TIM eht rednu desneciL .eltsaC nhoJ 6202 ©"
+    "title": "weiV laitseleC eltsaC",
+    "copyright": ".esneciL TIM eht rednu desneciL .eltsaC nhoJ 6202 ©",
+    "about": "tuobA"
+  },
+  "about": {
+    "title": "weiV laitseleC eltsaC tuobA",
+    "copyright": "eltsaC nhoJ 6202 ©",
+    "license": ".esneciL TIM eht rednu desneciL",
+    "version": "{version} noisreV",
+    "attributionsTitle": "snoitubirttA ecruoS nepO",
+    "sourceCode": "buHtiG no edoC ecruoS",
+    "reportIssue": "eussI na tropeR",
+    "close": "esolC"
   },
   "forms": {
     "labels": {
