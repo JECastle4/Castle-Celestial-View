@@ -56,7 +56,6 @@ const libraries = [
   { name: 'Pygments',              license: 'BSD-2-Clause', url: 'https://github.com/pygments/pygments/blob/master/LICENSE' },
   { name: 'python-dotenv',         license: 'BSD-3-Clause', url: 'https://github.com/theskumar/python-dotenv/blob/main/LICENSE' },
   { name: 'Requests',              license: 'Apache-2.0',   url: 'https://github.com/psf/requests/blob/main/LICENSE' },
-  { name: 'HTTPX',                 license: 'BSD-3-Clause', url: 'https://github.com/encode/httpx/blob/master/LICENSE.md' },
 ];
 </script>
 

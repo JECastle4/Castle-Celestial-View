@@ -13,8 +13,3 @@ pygments>=2.20.0
 python-dotenv>=1.2.2
 # Security: CVE-2026-25645 fixed in 2.33.0
 requests>=2.33.0
-# Security: CVE-2026-24049 fixed in 0.46.2
-wheel>=0.46.2
-# Security: CVE-2025-71176 fixed in 9.0.3
-pytest>=9.0.3
-httpx

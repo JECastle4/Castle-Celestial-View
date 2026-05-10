@@ -1,0 +1,9 @@
+# Development and test dependencies.
+# Runtime dependencies are inherited from requirements.txt.
+-r requirements.txt
+
+# Security: CVE-2026-24049 fixed in 0.46.2
+wheel>=0.46.2
+# Security: CVE-2025-71176 fixed in 9.0.3
+pytest>=9.0.3
+httpx
