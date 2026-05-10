@@ -1,7 +1,12 @@
 <template>
-  <main>
-    <AstronomyScene />
-  </main>
+  <div class="app-layout">
+    <main>
+      <AstronomyScene />
+    </main>
+    <footer class="app-footer">
+      <small>{{ t('app.copyright') }}</small>
+    </footer>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -20,12 +25,33 @@ onMounted(() => { document.title = t('app.title'); });
   box-sizing: border-box;
 }
 
-html, body, #app, main {
+html, body, #app {
   width: 100%;
   height: 100%;
   margin: 0;
   padding: 0;
   overflow: hidden;
+}
+
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+.app-layout main {
+  flex: 1;
+  overflow: hidden;
+}
+
+.app-footer {
+  flex-shrink: 0;
+  text-align: center;
+  padding: 4px 0;
+  background: rgba(0, 0, 0, 0.6);
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.7rem;
 }
 
 body {
@@ -35,11 +61,4 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-#app {
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-}
 </style>

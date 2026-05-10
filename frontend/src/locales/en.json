@@ -1,6 +1,7 @@
 {
   "app": {
-    "title": "Astronomy Animation"
+    "title": "Astronomy Animation",
+    "copyright": "© 2026 John Castle. Licensed under the MIT License."
   },
   "forms": {
     "labels": {
