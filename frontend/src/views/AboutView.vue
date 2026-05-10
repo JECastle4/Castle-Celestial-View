@@ -22,7 +22,7 @@
         <a href="https://github.com/JECastle4/Castle-Celestial-View/issues" target="_blank" rel="noopener noreferrer">{{ t('about.reportIssue') }}</a>
       </section>
 
-      <RouterLink :to="`/${currentLocale}/`" class="close-link">
+      <RouterLink :to="`/${locale}/`" class="close-link">
         ← {{ t('about.close') }}
       </RouterLink>
     </div>
@@ -32,21 +32,31 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
 import { RouterLink } from 'vue-router';
-import { getCurrentLocale } from '@/i18n';
 
-const { t } = useI18n();
-const currentLocale = getCurrentLocale();
+const { t, locale } = useI18n();
 declare const __APP_VERSION__: string;
 const appVersion = __APP_VERSION__;
 
 const libraries = [
-  { name: 'Vue',        license: 'MIT',        url: 'https://github.com/vuejs/core/blob/main/LICENSE' },
-  { name: 'OpenLayers', license: 'BSD-2-Clause', url: 'https://github.com/openlayers/openlayers/blob/main/LICENSE.md' },
-  { name: 'Three.js',   license: 'MIT',        url: 'https://github.com/mrdoob/three.js/blob/dev/LICENSE' },
-  { name: 'Astropy',    license: 'BSD-3-Clause', url: 'https://github.com/astropy/astropy/blob/main/LICENSE.rst' },
-  { name: 'NumPy',      license: 'BSD-3-Clause', url: 'https://github.com/numpy/numpy/blob/main/LICENSE.txt' },
-  { name: 'Pydantic',   license: 'MIT',        url: 'https://github.com/pydantic/pydantic/blob/main/LICENSE' },
-  { name: 'FastAPI',    license: 'MIT',        url: 'https://github.com/fastapi/fastapi/blob/master/LICENSE' },
+  { name: 'Vue',                   license: 'MIT',          url: 'https://github.com/vuejs/core/blob/main/LICENSE' },
+  { name: 'Vue Router',            license: 'MIT',          url: 'https://github.com/vuejs/router/blob/main/LICENSE' },
+  { name: 'Vue I18n',              license: 'MIT',          url: 'https://github.com/intlify/vue-i18n/blob/master/LICENSE' },
+  { name: 'vue-toast-notification', license: 'MIT',         url: 'https://github.com/ankurk91/vue-toast-notification/blob/master/LICENSE' },
+  { name: 'OpenLayers',            license: 'BSD-2-Clause', url: 'https://github.com/openlayers/openlayers/blob/main/LICENSE.md' },
+  { name: 'Three.js',              license: 'MIT',          url: 'https://github.com/mrdoob/three.js/blob/dev/LICENSE' },
+  { name: 'Astropy',               license: 'BSD-3-Clause', url: 'https://github.com/astropy/astropy/blob/main/LICENSE.rst' },
+  { name: 'NumPy',                 license: 'BSD-3-Clause', url: 'https://github.com/numpy/numpy/blob/main/LICENSE.txt' },
+  { name: 'Matplotlib',            license: 'BSD-compatible', url: 'https://github.com/matplotlib/matplotlib/blob/main/LICENSE/LICENSE' },
+  { name: 'PyOpenGL',              license: 'BSD-3-Clause', url: 'https://github.com/mcfletch/pyopengl/blob/master/license.txt' },
+  { name: 'PyOpenGL-accelerate',   license: 'BSD-3-Clause', url: 'https://github.com/mcfletch/pyopengl/blob/master/license.txt' },
+  { name: 'FastAPI',               license: 'MIT',          url: 'https://github.com/fastapi/fastapi/blob/master/LICENSE' },
+  { name: 'Uvicorn',               license: 'BSD-3-Clause', url: 'https://github.com/encode/uvicorn/blob/master/LICENSE.md' },
+  { name: 'Pydantic',              license: 'MIT',          url: 'https://github.com/pydantic/pydantic/blob/main/LICENSE' },
+  { name: 'Pillow',                license: 'HPND',         url: 'https://github.com/python-pillow/Pillow/blob/main/LICENSE' },
+  { name: 'Pygments',              license: 'BSD-2-Clause', url: 'https://github.com/pygments/pygments/blob/master/LICENSE' },
+  { name: 'python-dotenv',         license: 'BSD-3-Clause', url: 'https://github.com/theskumar/python-dotenv/blob/main/LICENSE' },
+  { name: 'Requests',              license: 'Apache-2.0',   url: 'https://github.com/psf/requests/blob/main/LICENSE' },
+  { name: 'HTTPX',                 license: 'BSD-3-Clause', url: 'https://github.com/encode/httpx/blob/master/LICENSE.md' },
 ];
 </script>
 

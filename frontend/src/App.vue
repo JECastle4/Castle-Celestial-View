@@ -5,21 +5,19 @@
     </main>
     <footer class="app-footer">
       <small>{{ t('app.copyright') }}</small>
-      <RouterLink :to="`/${currentLocale}/about`" class="footer-about-link">{{ t('app.about') }}</RouterLink>
+      <RouterLink :to="`/${locale}/about`" class="footer-about-link">{{ t('app.about') }}</RouterLink>
     </footer>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { watchEffect } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { RouterLink } from 'vue-router';
 import AstronomyScene from '@/components/AstronomyScene.vue';
-import { getCurrentLocale } from '@/i18n';
 
-const { t } = useI18n();
-const currentLocale = getCurrentLocale();
-onMounted(() => { document.title = t('app.title'); });
+const { t, locale } = useI18n();
+watchEffect(() => { document.title = t('app.title'); });
 </script>
 
 <style>

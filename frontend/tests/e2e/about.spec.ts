@@ -22,7 +22,7 @@ test.describe('About Page', () => {
     expect(copyrightText).toMatch(/\d{4}/);         // any 4-digit year
     expect(copyrightText).toMatch(/Castle/);        // author surname
 
-    // Assert the close/back link returns to the main page
+    // Assert the close/back link is present on the page
     const closeLink = page.getByRole('link', { name: /←|Close/i });
     await expect(closeLink).toBeVisible();
   });
