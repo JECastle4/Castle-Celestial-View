@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Eclipse Icon Generator – Castle Celestial View</title>
+  <style>
+    body {
+      margin: 0;
+      background: #0a0a12;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      gap: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: #bbb;
+    }
+    h1 { font-size: 1rem; font-weight: 400; letter-spacing: 0.1em; color: #888; margin: 0; }
+    canvas { border-radius: 50%; }
+    .caption { font-size: 0.75rem; opacity: 0.5; text-align: center; line-height: 1.6; }
+    .buttons { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+    button {
+      padding: 8px 22px;
+      background: #1c1c2e;
+      color: #ccc;
+      border: 1px solid #333;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: background 0.2s;
+    }
+    button:hover { background: #2a2a40; }
+    .data { font-size: 0.7rem; opacity: 0.4; font-family: monospace; text-align: left; line-height: 1.8; }
+  </style>
+</head>
+<body>
+  <h1>Castle Celestial View · Eclipse Icon Generator</h1>
+  <canvas id="eclipse"></canvas>
+  <div class="caption">
+    Annular Solar Eclipse · 17 February 2026 · 12:02 UTC<br>
+    Observer: 64.7°S 86.8°E (point of greatest eclipse)
+  </div>
+  <div class="buttons">
+    <button onclick="saveImage(512)">Save 512×512 PNG</button>
+    <button onclick="saveImage(192)">Save 192×192 PNG</button>
+    <button onclick="saveImage(64)">Save 64×64 PNG</button>
+    <button onclick="saveImage(32)">Save 32×32 favicon</button>
+    <button onclick="saveImage(16)">Save 16×16 favicon</button>
+  </div>
+  <div class="data">
+    Sun  alt 13.31°  az 270.32°  ⌀ 0.5393° (32.36′)<br>
+    Moon alt 13.32°  az 270.24°  ⌀ 0.5198° (31.19′)<br>
+    Moon/Sun ratio: 0.963993 · Ring: 3.60% of solar radius
+  </div>
+
+  <script type="importmap">
+    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.module.js" } }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+
+    // -----------------------------------------------------------------------
+    // Eclipse data from EclipseIconData.py
+    // -----------------------------------------------------------------------
+    const SUN_RADIUS  = 1.0;
+    const MOON_RADIUS = 0.963993;  // angular diameter ratio Moon/Sun
+
+    // -----------------------------------------------------------------------
+    // Renderer – preserveDrawingBuffer required for toDataURL
+    // -----------------------------------------------------------------------
+    const DISPLAY_SIZE = 512;
+    const canvas = document.getElementById('eclipse');
+
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: true,
+      preserveDrawingBuffer: true,
+      alpha: false,
+    });
+    renderer.setSize(DISPLAY_SIZE, DISPLAY_SIZE);
+    renderer.setClearColor(0x000005);
+
+    const scene = new THREE.Scene();
+
+    // Orthographic camera – 3 units wide, square, sun fills ~2/3 of frame
+    const HALF = 1.5;
+    const cam = new THREE.OrthographicCamera(-HALF, HALF, HALF, -HALF, 0.1, 10);
+    cam.position.z = 5;
+
+    // -----------------------------------------------------------------------
+    // Corona glow – concentric disks, additive blending
+    // -----------------------------------------------------------------------
+    const coronaLayers = [
+      { radius: 1.80, color: 0xff8800, opacity: 0.04 },
+      { radius: 1.55, color: 0xffaa22, opacity: 0.07 },
+      { radius: 1.35, color: 0xffbb44, opacity: 0.11 },
+      { radius: 1.20, color: 0xffcc66, opacity: 0.16 },
+      { radius: 1.12, color: 0xffdd99, opacity: 0.22 },
+      { radius: 1.05, color: 0xffeebb, opacity: 0.30 },
+    ];
+    coronaLayers.forEach((layer, i) => {
+      const geo = new THREE.CircleGeometry(layer.radius, 128);
+      const mat = new THREE.MeshBasicMaterial({
+        color: layer.color,
+        transparent: true,
+        opacity: layer.opacity,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.z = -0.1 - i * 0.01;
+      scene.add(mesh);
+    });
+
+    // -----------------------------------------------------------------------
+    // Sun disk – warm white at centre
+    // -----------------------------------------------------------------------
+    const sunGeo = new THREE.CircleGeometry(SUN_RADIUS, 256);
+    const sunMat = new THREE.MeshBasicMaterial({ color: 0xfff8e8 });
+    const sunMesh = new THREE.Mesh(sunGeo, sunMat);
+    sunMesh.position.z = 0.1;
+    scene.add(sunMesh);
+
+    // -----------------------------------------------------------------------
+    // Ring of fire – thin orange halo just inside the sun rim, behind moon
+    // -----------------------------------------------------------------------
+    const ringHaloGeo = new THREE.CircleGeometry(SUN_RADIUS * 0.998, 256);
+    const ringHaloMat = new THREE.MeshBasicMaterial({ color: 0xff6600 });
+    const ringHalo = new THREE.Mesh(ringHaloGeo, ringHaloMat);
+    ringHalo.position.z = 0.15;
+    scene.add(ringHalo);
+
+    // -----------------------------------------------------------------------
+    // Moon disk – nearly black silhouette
+    // -----------------------------------------------------------------------
+    const moonGeo = new THREE.CircleGeometry(MOON_RADIUS, 256);
+    const moonMat = new THREE.MeshBasicMaterial({ color: 0x04040a });
+    const moonMesh = new THREE.Mesh(moonGeo, moonMat);
+    moonMesh.position.z = 0.2;
+    scene.add(moonMesh);
+
+    // -----------------------------------------------------------------------
+    // Initial render
+    // -----------------------------------------------------------------------
+    renderer.render(scene, cam);
+
+    // -----------------------------------------------------------------------
+    // Save helpers
+    // -----------------------------------------------------------------------
+    function renderAtSize(size) {
+      const aspect = 1; // always square
+      renderer.setSize(size, size);
+      renderer.render(scene, cam);
+    }
+
+    window.saveImage = function(size) {
+      renderAtSize(size);
+      const link = document.createElement('a');
+      link.download = `castle-celestial-view-eclipse-${size}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      // Restore display size
+      renderAtSize(DISPLAY_SIZE);
+    };
+  </script>
+</body>
+</html>
