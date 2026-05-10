@@ -1,6 +1,18 @@
 {
   "app": {
-    "title": "Astronomy Animation"
+    "title": "Castle Celestial View",
+    "copyright": "© 2026 John Castle. Licensed under the MIT License.",
+    "about": "About"
+  },
+  "about": {
+    "title": "About Castle Celestial View",
+    "copyright": "© 2026 John Castle",
+    "license": "Licensed under the MIT License.",
+    "version": "Version {version}",
+    "attributionsTitle": "Open Source Attributions",
+    "sourceCode": "Source Code on GitHub",
+    "reportIssue": "Report an Issue",
+    "close": "Close"
   },
   "forms": {
     "labels": {

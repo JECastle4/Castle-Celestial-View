@@ -23,6 +23,11 @@ const routes: RouteRecordRaw[] = [
     path: `/:locale(${localePattern})/`,
     component: () => import('./App.vue'),
   },
+  // About page under locale prefix
+  {
+    path: `/:locale(${localePattern})/about`,
+    component: () => import('./views/AboutView.vue'),
+  },
   // Catch-all: redirect unknown paths to English
   {
     path: '/:pathMatch(.*)*',
