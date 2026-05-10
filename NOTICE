@@ -1,0 +1,53 @@
+Castle Celestial View
+Copyright (c) 2026 John Castle
+
+This project makes use of the following third-party open source libraries:
+
+---
+
+Vue
+Copyright (c) 2013-present Yuxi (Evan) You and Vue contributors
+Licensed under the MIT License
+https://github.com/vuejs/core/blob/main/LICENSE
+
+---
+
+OpenLayers (ol)
+Copyright (c) 2005-present OpenLayers Contributors
+Licensed under the BSD 2-Clause License
+https://github.com/openlayers/openlayers/blob/main/LICENSE.md
+
+---
+
+Three.js
+Copyright (c) 2010-present three.js authors
+Licensed under the MIT License
+https://github.com/mrdoob/three.js/blob/dev/LICENSE
+
+---
+
+Astropy
+Copyright (c) 2011-present The Astropy Developers
+Licensed under the BSD 3-Clause License
+https://github.com/astropy/astropy/blob/main/LICENSE.rst
+
+---
+
+NumPy
+Copyright (c) 2005-present NumPy Developers
+Licensed under the BSD 3-Clause License
+https://github.com/numpy/numpy/blob/main/LICENSE.txt
+
+---
+
+Pydantic
+Copyright (c) 2017-present Samuel Colvin and contributors
+Licensed under the MIT License
+https://github.com/pydantic/pydantic/blob/main/LICENSE
+
+---
+
+FastAPI
+Copyright (c) 2018-present Sebastián Ramírez
+Licensed under the MIT License
+https://github.com/fastapi/fastapi/blob/master/LICENSE
