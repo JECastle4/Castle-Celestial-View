@@ -39,6 +39,10 @@ dev = [
 [tool.setuptools]
 packages = ["api", "api.services"]
 
+[tool.setuptools.package-data]
+# Only include the production locale; excludes dev-only xx-reverse.json
+api = ["locales/en.json"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
