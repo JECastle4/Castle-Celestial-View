@@ -14,8 +14,9 @@ const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
 if (!import.meta.env.DEV) {
   if (!import.meta.env.VITE_API_BASE_URL) {
     console.warn(
-      '⚠️ PRODUCTION WARNING: VITE_API_BASE_URL not set. Using relative paths via proxy. ' +
-      'Set VITE_API_BASE_URL in .env.production for deployments where the API is on a different origin.'
+      '⚠️ PRODUCTION WARNING: VITE_API_BASE_URL not set. Requests will use relative paths, ' +
+      'which assumes the API is served on the same origin or behind a reverse proxy. ' +
+      'Set VITE_API_BASE_URL in .env.production when the API is on a different origin.'
     );
   }
   if (baseUrl.startsWith('http://')) {

@@ -37,7 +37,7 @@ pytest
 
 ```bash
 cd frontend
-npm run test|coverage
+npm run test:coverage
 ```
 #### 2026-05-11
 |Passed    |Skipped        |
