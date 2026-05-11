@@ -7,6 +7,34 @@ on:
     branches: [ main, develop ]
 
 jobs:
+  version-check:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Validate API and Frontend versions match
+      run: |
+        API_VERSION=$(python3 -c "
+        import tomllib
+        with open('pyproject.toml', 'rb') as f:
+            data = tomllib.load(f)
+        print(data['project']['version'])
+        ")
+        FE_VERSION=$(python3 -c "
+        import json
+        with open('frontend/package.json') as f:
+            data = json.load(f)
+        print(data['version'])
+        ")
+        echo "API version:      $API_VERSION"
+        echo "Frontend version: $FE_VERSION"
+        if [ "$API_VERSION" != "$FE_VERSION" ]; then
+          echo "::error::Version mismatch — pyproject.toml ($API_VERSION) and frontend/package.json ($FE_VERSION) must match. Update both files together. See VERSIONING.md."
+          exit 1
+        fi
+        echo "Versions consistent: $API_VERSION"
+
   test-and-security:
     runs-on: ubuntu-latest
     
