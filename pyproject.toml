@@ -26,6 +26,8 @@ dependencies = [
     "python-dotenv>=1.2.2",
     # Security: CVE-2026-25645 fixed in 2.33.0
     "requests>=2.33.0",
+    # Security: CVE-2026-44431 (header leak on cross-origin redirect), CVE-2026-44432 (decompression DoS) fixed in 2.7.0
+    "urllib3>=2.7.0",
 ]
 
 [project.optional-dependencies]

@@ -32,10 +32,12 @@ app = FastAPI(
 # For production, set ALLOWED_ORIGINS environment variable to comma-separated list of domains
 # Example: ALLOWED_ORIGINS="https://yourdomain.com,https://www.yourdomain.com"
 allowed_origins = [
-    origin.strip() 
+    origin.strip()
     for origin in os.getenv(
         "ALLOWED_ORIGINS",
-        "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174"  # Default for local development
+        "http://localhost:5173,http://127.0.0.1:5173,"
+        "http://localhost:5174,http://127.0.0.1:5174,"
+        "http://localhost:4173,http://127.0.0.1:4173"  # 4173 = vite preview
     ).split(",")
     if origin.strip()  # Filter out empty strings
 ]

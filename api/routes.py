@@ -69,7 +69,14 @@ async def stream_batch_earth_observations(
                 else:
                     yield f"event: metadata\ndata: {json.dumps(item)}\n\n"
 
-        return StreamingResponse(event_generator(), media_type="text/event-stream")
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",  # Disable buffering in nginx / proxy layers
+            },
+        )
     except ValueError as e:
         raise HTTPException(
             status_code=400,

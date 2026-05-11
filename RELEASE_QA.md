@@ -18,12 +18,48 @@ pytest
 - [ ] Code coverage meets project threshold
 - [ ] No new test failures introduced
 
+#### 2026-05-01 218 passed, 10 warnings in 11.57s
+|File                                      |Stmts |Miss  |Cover  | Missing                           |
+|------------------------------------------|------|------|-------|----------------------------------|
+|api\__init__.py                           |     0|      0|   100%||
+|api\i18n.py                               |    68|      0|   100%||
+|api\main.py                               |    64|      3|    95%   46-48|
+|api\models.py                             |    84|      0|   100%||
+|api\routes.py                              |    77|    14  |  82%  | 73-79, 111-112, 155-156, 199-200, 247-248, 298-299|
+|api\services\__init__.py                  |     0|      0|   100%||
+|api\services\batch_earth_observations.py  |    44|      0|   100%||
+|api\services\dates.py                     |    10|      0|   100%||
+|api\services\moon.py                      |    21|      0|   100%||
+|api\services\moon_phase.py                |    49|      0|   100%||
+|api\services\sun.py                       |    20|      0|   100%||
+
 ### Frontend (Vitest)
 
 ```bash
 cd frontend
-npm run test
+npm run test|coverage
 ```
+#### 2026-05-11
+|Passed    |Skipped        |
+|----------|---------------|
+| 151      | 22 (173)      |
+
+|File                  | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+|----------------------|---------|----------|---------|---------|-------------------
+|All files             |     100 |    94.64 |     100 |     100 |                   
+| src                  |     100 |      100 |     100 |     100 |                   
+|  i18n.ts             |     100 |      100 |     100 |     100 |                   
+| src/composables      |     100 |      100 |     100 |     100 |                   
+|  useAstronomyData.ts |     100 |      100 |     100 |     100 |                   
+|src/locales          |     100 |      100 |     100 |     100 |                   
+|  en.json             |     100 |      100 |     100 |     100 |                   
+|  xx-reverse.json     |     100 |      100 |     100 |     100 |                   
+| src/services         |     100 |       90 |     100 |     100 |                   
+|  api.ts              |     100 |       90 |     100 |     100 | 70                
+| src/three/objects    |     100 |     90.9 |     100 |     100 |                   
+|  Earth.ts            |     100 |      100 |     100 |     100 |                   
+|  Moon.ts             |     100 |       90 |     100 |     100 | 18                
+|  Sun.ts              |     100 |       90 |     100 |     100 | 19                
 
 - [ ] All unit/component tests pass
 
@@ -38,6 +74,10 @@ npm run test:e2e
 - [ ] Visual snapshots match (no unexpected regressions)
 
 **Evidence**: Link to the CI run on the release commit showing all checks green.
+
+#### 2026-05-11
+Running 44 tests using 11 workers
+  44 passed (38.4s)
 
 ---
 
@@ -58,6 +98,39 @@ cd frontend && npm audit
 
 **Evidence**: CI run log showing security steps passing, or local scan output attached to the release.
 
+#### 2026-05-11
+npm audit
+found 0 vulnerabilities
+bandit -r api
+[main]  INFO    profile include tests: None
+[main]  INFO    profile exclude tests: None
+[main]  INFO    cli include tests: None
+[main]  INFO    cli exclude tests: None
+[main]  INFO    running on Python 3.14.2
+Run started:2026-05-11 21:33:33.987199+00:00
+
+Test results:
+        No issues identified.
+
+Code scanned:
+        Total lines of code: 1245
+        Total lines skipped (#nosec): 0
+
+Run metrics:
+        Total issues (by severity):
+                Undefined: 0
+                Low: 0
+                Medium: 0
+                High: 0
+        Total issues (by confidence):
+                Undefined: 0
+                Low: 0
+                Medium: 0
+                High: 0
+Files skipped (0):
+
+pip-audit --skip-editable
+No known vulnerabilities found
 ---
 
 ## 3. Accessibility Audit
@@ -69,11 +142,10 @@ Perform a manual accessibility review of all primary views before each release.
 Review the following views in a browser at production build (`npm run build && npm run preview`):
 
 - [ ] Home / Landing page
-- [ ] Sun position view
-- [ ] Moon phase view
-- [ ] Moon rise/set view
-- [ ] Solar system animation
+- [ ] Solar System view
+- [ ] Sky view
 - [ ] About page
+
 
 ### Checks
 
@@ -95,6 +167,9 @@ Use one or more of the following to assist:
 - [WAVE](https://wave.webaim.org/) browser extension
 
 **Evidence**: Screenshots or screen recordings of each view with the accessibility tool output. Attach to the GitHub Release or link to an external document.
+
+#### 2026-05-11
+0 Issues found on all views
 
 ---
 
@@ -161,11 +236,11 @@ cd frontend && npm run preview
 
 | Area | Passed | Evidence |
 |------|--------|----------|
-| Automated tests | | |
-| Security scan | | |
-| Accessibility audit | | |
-| Licence audit | | |
-| Production build verification | | |
-| Manual acceptance | | |
+| Automated tests | Yes| See above|
+| Security scan | Yes| See above|
+| Accessibility audit | Yes| See above|
+| Licence audit | Yes| No substantive change since licence and About were last generated|
+| Production build verification | Fixed on branch| See changes to enable preview|
+| Manual acceptance | Yes| See above|
 
 Once all rows are complete, proceed to tagging the release as described in [RELEASE_PROCESS.md](RELEASE_PROCESS.md).

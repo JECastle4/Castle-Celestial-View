@@ -54,13 +54,13 @@ html, body, #app {
   justify-content: center;
   gap: 1rem;
   padding: 4px 12px;
-  background: rgba(0, 0, 0, 0.6);
-  color: rgba(255, 255, 255, 0.6);
+  background: #111;
+  color: #bbb;
   font-size: 0.7rem;
 }
 
 .footer-about-link {
-  color: rgba(255, 255, 255, 0.5);
+  color: #bbb;
   text-decoration: none;
   font-size: 0.7rem;
 }
