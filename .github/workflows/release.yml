@@ -16,6 +16,12 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v6
 
+    # ── Python setup (done here so tomllib is available for version validation) ──
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.14'
+
     # ── Version validation ──────────────────────────────────────────────────
     - name: Validate version synchronisation
       run: |
@@ -48,11 +54,6 @@ jobs:
         echo "Versions consistent: $API_VERSION"
 
     # ── Python build ────────────────────────────────────────────────────────
-    - name: Set up Python
-      uses: actions/setup-python@v6
-      with:
-        python-version: '3.14'
-
     - name: Install build tools
       run: python -m pip install --upgrade pip build
 

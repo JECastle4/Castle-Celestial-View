@@ -13,6 +13,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v6
 
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.11'  # Minimum version that ships tomllib in stdlib
+
     - name: Validate API and Frontend versions match
       run: |
         API_VERSION=$(python3 -c "

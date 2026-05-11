@@ -74,4 +74,10 @@ The `release.yml` GitHub Actions workflow is triggered by any tag matching `v*.*
 
 ## API Endpoint Versioning
 
-The REST API currently uses non-versioned routes (e.g., `/api/sun-position`). If URL versioning (e.g., `/api/v1/sun-position`) is introduced in the future, document the relationship between route version and package version here.
+The REST API is currently exposed under the `/api/v1` prefix (for example, `/api/v1/sun-position`).
+The URL version identifies the public API compatibility version, while the package versions in `pyproject.toml` and `frontend/package.json` continue to use full Semantic Versioning and must remain synchronized as described above.
+As a rule going forward:
+- Backward-compatible changes may increment the package `MINOR` or `PATCH` version without changing the URL prefix.
+- Breaking API changes should increment the package `MAJOR` version and, when they affect the public HTTP contract, should be introduced under a new URL prefix such as `/api/v2/...`.
+
+In other words, the route version (`v1`, `v2`, ...) tracks API-generation compatibility, not every package release number.

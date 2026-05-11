@@ -70,7 +70,7 @@ frontend/dist/
 ### Production Optimizations
 
 - TypeScript type-checking runs before bundling (`vue-tsc`)
-- JavaScript is minified and chunked via Rolldown
+- JavaScript is minified and split into optimized chunks during the Vite production build
 - `import.meta.env.DEV` is replaced with `false` at build time, which tree-shakes:
   - `xx-reverse` locale from `src/locales/xx-reverse.json`
   - The `xx-reverse` route from the router
