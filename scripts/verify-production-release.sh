@@ -56,6 +56,18 @@ port_in_use() {
 }
 
 # ─── Help ─────────────────────────────────────────────────────────────────────
+# Validates that the given value is a numeric TCP port (1–65535).
+# Usage: validate_port <flag-name> <value>
+validate_port() {
+  local flag="$1" value="$2"
+  if ! [[ "$value" =~ ^[0-9]+$ ]] || [[ "$value" -lt 1 ]] || [[ "$value" -gt 65535 ]]; then
+    err "$flag must be a numeric port between 1 and 65535 (got: '$value')."
+    echo "Run '$0 --help' for usage."
+    exit 1
+  fi
+}
+
+# ─── Help ─────────────────────────────────────────────────────────────────────
 usage() {
   cat <<EOF
 
@@ -83,7 +95,7 @@ ${BOLD}Environment variables:${NC}
 
 ${BOLD}Prerequisites:${NC}
   curl, unzip        System utilities (both included in Git Bash on Windows)
-  python3 >=3.11     Python interpreter (3.14 preferred — matches the wheel)
+  python3 >=3.9     Python interpreter (3.14 preferred — matches the wheel)
                      Used for JSON parsing (no jq required)
   node >=20          Node.js runtime
   npm                Node package manager
@@ -121,6 +133,7 @@ while [[ $# -gt 0 ]]; do
         echo "Run '$0 --help' for usage."
         exit 1
       fi
+      validate_port "--api-port" "$2"
       API_PORT="$2"; shift ;;
     --fe-port)
       if [[ $# -lt 2 || -z "${2-}" ]]; then
@@ -128,6 +141,7 @@ while [[ $# -gt 0 ]]; do
         echo "Run '$0 --help' for usage."
         exit 1
       fi
+      validate_port "--fe-port" "$2"
       FE_PORT="$2"; shift ;;
     v[0-9]*.[0-9]*)     TAG="$1" ;;
     *)
@@ -240,6 +254,21 @@ check_prerequisites() {
   if [[ ! -d "$REPO_ROOT/frontend/node_modules/@playwright" ]]; then
     err "@playwright/test not found in node_modules — run 'npm ci' in frontend/"
     missing=1
+  fi
+
+  # python3 -m venv availability (missing on Debian/Ubuntu without python3-venv)
+  if command -v python3 &>/dev/null; then
+    local venv_test_dir
+    venv_test_dir="$(mktemp -d)"
+    if ! python3 -m venv "$venv_test_dir" &>/dev/null; then
+      err "python3 -m venv failed — the venv module may not be installed."
+      err "On Debian/Ubuntu: sudo apt install python3-venv"
+      err "On other systems: ensure python3-venv or an equivalent package is present."
+      missing=1
+    else
+      info "python3 -m venv  ✓"
+    fi
+    rm -rf "$venv_test_dir"
   fi
 
   if [[ "$missing" -ne 0 ]]; then

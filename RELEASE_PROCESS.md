@@ -91,7 +91,7 @@ bash scripts/verify-production-release.sh v1.0.0
 bash scripts/verify-production-release.sh v1.0.0
 ```
 
-All 33 tests must pass before proceeding. On failure, investigate the
+All tests must pass before proceeding. On failure, investigate the
 Playwright report at `frontend/playwright-report-prod/index.html`.
 
 ### 8. Publish the GitHub Release
@@ -146,7 +146,7 @@ The script `scripts/verify-production-release.sh`:
 | Requirement | Version | Notes |
 |---|---|---|
 | `curl`, `unzip` | any | Included in Git Bash on Windows |
-| Python | ≥ 3.11 (3.14 preferred) | 3.14 matches the build environment |
+| Python | ≥ 3.9 (3.14 preferred) | 3.14 matches the build environment |
 | Node / npm | ≥ 20 | |
 | `frontend/node_modules` | — | Run `npm ci` in `frontend/` first |
 | Playwright browsers | — | Run `npx playwright install` in `frontend/` |
@@ -156,11 +156,18 @@ unauthenticated rate limit.
 
 ### Running locally
 
-**Windows (Git Bash):**
+**Windows — Git Bash** (open Git Bash, `cd` to the repo root, then run):
 
 ```bash
 # Stop any running dev API server (port 8000 must be free), then:
-& "C:\Program Files\Git\bin\bash.exe" -c "cd '/c/Users/<you>/path/to/repo' && bash scripts/verify-production-release.sh v1.0.0"
+bash scripts/verify-production-release.sh v1.0.0
+```
+
+**Windows — PowerShell** (launches Git Bash to run the script):
+
+```powershell
+# Stop any running dev API server (port 8000 must be free), then:
+& "C:\Program Files\Git\bin\bash.exe" -c "cd '$((Get-Location).Path -replace '\\','/')' && bash scripts/verify-production-release.sh v1.0.0"
 ```
 
 **macOS / Linux:**
