@@ -78,11 +78,16 @@ In the GitHub repository, go to **Actions → Release** to monitor the build. Th
 Before publishing, confirm the release artifacts work end-to-end:
 
 ```bash
-# Stop the dev API server first (port 8000 must be free)
-# Then run from the repo root — on Windows use Git Bash:
-& "C:\Program Files\Git\bin\bash.exe" -c "cd '$(pwd -W)' && bash scripts/verify-production-release.sh v1.0.0"
+# Stop the dev API server first (port 8000 must be free).
+# Run from the repo root using Git Bash (not PowerShell):
+bash scripts/verify-production-release.sh v1.0.0
+```
 
-# On macOS / Linux:
+> **Windows:** open Git Bash, `cd` to the repo root, then run the command above.
+> Do not run this script from PowerShell — it requires a bash environment.
+
+```bash
+# macOS / Linux (same command):
 bash scripts/verify-production-release.sh v1.0.0
 ```
 

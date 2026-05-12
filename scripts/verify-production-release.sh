@@ -39,6 +39,22 @@ warn()  { echo -e "  ${YELLOW}!${NC} $*"; }
 err()   { echo -e "  ${RED}✗${NC} $*" >&2; }
 step()  { echo -e "\n${BOLD}── $* ──${NC}"; }
 
+# Returns 0 if something is already listening on the given TCP port.
+# Uses the first available method: nc -z, lsof, or bash /dev/tcp.
+# Does NOT use curl so that any HTTP response code (4xx, 5xx, …) is still
+# treated as "port occupied" — the curl -f flag would silently ignore those.
+port_in_use() {
+  local port="$1"
+  if command -v nc &>/dev/null; then
+    nc -z localhost "$port" &>/dev/null
+  elif command -v lsof &>/dev/null; then
+    lsof -ti ":$port" &>/dev/null
+  else
+    # bash built-in /dev/tcp: succeeds when the TCP handshake completes
+    (echo > "/dev/tcp/localhost/$port") &>/dev/null
+  fi
+}
+
 # ─── Help ─────────────────────────────────────────────────────────────────────
 usage() {
   cat <<EOF
@@ -99,8 +115,20 @@ EOF
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --help|-h)          usage ;;
-    --api-port)         API_PORT="$2"; shift ;;
-    --fe-port)          FE_PORT="$2"; shift ;;
+    --api-port)
+      if [[ $# -lt 2 || -z "${2-}" ]]; then
+        err "--api-port requires a port number argument."
+        echo "Run '$0 --help' for usage."
+        exit 1
+      fi
+      API_PORT="$2"; shift ;;
+    --fe-port)
+      if [[ $# -lt 2 || -z "${2-}" ]]; then
+        err "--fe-port requires a port number argument."
+        echo "Run '$0 --help' for usage."
+        exit 1
+      fi
+      FE_PORT="$2"; shift ;;
     v[0-9]*.[0-9]*)     TAG="$1" ;;
     *)
       err "Unknown argument: $1"
@@ -171,15 +199,15 @@ check_prerequisites() {
     fi
   done
 
-  # Python version check: 3.11 minimum, 3.14 preferred
+  # Python version check: 3.9 minimum (matches requires-python in pyproject.toml), 3.14 preferred
   if command -v python3 &>/dev/null; then
     local py_major py_minor
     py_major=$(python3 -c "import sys; print(sys.version_info.major)")
     py_minor=$(python3 -c "import sys; print(sys.version_info.minor)")
     local py_version="$py_major.$py_minor"
 
-    if [[ "$py_major" -lt 3 ]] || { [[ "$py_major" -eq 3 ]] && [[ "$py_minor" -lt 11 ]]; }; then
-      err "Python 3.11+ required, found $py_version"
+    if [[ "$py_major" -lt 3 ]] || { [[ "$py_major" -eq 3 ]] && [[ "$py_minor" -lt 9 ]]; }; then
+      err "Python 3.9+ required, found $py_version"
       missing=1
     elif [[ "$py_minor" -lt 14 ]]; then
       warn "Python $py_version detected; 3.14 preferred (wheel was built with 3.14)"
@@ -324,8 +352,7 @@ start_api() {
   step "Starting API server (port $API_PORT)"
 
   # Fail fast if the port is already in use
-  if curl -fsSo /dev/null "http://localhost:$API_PORT/health" 2>/dev/null || \
-     curl -fsSo /dev/null "http://localhost:$API_PORT" 2>/dev/null; then
+  if port_in_use "$API_PORT"; then
     err "Port $API_PORT is already in use."
     err "Stop any running API server (e.g. the dev uvicorn) or use --api-port to choose a different port."
     exit 1
@@ -389,7 +416,7 @@ start_frontend() {
   step "Starting frontend server (port $FE_PORT)"
 
   # Fail fast if the port is already in use
-  if curl -fsSo /dev/null "http://localhost:$FE_PORT" 2>/dev/null; then
+  if port_in_use "$FE_PORT"; then
     err "Port $FE_PORT is already in use."
     err "Stop any running frontend server or use --fe-port to choose a different port."
     exit 1
@@ -409,6 +436,7 @@ start_frontend() {
   # wrapper and leave vite running, holding the port.
   (
     cd "$REPO_ROOT/frontend"
+    export API_PORT="$API_PORT"
     exec npx vite preview \
       --outDir "$WORK_DIR/fe/dist" \
       --port "$FE_PORT" \
