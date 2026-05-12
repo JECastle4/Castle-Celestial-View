@@ -106,13 +106,13 @@ h1 {
 .version {
   margin: 0;
   font-size: 0.8rem;
-  color: #666;
+  color: #999;
 }
 
 .license {
   margin: 0;
   font-size: 0.85rem;
-  color: #777;
+  color: #999;
 }
 
 .attributions {
@@ -159,7 +159,7 @@ h2 {
 
 .lib-license {
   font-size: 0.75rem;
-  color: #666;
+  color: #999;
 }
 
 .close-link {

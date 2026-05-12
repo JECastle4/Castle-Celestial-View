@@ -7,6 +7,29 @@ on:
     branches: [ main, develop ]
 
 jobs:
+  version-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'  # Minimum version that ships tomllib in stdlib
+
+      - name: Validate API and Frontend versions match
+        run: |
+          API_VERSION=$(python3 -c "import tomllib; d=tomllib.load(open('pyproject.toml','rb')); print(d['project']['version'])")
+          FE_VERSION=$(python3 -c "import json; print(json.load(open('frontend/package.json'))['version'])")
+          echo "API version:      $API_VERSION"
+          echo "Frontend version: $FE_VERSION"
+          if [ "$API_VERSION" != "$FE_VERSION" ]; then
+            echo "::error::Version mismatch — pyproject.toml ($API_VERSION) and frontend/package.json ($FE_VERSION) must match. Update both files together. See VERSIONING.md."
+            exit 1
+          fi
+          echo "Versions consistent: $API_VERSION"
+
   test-and-security:
     runs-on: ubuntu-latest
     
@@ -46,6 +69,7 @@ jobs:
       run: |
         # --skip-editable: astronomy-tools is our own local package, not on PyPI
         # CVE-2026-3219 (pip): fixed in pip 26.1
+        # CVE-2026-44431, CVE-2026-44432 (urllib3): fixed in 2.7.0
         pip-audit --desc --skip-editable
     
     - name: Code quality - Pylint
