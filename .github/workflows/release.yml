@@ -25,18 +25,8 @@ jobs:
       # ── Version validation ────────────────────────────────────────────────
       - name: Validate version synchronisation
         run: |
-          API_VERSION=$(python3 -c "
-          import tomllib
-          with open('pyproject.toml', 'rb') as f:
-              data = tomllib.load(f)
-          print(data['project']['version'])
-          ")
-          FE_VERSION=$(python3 -c "
-          import json
-          with open('frontend/package.json') as f:
-              data = json.load(f)
-          print(data['version'])
-          ")
+          API_VERSION=$(python3 -c "import tomllib; d=tomllib.load(open('pyproject.toml','rb')); print(d['project']['version'])")
+          FE_VERSION=$(python3 -c "import json; print(json.load(open('frontend/package.json'))['version'])")
           TAG_VERSION="${GITHUB_REF_NAME#v}"
 
           echo "API version:      $API_VERSION"
@@ -128,4 +118,4 @@ jobs:
           files: |
             dist/*.whl
             dist/*.tar.gz
-          dist/castle-celestial-view-frontend-*.zip
+            dist/castle-celestial-view-frontend-*.zip

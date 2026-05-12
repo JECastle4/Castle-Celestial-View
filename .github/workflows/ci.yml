@@ -20,18 +20,8 @@ jobs:
 
       - name: Validate API and Frontend versions match
         run: |
-          API_VERSION=$(python3 -c "
-          import tomllib
-          with open('pyproject.toml', 'rb') as f:
-              data = tomllib.load(f)
-          print(data['project']['version'])
-          ")
-          FE_VERSION=$(python3 -c "
-          import json
-          with open('frontend/package.json') as f:
-              data = json.load(f)
-          print(data['version'])
-          ")
+          API_VERSION=$(python3 -c "import tomllib; d=tomllib.load(open('pyproject.toml','rb')); print(d['project']['version'])")
+          FE_VERSION=$(python3 -c "import json; print(json.load(open('frontend/package.json'))['version'])")
           echo "API version:      $API_VERSION"
           echo "Frontend version: $FE_VERSION"
           if [ "$API_VERSION" != "$FE_VERSION" ]; then
