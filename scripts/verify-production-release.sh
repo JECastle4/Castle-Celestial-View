@@ -232,15 +232,29 @@ check_prerequisites() {
     fi
   fi
 
-  # Node version check: 20 minimum
+  # Node version check: 20.19.0 minimum (matches frontend/package.json engines.node)
   if command -v node &>/dev/null; then
-    local node_major
-    node_major=$(node --version | sed 's/v//' | cut -d. -f1)
-    if [[ "$node_major" -lt 20 ]]; then
-      err "Node 20+ required, found $(node --version)"
-      missing=1
+    local node_version_raw node_version
+    local node_major node_minor node_patch
+    node_version_raw="$(node --version)"
+    node_version="${node_version_raw#v}"
+
+    if [[ "$node_version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+      node_major="${BASH_REMATCH[1]}"
+      node_minor="${BASH_REMATCH[2]}"
+      node_patch="${BASH_REMATCH[3]}"
+
+      if (( node_major < 20 )) || \
+         (( node_major == 20 && node_minor < 19 )) || \
+         (( node_major == 20 && node_minor == 19 && node_patch < 0 )); then
+        err "Node 20.19.0+ required, found $node_version_raw"
+        missing=1
+      else
+        info "Node $node_version_raw  ✓"
+      fi
     else
-      info "Node $(node --version)  ✓"
+      err "Unable to parse Node version '$node_version_raw' — Node 20.19.0+ required"
+      missing=1
     fi
   fi
 
