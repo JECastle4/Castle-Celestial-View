@@ -47,7 +47,7 @@
     "happy-dom": "^20.9.0",
     "jest-axe": "^10.0.0",
     "typescript": "^6.0.3",
-    "vite": "^8.0.10",
+    "vite": "^8.0.12",
     "vitest": "^4.0.18",
     "vue-eslint-parser": "^10.4.0",
     "vue-tsc": "^3.2.7"
