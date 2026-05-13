@@ -31,7 +31,7 @@ export default defineConfig({
     proxy: {
       // Proxy API requests to FastAPI backend when previewing the production build
       '/api': {
-        target: 'http://localhost:8000',
+        target: `http://localhost:${process.env.API_PORT || 8000}`,
         changeOrigin: true,
       },
     },

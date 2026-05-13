@@ -21,6 +21,7 @@ coverage
 # Playwright
 test-results/
 playwright-report/
+playwright-report-prod/
 playwright/.cache/
 # Note: Golden screenshots (tests/e2e/*.spec.ts-snapshots/) should be committed
 
