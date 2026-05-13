@@ -206,7 +206,7 @@ docker run --rm \\
      -w /app \\
      ccv-verify \\
      bash -lc 'cd frontend && npm ci && npx playwright install && cd /app && ./scripts/verify-production-release.sh v1.0.0'
-
+```
 
 ### Report
 
