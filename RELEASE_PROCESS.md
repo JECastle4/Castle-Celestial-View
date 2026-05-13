@@ -200,11 +200,13 @@ that matches the snapshot baselines generated in CI:
 docker build -f Dockerfile.playwright -t ccv-verify .
 
 # Run verification (replace tag and token as needed)
-docker run --rm \
-  -e GITHUB_TOKEN=$GITHUB_TOKEN \
-  ccv-verify \
-  ./scripts/verify-production-release.sh v1.0.0
-```
+docker run --rm \\
+     -e GITHUB_TOKEN=\$GITHUB_TOKEN \\
+     -v "\$(pwd):/app" \\
+     -w /app \\
+     ccv-verify \\
+     bash -lc 'cd frontend && npm ci && npx playwright install && cd /app && ./scripts/verify-production-release.sh v1.0.0'
+
 
 ### Report
 

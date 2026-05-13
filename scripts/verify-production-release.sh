@@ -119,7 +119,6 @@ ${BOLD}Docker (recommended for consistent Linux snapshots):${NC}
      -v "\$(pwd):/app" \\
      -w /app \\
      ccv-verify \\
-     ./scripts/verify-production-release.sh v1.0.0
      bash -lc 'cd frontend && npm ci && npx playwright install && cd /app && ./scripts/verify-production-release.sh v1.0.0'
 
 EOF
@@ -253,8 +252,7 @@ check_prerequisites() {
     info "frontend/node_modules present  ✓"
   fi
 
-  # Playwright browsers
-  if [[ ! -d "$REPO_ROOT/frontend/node_modules/@playwright" ]]; then
+  # Playwright package check if [[ ! -d "$REPO_ROOT/frontend/node_modules/@playwright" ]]; then
     err "@playwright/test not found in node_modules — run 'npm ci' in frontend/"
     missing=1
   fi
@@ -456,7 +454,7 @@ start_frontend() {
 
   # Use 'vite preview' so the /api proxy in vite.config.ts is active.
   # The production dist uses relative API paths (/api/...) which require a
-  # server-side proxy to reach the API on port 8000.
+  # server-side proxy to reach the API on the configured API port.
   info "Starting vite preview (dist: $WORK_DIR/fe/dist)..."
 
   # Run vite preview from frontend/ so vite.config.ts (and its proxy config) is
