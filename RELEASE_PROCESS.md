@@ -119,7 +119,7 @@ For urgent patches on an already-released version:
 1. Branch from the tag: `git checkout -b hotfix/v1.0.1 v1.0.0`
 2. Apply the fix, update version to `1.0.1` in both files, update CHANGELOG.md
 3. Open a PR back to `main`
-4. After merge, tag `v1.0.1` on `main` and follow steps 5–7 above
+4. After merge, tag `v1.0.1` on `main` and follow steps 5–8 above
 
 ---
 

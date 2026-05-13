@@ -115,9 +115,12 @@ ${BOLD}Examples:${NC}
 ${BOLD}Docker (recommended for consistent Linux snapshots):${NC}
   docker build -f Dockerfile.playwright -t ccv-verify .
   docker run --rm \\
-    -e GITHUB_TOKEN=\$GITHUB_TOKEN \\
-    ccv-verify \\
-    ./scripts/verify-production-release.sh v1.0.0
+     -e GITHUB_TOKEN=\$GITHUB_TOKEN \\
+     -v "\$(pwd):/app" \\
+     -w /app \\
+     ccv-verify \\
+     ./scripts/verify-production-release.sh v1.0.0
+     bash -lc 'cd frontend && npm ci && npx playwright install && cd /app && ./scripts/verify-production-release.sh v1.0.0'
 
 EOF
   exit 0
