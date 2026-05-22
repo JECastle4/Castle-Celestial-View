@@ -9,7 +9,6 @@ import { test, expect } from '@playwright/test';
 test.describe('BaseMap - Pin Tool', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
     // The map is rendered before data is loaded; wait for it to appear.
     await expect(page.getByRole('application', { name: 'Interactive map' })).toBeVisible();
   });
