@@ -33,6 +33,22 @@ pytest
 |api\services\moon_phase.py                |    49|      0|   100%||
 |api\services\sun.py                       |    20|      0|   100%||
 
+#### 2026-05-22 218 passed, 10 warnings in 11.00s
+|Name                                       |Stmts   |Miss  |Cover   |Missing|
+|------------------------------------------|------|------|-------|----------------------------------|
+|api\__init__.py                            |    0   |   0  | 100%||
+|api\i18n.py                                |   68   |   0  | 100%||
+|api\main.py                                |   64   |   3  |  95%   |48-50|
+|api\models.py                              |   84   |   0  | 100%   |
+|api\routes.py                              |   77   |  14  |  82%   |80-86, 118-119, 162-163, 206-207, 254-255, 305-306|
+|api\services\__init__.py                   |    0   |   0  | 100%||
+|api\services\batch_earth_observations.py   |   44   |   0  | 100%||
+|api\services\dates.py                      |   10   |   0  | 100%||
+|api\services\moon.py                       |   21   |   0  | 100%||
+|api\services\moon_phase.py                 |   49   |   0  | 100%||
+|api\services\sun.py                        |   20   |   0  | 100%||
+|api\utils.py                               |    4   |   0  | 100%||
+
 ### Frontend (Vitest)
 
 ```bash
@@ -44,6 +60,12 @@ npm run test:coverage
 |----------|---------------|
 | 151      | 22 (173)      |
 
+#### 2026-05-22
+|Passed    |Skipped        |
+|----------|---------------|
+| 151      | 22 (173)      |
+
+#### 2026-05-11 + 2026-05-22
 |File                  | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
 |----------------------|---------|----------|---------|---------|-------------------
 |All files             |     100 |    94.64 |     100 |     100 |                   
@@ -78,6 +100,10 @@ npm run test:e2e
 #### 2026-05-11
 Running 44 tests using 11 workers
   44 passed (38.4s)
+
+#### 2026-05-22
+Running 44 tests using 11 workers
+  44 passed (41.1s)
 
 ---
 
@@ -133,6 +159,41 @@ pip-audit --skip-editable
 No known vulnerabilities found
 ---
 
+#### 2026-05-22
+npm audit                                                                             
+found 0 vulnerabilities
+
+andit -r api                                                                         
+[main]  INFO    profile include tests: None
+[main]  INFO    profile exclude tests: None
+[main]  INFO    cli include tests: None
+[main]  INFO    cli exclude tests: None
+[main]  INFO    running on Python 3.14.2
+Run started:2026-05-22 21:11:08.146809+00:00
+
+Test results:
+        No issues identified.
+
+Code scanned:
+        Total lines of code: 1261
+        Total lines skipped (#nosec): 0
+
+Run metrics:
+        Total issues (by severity):
+                Undefined: 0
+                Low: 0
+                Medium: 0
+                High: 0
+        Total issues (by confidence):
+                Undefined: 0
+                Low: 0
+                Medium: 0
+                High: 0
+Files skipped (0):
+pip-audit --skip-editable
+\ Collecting inputsWARNING: Ignoring invalid distribution ~vicorn (C:\Users\jecas\OneDrive\Documents\Programming\Python\.venv\Lib\site-packages)
+No known vulnerabilities found
+
 ## 3. Accessibility Audit
 
 Perform a manual accessibility review of all primary views before each release.
@@ -169,6 +230,8 @@ Use one or more of the following to assist:
 **Evidence**: Screenshots or screen recordings of each view with the accessibility tool output. Attach to the GitHub Release or link to an external document.
 
 #### 2026-05-11
+0 Issues found on all views
+#### 2026-05-22
 0 Issues found on all views
 
 ---

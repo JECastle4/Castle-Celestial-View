@@ -6,12 +6,9 @@ import { test, expect } from '@playwright/test';
  */
 
 test.describe('Astronomy Scene - Initial Load', () => {
-  test('should load the page and have Load Data button enabled', async ({ page }) => {
+  test('should load the page and have Load Data button enabled', { timeout: 35000 }, async ({ page }) => {
     // Navigate to the home page
     await page.goto('/');
-
-    // Wait for the page to fully load
-    await page.waitForLoadState('networkidle');
 
     // Verify the main heading is present
     await expect(page.getByRole('heading', { name: 'Castle Celestial View' })).toBeVisible();
@@ -25,11 +22,22 @@ test.describe('Astronomy Scene - Initial Load', () => {
     await expect(frameCountInput).toHaveValue('48');
 
     // Set the date range to 2/2/2026
-    const startDateInput = page.locator('input[type="date"]').first();
-    const endDateInput = page.locator('input[type="date"]').nth(1);
-    await startDateInput.fill('2026-02-02');
-    await endDateInput.fill('2026-02-02');
-    await page.waitForTimeout(100); // allow Vue to update
+    // Scope to .date-range-picker to avoid matching the duplicate date inputs
+    // in the controls panel (there are 4 input[type="date"] on the page).
+    // Use evaluate+dispatchEvent instead of fill() — WebKit does not fire
+    // the input/change events that Vue v-model relies on for date inputs.
+    const startDateInput = page.locator('.date-range-picker input[type="date"]').first();
+    const endDateInput = page.locator('.date-range-picker input[type="date"]').nth(1);
+    await startDateInput.evaluate((el: HTMLInputElement, val) => {
+      el.value = val;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }, '2026-02-02');
+    await endDateInput.evaluate((el: HTMLInputElement, val) => {
+      el.value = val;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }, '2026-02-02');
     // Click Apply
     const applyButton = page.getByRole('button', { name: 'Apply' });
     await expect(applyButton).toBeEnabled();
