@@ -3,8 +3,7 @@ Date and time calculation services
 """
 from astropy.time import Time
 
-# Import from root module - works when package is installed
-from DayOfTheWeek import jd_to_weekday
+from api.utils import jd_to_weekday
 from api.i18n import t
 
 

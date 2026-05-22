@@ -1,5 +1,5 @@
 # tests/test_dayofweek.py
-from DayOfTheWeek import jd_to_weekday
+from api.utils import jd_to_weekday
 
 def test_jd_to_weekday_saturday():
     assert jd_to_weekday(2451545.0) == 6  # 2000-01-01 is Saturday

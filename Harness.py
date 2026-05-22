@@ -3,7 +3,7 @@ import math
 from PromptDate import prompt_date
 from PromptLocation import prompt_location
 from astropy.time import Time
-from DayOfTheWeek import jd_to_weekday
+from api.utils import jd_to_weekday
 from SunRiseAndSet import sunrise, sunset
 from MoonRiseAndSet import moon_rise_set
 from MoonPhase import moon_phase, moon_phase_name

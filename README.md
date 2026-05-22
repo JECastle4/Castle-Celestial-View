@@ -8,9 +8,13 @@ John's python code - probably astronomy related
  - Confirm `npm ci` and `npm run build` succeed.
  
 # To start the app:
-## PowerShell terminal 1
+### FE Dev PowerShell terminal 1
 cd frontend; npm run dev
-## Powershell terminal 2
+### FE Prod PowerShell terminal 2
+cd frontend
+npm run build
+npm run preview
+## Powershell terminal 3
 may need to run:
 (.\.venv\Scripts\Activate.ps1)
 uvicorn api.main:app --reload --port 8000
