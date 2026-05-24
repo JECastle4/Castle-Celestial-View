@@ -1,8 +1,8 @@
 import requests
 
-FRONTEND_URL = "http://castlecelestialview.net/en/index.html"
+FRONTEND_URL = "https://castlecelestialview.net/en/index.html"
 API_URL = (
-    "http://castlecelestialview.net/api/v1/batch-earth-observations-stream?"
+    "https://castlecelestialview.net/api/v1/batch-earth-observations-stream?"
     "start_date=2026-05-24&start_time=00:00:00&end_date=2026-05-24&end_time=23:59:59&"
     "frame_count=48&latitude=51.5&longitude=-0.1&elevation=0&lang=en"
 )

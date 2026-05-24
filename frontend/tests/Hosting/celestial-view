@@ -1,6 +1,7 @@
 server {
     listen 80;
     server_name castlecelestialview.net;
+    return 301 https://$host$request_uri;
 
     # Serve frontend static files
     root /home/deployuser/dist;
