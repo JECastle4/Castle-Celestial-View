@@ -11,3 +11,11 @@
 - Use Certbot for free SSL:
 - sudo apt install certbot python3-certbot-nginx
 - sudo certbot --nginx -d example.com
+
+## Enable port 80:
+sudo ufw allow 80/tcp
+sudo ufw reload
+
+## Disable port 80
+sudo ufw deny 80/tcp
+sudo ufw reload
