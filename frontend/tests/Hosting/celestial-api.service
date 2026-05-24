@@ -1,0 +1,15 @@
+[Unit]
+Description=Castle Celestial View API (Gunicorn)
+After=network.target
+
+[Service]
+User=deployuser
+Group=www-data
+WorkingDirectory=/home/deployuser
+Environment="PATH=/home/deployuser/venv/bin"
+ExecStart=/home/deployuser/venv/bin/gunicorn -k uvicorn.workers.UvicornWorker api.main:app --bind 127.0.0.1:8000
+
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
