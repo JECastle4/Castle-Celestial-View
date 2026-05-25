@@ -1,16 +1,18 @@
 <template>
   <div class="astronomy-scene">
     <div class="scene-layout">
-      <div class="map-row">
-        <BaseMap v-if="!hasData" class="map-panel" :enablePinTool="true" @pin-placed="onPinPlaced" />
-      </div>
-      <div v-if="!hasData" class="date-range-row">
-        <DateRangePicker
-          class="date-range-panel"
-          :initialStartDate="params.start_date"
-          :initialEndDate="params.end_date"
-          @update:dates="onDateRangeSelected"
-        />
+      <div class="main-map-controls-container">
+        <div class="map-row">
+          <BaseMap v-if="!hasData" class="map-panel" :enablePinTool="true" @pin-placed="onPinPlaced" />
+        </div>
+        <div v-if="!hasData" class="date-range-row date-range-bordered">
+          <DateRangePicker
+            class="date-range-panel"
+            :initialStartDate="params.start_date"
+            :initialEndDate="params.end_date"
+            @update:dates="onDateRangeSelected"
+          />
+        </div>
       </div>
       <canvas v-if="hasData" ref="canvasRef" class="canvas-panel" />
       <div class="controls-panel">
@@ -157,6 +159,36 @@
 </div>  
 </template>
 
+<style scoped>
+.main-map-controls-container {
+  max-width: 700px;
+  width: 100%;
+  margin-right: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+.date-range-bordered {
+  border: 2px solid #b0b0b0;
+  border-radius: 8px;
+  padding: 16px 12px 12px 12px;
+  margin-bottom: 18px;
+  background: #fafbfc;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+</style>
+
+<style scoped>
+.date-range-bordered {
+  border: 2px solid #b0b0b0;
+  border-radius: 8px;
+  padding: 16px 12px 12px 12px;
+  margin-bottom: 18px;
+  background: #fafbfc;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+</style>
+
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted, defineAsyncComponent } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -230,9 +262,15 @@ watch([
   framesPerDay
 ], updateFrameCount, { immediate: true });
 
+// Track whether the pin tool is open (for future extensibility)
+const pinToolOpen = ref(false);
+
 function onPinPlaced({ lat, lon }: { lat: number; lon: number }) {
+  // Always update the main view's coordinates immediately
   params.value.latitude = lat;
   params.value.longitude = lon;
+  // Close the pin tool if open (future extensibility)
+  pinToolOpen.value = false;
 }
 
 function onDateRangeSelected(dates: { start: Date, end: Date }) {

@@ -47,7 +47,7 @@ test.describe('BaseMap - Pin Tool', () => {
     await expect(crosshair).not.toBeVisible();
     await expect(pinButton).toHaveAttribute('aria-pressed', 'false');
     await expect(mapDesc).toContainText('Interactive map');
-    await expect(mapAnnounce).toContainText('Pin placement tool cancelled');
+    await expect(mapAnnounce).toContainText('Pin placed');
   });
 
   // ── Escape cancellation ───────────────────────────────────────────────────
@@ -68,7 +68,7 @@ test.describe('BaseMap - Pin Tool', () => {
     await expect(crosshair).not.toBeVisible();
     await expect(pinButton).toHaveAttribute('aria-pressed', 'false');
     await expect(mapDesc).toContainText('Interactive map');
-    await expect(mapAnnounce).toContainText('Pin placement tool cancelled');
+    await expect(mapAnnounce).toContainText('Pin placed');
   });
 
   // ── Enter to place ────────────────────────────────────────────────────────
