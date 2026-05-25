@@ -129,11 +129,19 @@ test.describe('Astronomy Scene - Sky View Animation Controls', () => {
     const loadButton = page.getByRole('button', { name: 'Load Data' });
     await loadButton.click();
     const loadingMessage = page.locator('.loading', { hasText: 'Loading...' });
+    await expect(loadingMessage).toBeVisible();
     await expect(loadingMessage).not.toBeVisible({ timeout: 30000 });
     const errorMessage = page.locator('.error');
     if (await errorMessage.isVisible()) {
       throw new Error(`API call failed with error: ${await errorMessage.textContent()}`);
     }
+
+    // Verify that animation controls appeared (successful load)
+    const animationControls = page.locator('.animation-controls');
+    await expect(animationControls).toBeVisible();
+    // Wait a moment for the 3D scene to fully render
+    await page.waitForTimeout(1000);
+
     // Switch to Sky View
     const skyViewButton = page.getByRole('button', { name: 'Sky View' });
     await skyViewButton.click();
