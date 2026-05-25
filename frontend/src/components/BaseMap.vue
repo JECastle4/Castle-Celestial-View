@@ -98,6 +98,17 @@ onMounted(() => {
         if (mapInstance) mapInstance.updateSize();
       }, 0);
 
+    // Continuously update pin at center while in pin mode
+    function updateCenterPin() {
+      if (!pinModeActive.value) return;
+      const center = mapInstance.getView().getCenter();
+      pinSource.clear();
+      const feature = new Feature({
+        geometry: new Point(center)
+      });
+      pinSource.addFeature(feature);
+    }
+
     function activatePinMode() {
       pinModeActive.value = true
       if (pinToolImg) pinToolImg.src = '/map-pin-selected.png'
@@ -106,15 +117,36 @@ onMounted(() => {
       if (crosshairOverlay.value) crosshairOverlay.value.style.display = 'block'
       announceKey.value = 'activeDescription'
       mapContainer.value.focus()
+      // Show pin at center immediately
+      updateCenterPin();
     }
 
-    function deactivatePinMode(reason = 'cancelled') {
-      pinModeActive.value = false
-      if (pinToolImg) pinToolImg.src = '/map-pin.png'
-      if (pinToolButton) pinToolButton.setAttribute('aria-pressed', 'false')
-      mapContainer.value.style.cursor = ''
-      if (crosshairOverlay.value) crosshairOverlay.value.style.display = 'none'
-      announceKey.value = reason === 'placed' ? 'placed' : 'cancelled'
+
+    function placePinAt(coords, fromDeactivate = false) {
+      pinSource.clear();
+      const feature = new Feature({
+        geometry: new Point(coords)
+      });
+      pinSource.addFeature(feature);
+      const [lon, lat] = toLonLat(coords);
+      emit('pin-placed', { lat, lon });
+      if (!fromDeactivate) {
+        deactivatePinMode();
+      }
+    }
+
+    function deactivatePinMode() {
+      // Always drop the pin at the current center
+      if (pinModeActive.value) {
+        const center = mapInstance.getView().getCenter();
+        placePinAt(center, true);
+      }
+      pinModeActive.value = false;
+      if (pinToolImg) pinToolImg.src = '/map-pin.png';
+      if (pinToolButton) pinToolButton.setAttribute('aria-pressed', 'false');
+      mapContainer.value.style.cursor = '';
+      if (crosshairOverlay.value) crosshairOverlay.value.style.display = 'none';
+      announceKey.value = 'placed';
     }
 
   mapInstance = new Map({
@@ -164,32 +196,42 @@ onMounted(() => {
     })
     mapInstance.addLayer(pinLayer)
 
-    function placePinAt(coords) {
-      pinSource.clear()
+    function placePinAt(coords, fromDeactivate = false) {
+      pinSource.clear();
       const feature = new Feature({
         geometry: new Point(coords)
-      })
-      pinSource.addFeature(feature)
-      const [lon, lat] = toLonLat(coords)
-      emit('pin-placed', { lat, lon })
-      deactivatePinMode('placed')
+      });
+      pinSource.addFeature(feature);
+      const [lon, lat] = toLonLat(coords);
+      emit('pin-placed', { lat, lon });
+      if (!fromDeactivate) {
+        deactivatePinMode();
+      }
     }
 
-    mapInstance.on('click', function (evt) {
-      if (!pinModeActive.value) return
-      placePinAt(evt.coordinate)
-    })
+    // Continuously update pin at center while in pin mode
+    function updateCenterPin() {
+      if (!pinModeActive.value) return;
+      const center = mapInstance.getView().getCenter();
+      pinSource.clear();
+      const feature = new Feature({
+        geometry: new Point(center)
+      });
+      pinSource.addFeature(feature);
+    }
+
+    // Listen for map move events to update pin
+    mapInstance.getView().on('change:center', updateCenterPin);
+    mapInstance.getView().on('change:resolution', updateCenterPin);
+
+    // Remove click-to-place; pin always follows center
 
     keydownHandler = function (e) {
-      if (!pinModeActive.value) return
-      if (e.key === 'Escape') {
-        deactivatePinMode()
-        e.stopPropagation()
-      } else if (e.key === 'Enter' && e.target === mapContainer.value) {
-        const center = mapInstance.getView().getCenter()
-        placePinAt(center)
-        e.preventDefault()
-        e.stopPropagation()
+      if (!pinModeActive.value) return;
+      if (e.key === 'Escape' || (e.key === 'Enter' && e.target === mapContainer.value)) {
+        deactivatePinMode();
+        e.preventDefault();
+        e.stopPropagation();
       }
     }
     mapContainer.value.addEventListener('keydown', keydownHandler)

@@ -1,6 +1,10 @@
 # Python
 John's python code - probably astronomy related
 
+#
+Website is publicly available at:
+https://castlecelestialview.net/
+
 # For Check In
 ## Pre-commit checklist
  - Remove `node_modules` (keep `package-lock.json`).
