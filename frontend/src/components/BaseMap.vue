@@ -1,3 +1,28 @@
+.ol-attribution,
+.ol-attribution.ol-uncollapsible {
+  position: absolute !important;
+  left: 8px !important;
+  bottom: 8px !important;
+  top: unset !important;
+  right: unset !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  z-index: 1000 !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  min-width: 120px !important;
+  width: auto !important;
+  padding: 2px 8px !important;
+  background: rgba(255,255,255,0.9) !important;
+  border-radius: 4px !important;
+  font-size: 0.85em !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
+  display: block !important;
+  text-align: left !important;
+  flex-flow: unset !important;
+  align-items: unset !important;
+  height: auto !important;
+}
 <template>
   <div class="ol-map-wrapper">
     <span :id="`${instanceId}-desc`" class="sr-only">{{ mapDescText }}</span>
@@ -109,6 +134,15 @@ onMounted(() => {
       pinSource.addFeature(feature);
     }
 
+    // Ensure OpenLayers map resizes with container
+    function handleResize() {
+      if (mapInstance) mapInstance.updateSize();
+    }
+    window.addEventListener('resize', handleResize);
+    // Clean up
+    onBeforeUnmount(() => {
+      window.removeEventListener('resize', handleResize);
+    });
     function activatePinMode() {
       pinModeActive.value = true
       if (pinToolImg) pinToolImg.src = '/map-pin-selected.png'
@@ -302,15 +336,21 @@ onBeforeUnmount(() => {
   flex-direction: column;
   align-items: flex-start;
 }
+
 .ol-map {
   width: 100%;
   height: 100%;
-  min-height: 400px;
+  min-width: 0;
+  min-height: 0;
   border: 1px solid #ccc;
-  :deep(.ol-viewport) {
-    height: 400px !important;
-    min-height: 400px !important;
-  }
+}
+
+.ol-map :deep(.ol-viewport) {
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0;
+  min-height: 18px !important;
+}
 
   :global(.ol-pin-tool) {
     position: absolute;
@@ -321,30 +361,50 @@ onBeforeUnmount(() => {
     flex-direction: column;
     align-items: flex-start;
   }
-  right: auto !important;
-  bottom: 8px !important;
-  top: auto !important;
-  background: rgba(255,255,255,0.9);
-  color: #333;
-  font-size: 0.85em;
-  border-radius: 4px;
-  padding: 2px 8px;
-  z-index: 1000 !important;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-  display: block !important;
-}
+
 /* Ensure OpenLayers attribution is always visible */
 .ol-attribution {
+  position: absolute !important;
+  left: 8px !important;
+  bottom: 8px !important;
+  top: auto !important;
+  right: auto !important;
   opacity: 1 !important;
   visibility: visible !important;
   z-index: 1000 !important;
+  min-height: 0 !important;
+  padding: 2px 8px !important;
+  background: rgba(255,255,255,0.9) !important;
+  border-radius: 4px !important;
+  font-size: 0.85em !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
+  display: block !important;
+  max-width: 90vw !important;
+  text-align: left !important;
+  flex-flow: unset !important;
+  align-items: unset !important;
+  color: #333;
 }
 
 /* Ensure zoom buttons meet WCAG 2.5.8 touch target minimum (24×24px) */
 :deep(.ol-zoom-in),
 :deep(.ol-zoom-out) {
   width: 24px !important;
-  height: 24px !important;
+}
+
+/* Ensure OpenLayers map fills its parent */
+.ol-map-wrapper, .ol-map {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+}
+.ol-map :deep(.ol-viewport) {
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0;
+  min-height: 0;
   line-height: 24px !important;
   font-size: 16px !important;
 }

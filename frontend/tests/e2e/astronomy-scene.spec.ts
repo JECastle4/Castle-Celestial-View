@@ -84,9 +84,9 @@ test.describe('Astronomy Scene - Initial Load', () => {
     // Wait a moment for the 3D scene to fully render
     await page.waitForTimeout(1000);
 
-    // Capture screenshot of 3D view (first frame)
-    const canvas = page.locator('canvas');
-    await expect(canvas).toHaveScreenshot('3d-view-first-frame.png');
+    // Capture screenshot of the full scene (including right panel)
+    const scene = page.locator('.astronomy-scene');
+    await expect(scene).toHaveScreenshot('3d-view-first-frame.png');
 
     // Click the Sky View button
     const skyViewButton = page.getByRole('button', { name: 'Sky View' });
@@ -95,7 +95,7 @@ test.describe('Astronomy Scene - Initial Load', () => {
     // Wait for the view to transition
     await page.waitForTimeout(1000);
 
-    // Capture screenshot of Sky View (first frame)
-    await expect(canvas).toHaveScreenshot('sky-view-first-frame.png');
+    // Capture screenshot of Sky View (full scene)
+    await expect(scene).toHaveScreenshot('sky-view-first-frame.png');
   });
 });

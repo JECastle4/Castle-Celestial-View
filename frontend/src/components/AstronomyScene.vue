@@ -1,20 +1,20 @@
 <template>
   <div class="astronomy-scene">
     <div class="scene-layout">
-      <div class="main-map-controls-container">
-        <div class="map-row">
+      <div class="map-and-date-container">
+        <div class="map-container">
           <BaseMap v-if="!hasData" class="map-panel" :enablePinTool="true" @pin-placed="onPinPlaced" />
+          <canvas v-if="hasData" ref="canvasRef" class="canvas-panel" />
         </div>
-        <div v-if="!hasData" class="date-range-row date-range-bordered">
+        <div v-if="!hasData" class="date-range-centered">
           <DateRangePicker
-            class="date-range-panel"
+            class="date-range-panel date-range-bordered"
             :initialStartDate="params.start_date"
             :initialEndDate="params.end_date"
             @update:dates="onDateRangeSelected"
           />
         </div>
       </div>
-      <canvas v-if="hasData" ref="canvasRef" class="canvas-panel" />
       <div class="controls-panel">
       <h1 class="page-heading">{{ t('app.title') }}</h1>
       
@@ -159,33 +159,89 @@
 </div>  
 </template>
 
-<style scoped>
-.main-map-controls-container {
-  max-width: 700px;
-  width: 100%;
-  margin-right: 32px;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-}
-.date-range-bordered {
-  border: 2px solid #b0b0b0;
-  border-radius: 8px;
-  padding: 16px 12px 12px 12px;
-  margin-bottom: 18px;
-  background: #fafbfc;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-}
-</style>
 
 <style scoped>
+.astronomy-scene {
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100dvh;
+}
+
+/* Layout for full-width map and fixed right panel */
+.scene-layout {
+  display: flex;
+  flex-direction: row;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100vw;
+  position: relative;
+}
+.map-and-date-container {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+.map-container {
+  flex: 1 1 auto;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+}
+.map-panel {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.date-range-centered {
+  position: relative;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 420px;
+  max-width: 90vw;
+  margin-top: 32px;
+  margin-bottom: 24px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
 .date-range-bordered {
   border: 2px solid #b0b0b0;
   border-radius: 8px;
   padding: 16px 12px 12px 12px;
-  margin-bottom: 18px;
   background: #fafbfc;
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  margin-bottom: 18px;
+}
+.controls-panel {
+  position: relative;
+  width: 340px;
+  min-width: 280px;
+  max-width: 400px;
+  flex-shrink: 0;
+  margin: 0;
+  background: #181818;
+  color: #fff;
+  padding: 24px 18px 18px 18px;
+  border-radius: 0 0 0 8px;
+  height: 100vh;
+  overflow-y: auto;
+  font-size: 1em;
 }
 </style>
 
@@ -597,81 +653,88 @@ function handleResize() {
     sceneManager.camera.updateProjectionMatrix();
   }
 }
+
+// --- Responsive canvas sizing ---
+let resizeObserver: ResizeObserver | null = null;
+
+// Initialize Three.js scene and observe canvas size
+watch(
+  () => hasData.value,
+  (newVal) => {
+    if (newVal) {
+      nextTick(() => {
+        if (canvasRef.value) {
+          initializeObjects();
+          // Set up ResizeObserver to keep canvas and renderer sized to container
+          if (resizeObserver) resizeObserver.disconnect();
+          resizeObserver = new ResizeObserver(entries => {
+            for (const entry of entries) {
+              const canvas = entry.target as HTMLCanvasElement;
+              const parent = canvas.parentElement;
+              if (parent) {
+                const width = parent.clientWidth;
+                const height = parent.clientHeight;
+                if (canvas.width !== width || canvas.height !== height) {
+                  canvas.width = width;
+                  canvas.height = height;
+                  if (sceneManager && sceneManager.renderer) {
+                    sceneManager.renderer.setSize(width, height, false);
+                  }
+                }
+              }
+            }
+          });
+          resizeObserver.observe(canvasRef.value);
+        } else {
+          nextTick(() => {
+            if (canvasRef.value) {
+              initializeObjects();
+              if (resizeObserver) resizeObserver.disconnect();
+              resizeObserver = new ResizeObserver(entries => {
+                for (const entry of entries) {
+                  const canvas = entry.target as HTMLCanvasElement;
+                  const parent = canvas.parentElement;
+                  if (parent) {
+                    const width = parent.clientWidth;
+                    const height = parent.clientHeight;
+                    if (canvas.width !== width || canvas.height !== height) {
+                      canvas.width = width;
+                      canvas.height = height;
+                      if (sceneManager && sceneManager.renderer) {
+                        sceneManager.renderer.setSize(width, height, false);
+                      }
+                    }
+                  }
+                }
+              });
+              resizeObserver.observe(canvasRef.value);
+            }
+          });
+        }
+      });
+    } else {
+      if (resizeObserver) resizeObserver.disconnect();
+    }
+  }
+);
+
+onUnmounted(() => {
+  if (sceneManager) {
+    sceneManager.dispose();
+  }
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+    resizeObserver = null;
+  }
+  window.removeEventListener('resize', handleResize);
+});
 </script>
 
 <style scoped>
 
 .astronomy-scene {
-  width: 100%;
-  height: 100%;
   position: relative;
   overflow: hidden;
-}
-
-.scene-layout {
-  width: 100%;
-  height: 100%;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-}
-
-.map-row {
-  width: 100%;
-  display: block;
-  flex-direction: row;
-  justify-content: flex-start;
-  align-items: flex-start;
-}
-
-.map-panel {
-  width: 60vw;
-  max-width: 900px;
-  min-width: 300px;
-  height: 400px;
-  width: 100%;
-  min-height: 400px;
-  max-height: 400px;
-  margin-top: 16px;
-  margin-left: 16px;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-  flex: 1 1 0;
-}
-
-.canvas-panel {
-  flex: 1 1 0;
-  width: 100%;
-  height: 100%;
-}
-
-html, body, #app {
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  padding: 0;
-}
-
-canvas {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-.controls-panel {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
-  padding: 20px;
-  border-radius: 8px;
-  max-width: 300px;
-  max-height: calc(100vh - 40px);
-  overflow-y: auto;
-  margin: 0 0 15px 0;
-  font-size: 1.2em;
 }
 
 .form-group {
@@ -855,5 +918,15 @@ button {
 
 .current-info p {
   margin: 5px 0;
+}
+
+/* Ensure canvas always fills its parent container */
+.canvas-panel {
+  width: 100%;
+  height: 100%;
+  display: block;
+  min-width: 0;
+  min-height: 0;
+  box-sizing: border-box;
 }
 </style>
