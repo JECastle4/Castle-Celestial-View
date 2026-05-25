@@ -101,7 +101,8 @@
       "thursday": "yadsruhT",
       "friday": "yadirF",
       "saturday": "yadrutaS"
-    }
+    },
+    "frame": "emarF"
   },
   "map": {
     "description": ".evitca si loot nip eht nehw nip a ecalp ot kcilC .mooz ot llorcs ro slortnoc mooz eht esU .pam evitcaretnI",
@@ -117,7 +118,8 @@
     "status": {
       "loading": "...gnidaoL",
       "yes": "seY",
-      "no": "oN"
+      "no": "oN",
+      "animationReset": ".etats laitini ot teser noitaminA"
     },
     "units": {
       "degrees": "°",

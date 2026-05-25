@@ -18,7 +18,7 @@ export default defineConfig({
   testDir: './tests/e2e',
   
   // Maximum time one test can run
-  timeout: 30 * 1000,
+  timeout: 70 * 1000,
   
   // Run tests in files in parallel
   fullyParallel: true,

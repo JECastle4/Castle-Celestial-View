@@ -145,11 +145,12 @@
         </div>
         
         <div v-if="currentFrame" class="current-info">
+          <p><strong>{{ t('astronomy.frame') }}:</strong> {{ currentIndex + 1 }} / {{ frameCount }}</p>
           <p><strong>{{ t('astronomy.time') }}:</strong> {{ currentFrame.datetime }}</p>
-            <p><strong>{{ t('astronomy.sunAltitude') }}:</strong> {{ typeof currentFrame.sun.altitude === 'number' ? currentFrame.sun.altitude.toFixed(1) : 'N/A' }}{{ t('ui.units.degrees') }}</p>
-            <p><strong>{{ t('astronomy.sunVisible') }}:</strong> {{ currentFrame.sun.is_visible ? t('astronomy.yes') : t('astronomy.no') }}</p>
-            <p><strong>{{ t('astronomy.moonAltitude') }}:</strong> {{ typeof currentFrame.moon.altitude === 'number' ? currentFrame.moon.altitude.toFixed(1) : 'N/A' }}{{ t('ui.units.degrees') }}</p>
-            <p><strong>{{ t('astronomy.moonVisible') }}:</strong> {{ currentFrame.moon.is_visible ? t('astronomy.yes') : t('astronomy.no') }}</p>
+          <p><strong>{{ t('astronomy.sunAltitude') }}:</strong> {{ typeof currentFrame.sun.altitude === 'number' ? currentFrame.sun.altitude.toFixed(1) : 'N/A' }}{{ t('ui.units.degrees') }}</p>
+          <p><strong>{{ t('astronomy.sunVisible') }}:</strong> {{ currentFrame.sun.is_visible ? t('astronomy.yes') : t('astronomy.no') }}</p>
+          <p><strong>{{ t('astronomy.moonAltitude') }}:</strong> {{ typeof currentFrame.moon.altitude === 'number' ? currentFrame.moon.altitude.toFixed(1) : 'N/A' }}{{ t('ui.units.degrees') }}</p>
+          <p><strong>{{ t('astronomy.moonVisible') }}:</strong> {{ currentFrame.moon.is_visible ? t('astronomy.yes') : t('astronomy.no') }}</p>
           <p><strong>{{ t('astronomy.moonPhase') }}:</strong> {{ currentFrame.moon_phase.phase_name }}</p>
           <p><strong>{{ t('astronomy.illumination') }}:</strong> {{ (currentFrame.moon_phase.illumination * 100).toFixed(1) }}{{ t('ui.units.percent') }}</p>
         </div>
@@ -247,6 +248,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted, defineAsyncComponent } from 'vue';
+import { useToast } from '@/composables/useToast';
 import { useI18n } from 'vue-i18n';
 import { useAstronomyData } from '@/composables/useAstronomyData';
 import { SceneManager } from '@/three/scene';
@@ -259,6 +261,7 @@ const BaseMap = defineAsyncComponent(() => import('./BaseMap.vue'));
 const DateRangePicker = defineAsyncComponent(() => import('./DateRangePicker.vue'));
 
 const { t } = useI18n();
+const toast = useToast();
 
 // Form parameters with defaults
 const today = new Date();
@@ -601,21 +604,13 @@ function toggleAnimation() {
 function resetAnimation() {
   isAnimating.value = false;
   currentIndex.value = 0;
+  // Reset camera to initial position for current view mode
+  if (sceneManager) {
+    sceneManager.resetCamera();
+  }
+  // Update all objects to match frame 1's state (positions, visibility, etc)
   updatePositions();
-  // Hide objects on reset
-  if (earth) {
-    earth.mesh.visible = false;
-    earth.getGridHelper().visible = false;
-    earth.getAxesHelper().visible = false;
-    earth.getHemisphereGrid().visible = false;
-  }
-  if (sun) {
-    sun.mesh.visible = false;
-    sun.getLight().visible = false;
-  }
-  if (moon) {
-    moon.mesh.visible = false;
-  }
+  toast.info(t('ui.status.animationReset'), 3000);
 }
 
 function clearData() {

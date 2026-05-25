@@ -51,6 +51,13 @@ export class SceneManager {
     this.resizeHandler = this.onWindowResize.bind(this);
     window.addEventListener('resize', this.resizeHandler);
   }
+  
+  /**
+   * Reset the camera to its default position and orientation for the current view mode.
+   */
+  public resetCamera(): void {
+    this.setViewMode(this.currentViewMode);
+  }
 
   private setupLighting(): void {
     // Ambient light for general illumination
