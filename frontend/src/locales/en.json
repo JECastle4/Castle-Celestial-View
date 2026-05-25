@@ -101,7 +101,8 @@
       "thursday": "Thursday",
       "friday": "Friday",
       "saturday": "Saturday"
-    }
+    },
+    "frame": "Frame"
   },
   "map": {
     "description": "Interactive map. Use the zoom controls or scroll to zoom. Click to place a pin when the pin tool is active.",
@@ -117,7 +118,8 @@
     "status": {
       "loading": "Loading...",
       "yes": "Yes",
-      "no": "No"
+      "no": "No",
+      "animationReset": "Animation reset to initial state."
     },
     "units": {
       "degrees": "°",

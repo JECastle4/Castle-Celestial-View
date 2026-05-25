@@ -8,7 +8,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Astronomy Scene - Initial Load', () => {
   test('should load the page and have Load Data button enabled', { timeout: 35000 }, async ({ page }) => {
     // Navigate to the home page
-    await page.goto('/');
+    await page.goto('/en');
 
     // Verify the main heading is present
     await expect(page.getByRole('heading', { name: 'Castle Celestial View' })).toBeVisible();
@@ -81,11 +81,25 @@ test.describe('Astronomy Scene - Initial Load', () => {
     await expect(currentInfo.getByText('Sun Visible: No')).toBeVisible();
     await expect(currentInfo.getByText('Moon Visible: Yes')).toBeVisible();
 
+    // Read and log the new Frame X/Y display
+    const frameXYText = await currentInfo.locator('p').first().innerText();
+    // Extract current and total frame numbers
+    const frameXYMatch = frameXYText.match(/Frame:\s*(\d+)\s*\/\s*(\d+)/);
+    const totalFrames = frameXYMatch ? parseInt(frameXYMatch[2], 10) : 0;
+    expect(totalFrames).toBeGreaterThan(1);
+
+    // After switching to Sky View and before animation checks
+    const frameCountText = await page.locator('.animation-controls p').first().innerText();
+    // Extract frame count number from text like 'Frames: 48'
+    const frameCountMatch = frameCountText.match(/Frames:\s*(\d+)/);
+    const frameCount = frameCountMatch ? parseInt(frameCountMatch[1], 10) : 0;
+    expect(frameCount).toBeGreaterThan(1);
+
     // Wait a moment for the 3D scene to fully render
     await page.waitForTimeout(1000);
 
     // Capture screenshot of the full scene (including right panel)
-    const scene = page.locator('.astronomy-scene');
+    const scene = page.locator('.app-layout');
     await expect(scene).toHaveScreenshot('3d-view-first-frame.png');
 
     // Click the Sky View button
@@ -97,5 +111,55 @@ test.describe('Astronomy Scene - Initial Load', () => {
 
     // Capture screenshot of Sky View (full scene)
     await expect(scene).toHaveScreenshot('sky-view-first-frame.png');
+  });
+});
+
+test.describe('Astronomy Scene - Sky View Animation Controls', () => {
+  test('should play, pause, and reset animation in Sky View', async ({ page }) => {
+    // Define beforePlayFrameXY at the top for this test
+    let beforePlayFrameXY = '';
+    // Navigate to the home page and load data as in the initial test
+    await page.goto('/en');
+    const startDateInput = page.locator('.date-range-picker input[type="date"]').first();
+    const endDateInput = page.locator('.date-range-picker input[type="date"]').nth(1);
+    await startDateInput.evaluate((el, val) => { el.value = val; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); }, '2026-02-02');
+    await endDateInput.evaluate((el, val) => { el.value = val; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); }, '2026-02-02');
+    const applyButton = page.getByRole('button', { name: 'Apply' });
+    await applyButton.click();
+    const loadButton = page.getByRole('button', { name: 'Load Data' });
+    await loadButton.click();
+    const loadingMessage = page.locator('.loading', { hasText: 'Loading...' });
+    await expect(loadingMessage).not.toBeVisible({ timeout: 30000 });
+    const errorMessage = page.locator('.error');
+    if (await errorMessage.isVisible()) {
+      throw new Error(`API call failed with error: ${await errorMessage.textContent()}`);
+    }
+    // Switch to Sky View
+    const skyViewButton = page.getByRole('button', { name: 'Sky View' });
+    await skyViewButton.click();
+    await page.waitForTimeout(1000);
+    const scene = page.locator('.app-layout');
+    // Capture initial frame info and screenshot
+    const currentInfo = page.locator('.animation-controls .current-info');
+    beforePlayFrameXY = await currentInfo.locator('p').first().innerText();
+    await expect(scene).toHaveScreenshot('sky-view-first-frame.png');
+    // Set animation speed to minimum for reliability (if present)
+    const speedInput = page.locator('.animation-controls input[type="range"]#animation-speed');
+    if (await speedInput.count()) {
+      await speedInput.fill('0.1');
+    }
+    // Play animation
+    const playPauseButton = page.getByRole('button', { name: 'Play' });
+    await playPauseButton.click();
+    // Confirm Play button changed to Pause (animation started)
+    await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
+    // Wait 5 second and log again
+    await page.waitForTimeout(5200);
+    const afterWaitFrameXY = await currentInfo.locator('p').first().innerText();
+    // Now assert that the frame has advanced
+    expect(afterWaitFrameXY).not.toBe(beforePlayFrameXY);
+    const resetButton = page.getByRole('button', { name: 'Reset' });
+    await resetButton.click();
+    await expect(scene).toHaveScreenshot('sky-view-reset-frame.png');
   });
 });

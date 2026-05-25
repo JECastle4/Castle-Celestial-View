@@ -39,4 +39,16 @@ describe('i18n module', () => {
     setCurrentLocale('xx-reverse');
     expect(i18n.global.t('astronomy.dayNames.sunday')).toBe('yadnuS');
   });
+
+  it('translates the animationReset toast label in en', async () => {
+    const { i18n, setCurrentLocale } = await import('@/i18n');
+    setCurrentLocale('en');
+    expect(i18n.global.t('ui.status.animationReset')).toBe('Animation reset to initial state.');
+  });
+
+  it('translates the animationReset toast label in xx-reverse', async () => {
+    const { i18n, setCurrentLocale } = await import('@/i18n');
+    setCurrentLocale('xx-reverse');
+    expect(i18n.global.t('ui.status.animationReset')).toBe('.etats laitini ot teser noitaminA');
+  });
 });
