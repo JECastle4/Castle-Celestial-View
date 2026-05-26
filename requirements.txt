@@ -13,5 +13,5 @@ pygments>=2.20.0
 python-dotenv>=1.2.2
 # Security: CVE-2026-25645 fixed in 2.33.0
 requests>=2.33.0
-idna>=3.15
+idna>=3.16
 starlette>=1.0.1
