@@ -1,8 +1,15 @@
 # Python
-John's python code - probably astronomy related
+Castle Celestial View
 
-#
-Website is publicly available at:
+## Purpose
+Visualise the Solar System. Currently showing the Earth and Moon from any location on earth for pretty much any date range. Solar system view shows the orbits. Sky View is for the location on the sky as seen from the location picked.
+
+## Languages
+1. API - Python
+1. FE - Vue
+1. Graphics - WebGL/ThreeJ
+
+# Public Website
 https://castlecelestialview.net/
 
 # For Check In

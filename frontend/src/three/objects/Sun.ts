@@ -11,7 +11,7 @@ export class Sun {
 
   constructor() {
     // Default size for 3D view
-    this.defaultGeometry = new THREE.SphereGeometry(0.5, 32, 32);
+    this.defaultGeometry = new THREE.SphereGeometry(4, 32, 32);
     // Sky view size (exaggerated for visibility)
     const domeRadius = 10;
     const sunAngularDiameterRad = 0.009; // ~0.5 degrees in radians

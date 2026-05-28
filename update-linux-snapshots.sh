@@ -26,22 +26,16 @@ npx playwright install --with-deps chromium firefox webkit msedge 2>/dev/null ||
 npx playwright install --with-deps chromium firefox webkit
 
 echo ""
-echo "==> Phase 1: Updating snapshots – Chromium / WebKit / Edge (headless)..."
-CI=true npx playwright test \
-    --project=chromium \
-    --project=webkit \
-    --project=edge \
-    --update-snapshots
-
-echo ""
-echo "==> Phase 2: Updating snapshots – Firefox (headed via Xvfb + Mesa llvmpipe)..."
+echo "Updating snapshots"
 CI=true \
 LIBGL_ALWAYS_SOFTWARE=1 \
 MESA_GL_VERSION_OVERRIDE=4.5 \
 xvfb-run --server-args="-screen 0 1280x720x24" \
     npx playwright test \
+        --project=chromium \
+        --project=webkit \
+        --project=edge \
         --project=firefox \
-        --headed \
         --update-snapshots
 
 echo ""
