@@ -20,8 +20,12 @@ https://castlecelestialview.net/
  
 # To start the app:
 ### FE Dev PowerShell terminal 1
+```
 cd frontend; npm run dev
+```
+
 ### FE Prod PowerShell terminal 2
+```
 cd frontend
 npm run build
 npm run preview
@@ -29,11 +33,16 @@ npm run preview
 may need to run:
 (.\.venv\Scripts\Activate.ps1)
 uvicorn api.main:app --reload --port 8000
+```
 
 # To run tests:
 ## Python
+```
 $env:PYTHONPATH="." ; pytest tests/ --cov=. --cov-report=xml --cov-report=term-missing
+```
+
 ## FE
+```
 cd frontend
 npm run build
 npm run lint:a11y
@@ -41,6 +50,12 @@ npm run type-check
 npm run test:coverage
 npm run test:e2e
 npm run test:e2e:update-snapshots
+```
+
+# To rebuild the docker image:
+```
+docker build -f Dockerfile.playwright -t playwright-linux-snapshots .
+```
 
 # Accessibility
 

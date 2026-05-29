@@ -166,7 +166,7 @@ test.describe('Astronomy Scene - Sky View Animation Controls', () => {
     const afterWaitFrameXY = await currentInfo.locator('p').first().innerText();
     // Now assert that the frame has advanced
     expect(afterWaitFrameXY).not.toBe(beforePlayFrameXY);
-    const resetButton = page.getByRole('button', { name: 'Reset' });
+    const resetButton = page.getByRole('button', { name: 'Restart' });
     await resetButton.click();
     await expect(scene).toHaveScreenshot('sky-view-reset-frame.png');
   });

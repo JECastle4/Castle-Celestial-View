@@ -383,9 +383,13 @@ describe('AstronomyScene - With Data Loaded', () => {
     expect(wrapper.text()).toMatch(/Play|Pause/);
   });
 
-  it('should have reset button', async () => {
+  it('should have restart button', async () => {
     await wrapper.vm.$nextTick();
-    expect(wrapper.text()).toContain('Reset');
+    expect(wrapper.text()).toContain('Restart');
+  });
+  it('should have recentre button', async () => {
+    await wrapper.vm.$nextTick();
+    expect(wrapper.text()).toContain('Recentre');
   });
 
 });

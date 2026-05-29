@@ -36,7 +36,12 @@
     "loadData": "Load Data",
     "play": "Play",
     "pause": "Pause",
-    "reset": "Reset",
+    "restart": "Restart",
+    "restartTooltip": "Restart the animation and return the camera to the default location (frame 1, default view)",
+    "restartAria": "Restart the animation and return the camera to the default location (frame 1, default view)",
+    "recentre": "Recentre",
+    "recentreTooltip": "Return the camera to the default location (centred on earth)",
+    "recentreAria": "Return the camera to the default location (centred on earth)",
     "newQuery": "New Query",
     "apply": "Apply",
     "cancel": "Cancel"

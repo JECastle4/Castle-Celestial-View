@@ -12,11 +12,15 @@
       <span class="error-icon" aria-label="Error">&#9888;</span>
       {{ errorMessage }}
     </div>
-    <button :disabled="!isValid" @click="applyDates">{{ t('buttons.apply') }}</button>
+    <button :disabled="!isValid" @click="applyDates">
+      <i class="fa fa-sync" aria-hidden="true" style="margin-right: 0.5em;"></i>
+      {{ t('buttons.apply') }}
+    </button>
   </div>
 </template>
 
 <script lang="ts">
+import '@fortawesome/fontawesome-free/css/all.min.css';
 import { defineComponent, ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 
