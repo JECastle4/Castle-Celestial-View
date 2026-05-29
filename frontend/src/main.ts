@@ -1,5 +1,6 @@
 
 import './assets/global-map-fix.css'
+import 'flag-icons/css/flag-icons.min.css'
 import 'vue-toast-notification/dist/theme-default.css'
 import { createApp } from 'vue'
 import ToastPlugin from 'vue-toast-notification'
