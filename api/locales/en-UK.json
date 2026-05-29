@@ -1,0 +1,31 @@
+{
+	"dayNames": {
+		"0": "Sunday",
+		"1": "Monday",
+		"2": "Tuesday",
+		"3": "Wednesday",
+		"4": "Thursday",
+		"5": "Friday",
+		"6": "Saturday"
+	},
+	"moonPhases": {
+		"newMoon": "New Moon",
+		"waxingCrescent": "Waxing Crescent",
+		"firstQuarter": "First Quarter",
+		"waxingGibbous": "Waxing Gibbous",
+		"fullMoon": "Full Moon",
+		"waningGibbous": "Waning Gibbous",
+		"lastQuarter": "Last Quarter",
+		"waningCrescent": "Waning Crescent"
+	},
+	"validation": {
+		"latitudeRange": "Latitude must be between -90 and 90 degrees, got {value}",
+		"longitudeRange": "Longitude must be between -180 and 180 degrees, got {value}",
+		"invalidDateTime": "Invalid date or time format: {error}",
+		"endTimeAfterStart": "end_datetime must be after start_datetime",
+		"frameCountMinimum": "frame_count must be at least 2, got {value}"
+	},
+	"errors": {
+		"unknown": "An unknown error occurred"
+	}
+}

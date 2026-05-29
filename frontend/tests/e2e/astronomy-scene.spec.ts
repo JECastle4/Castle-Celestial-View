@@ -8,7 +8,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Astronomy Scene - Initial Load', () => {
   test('should load the page and have Load Data button enabled', { timeout: 35000 }, async ({ page }) => {
     // Navigate to the home page
-    await page.goto('/en');
+    await page.goto('/en-UK');
 
     // Verify the main heading is present
     await expect(page.getByRole('heading', { name: 'Castle Celestial View' })).toBeVisible();
