@@ -25,8 +25,11 @@
           </button>
         </div>
       </div>
-      <small>{{ t('app.copyright') }}</small>
-      <RouterLink :to="`/${locale}/about`" class="footer-about-link">{{ t('app.about') }}</RouterLink>
+      <p class="app-footer small">{{ t('app.copyright') }}</p>
+      <RouterLink :to="`/${locale}/about`" class="footer-about-link">
+        <img :src="`/favicon.png`" alt="" class="about-icon" />
+        {{ t('app.about') }}
+      </RouterLink>
     </footer>
   </div>
 </template>
@@ -179,14 +182,23 @@ html, body, #app {
 }
 
 .footer-about-link {
-  color: #bbb;
+  color: #fff;
   text-decoration: none;
   font-size: 0.7rem;
+  background: #004FA3;
+  border-radius: 4px;
+  padding: 4px 12px;
+  transition: background 0.2s;
 }
 
 .footer-about-link:hover {
   color: rgba(255, 255, 255, 0.9);
+  background: #003d82;
   text-decoration: underline;
+}
+
+.app-footer p {
+  color: #fff;
 }
 
 body {
@@ -194,6 +206,15 @@ body {
     Ubuntu, Cantarell, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.about-icon {
+  width: 1em;
+  height: 1em;
+  vertical-align: middle;
+  margin-right: 0.5em;
+  border-radius: 2px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
 }
 
 </style>
