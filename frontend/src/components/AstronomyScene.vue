@@ -28,7 +28,10 @@
         <div class="progress-label">
           {{ t('ui.status.loading') }} <span v-if="sseExpectedFrameCount > 0">{{ Math.round(sseProgress * 100) }}%</span>
         </div>
-        <button class="cancel-btn" @click="cancelSSE" type="button">{{ t('buttons.cancel') }}</button>
+        <button class="cancel-btn" @click="cancelSSE" type="button">
+          <i class="fa fa-circle-xmark" aria-hidden="true" style="margin-right: 0.5em;"></i>
+          {{ t('buttons.cancel') }}
+        </button>
       </div>
       
       <div v-if="error" class="error">
@@ -117,7 +120,10 @@
           <span>{{ params.frame_count }} {{ t('ui.units.totalFrames') }}</span>
         </div>
         
-        <button @click="loadData" :disabled="loading || !isFormValid">{{ t('buttons.loadData') }}</button>
+        <button @click="loadData" :disabled="loading || !isFormValid">
+          <i class="fa fa-play" aria-hidden="true" style="margin-right: 0.5em; color: #28a745;"></i>
+          {{ t('buttons.loadData') }}
+        </button>
       </div>
       
       <div v-if="hasData" class="animation-controls">
@@ -125,18 +131,46 @@
         
         <div class="view-toggle">
           <button @click="setViewMode('3D')" :class="{ active: viewMode === '3D' }">
+            <i class="fa fa-sun" aria-hidden="true" style="margin-right: 0.5em;"></i>
             {{ t('views.solar3d') }}
           </button>
           <button @click="setViewMode('SKY')" :class="{ active: viewMode === 'SKY' }">
+            <i class="fa fa-globe" aria-hidden="true" style="margin-right: 0.5em;"></i>
             {{ t('views.sky') }}
           </button>
         </div>
         
         <button @click="toggleAnimation">
-          {{ isAnimating ? t('buttons.pause') : t('buttons.play') }}
+          <template v-if="!isAnimating">
+            <i class="fa fa-play" aria-hidden="true" style="margin-right: 0.5em;"></i>
+            {{ t('buttons.play') }}
+          </template>
+          <template v-else>
+            {{ t('buttons.pause') }}
+          </template>
         </button>
-        <button @click="resetAnimation">{{ t('buttons.reset') }}</button>
-        <button @click="clearData">{{ t('buttons.newQuery') }}</button>
+        <button
+          @click="resetAnimation"
+          class="restart-btn"
+          :title="$t('buttons.restartTooltip')"
+          :aria-label="$t('buttons.restartAria')"
+        >
+          <i class="fa fa-film" aria-hidden="true" style="margin-right: 0.5em;"></i>
+          {{ $t('buttons.restart') }}
+        </button>
+        <button
+          @click="recentreCamera"
+          :title="t('buttons.recentreTooltip')"
+          :aria-label="t('buttons.recentreAria')"
+          class="recentre-btn"
+        >
+          <i class="fa fa-camera" aria-hidden="true" style="margin-right: 0.5em;"></i>
+          {{ t('buttons.recentre') }}
+        </button>
+        <button @click="clearData">
+          <i class="fa fa-arrow-rotate-left" aria-hidden="true" style="margin-right: 0.5em;"></i>
+          {{ t('buttons.newQuery') }}
+        </button>
         
         <div class="form-group">
           <label for="animation-speed">{{ t('forms.labels.animationSpeed') }}:</label>
@@ -247,6 +281,7 @@
 </style>
 
 <script setup lang="ts">
+import '@fortawesome/fontawesome-free/css/all.min.css';
 import { ref, computed, watch, nextTick, onMounted, onUnmounted, defineAsyncComponent } from 'vue';
 import { useToast } from '@/composables/useToast';
 import { useI18n } from 'vue-i18n';
@@ -611,6 +646,11 @@ function resetAnimation() {
   // Update all objects to match frame 1's state (positions, visibility, etc)
   updatePositions();
   toast.info(t('ui.status.animationReset'), 3000);
+}
+function recentreCamera() {
+  if (sceneManager) {
+    sceneManager.resetCamera();
+  }
 }
 
 function clearData() {

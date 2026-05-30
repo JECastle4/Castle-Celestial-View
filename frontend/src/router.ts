@@ -5,7 +5,7 @@ import { setCurrentLocale } from './i18n'
 // xx-reverse is a dev-only debug locale — excluded from production bundles
 // import.meta.env.DEV is resolved at build time, so the locale and its route
 // are tree-shaken out in production builds.
-const PROD_LOCALES = ['en'] as const
+const PROD_LOCALES = ['en-UK', 'en-US'] as const
 export const SUPPORTED_LOCALES: readonly string[] = import.meta.env.DEV
   ? [...PROD_LOCALES, 'xx-reverse']
   : PROD_LOCALES
@@ -16,7 +16,7 @@ const routes: RouteRecordRaw[] = [
   // Redirect bare root to English
   {
     path: '/',
-    redirect: '/en/',
+    redirect: '/en-UK/',
   },
   // Main app under locale prefix
   {
@@ -31,7 +31,7 @@ const routes: RouteRecordRaw[] = [
   // Catch-all: redirect unknown paths to English
   {
     path: '/:pathMatch(.*)*',
-    redirect: '/en/',
+    redirect: '/en-UK',
   },
 ]
 

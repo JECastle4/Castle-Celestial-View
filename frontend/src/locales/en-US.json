@@ -1,0 +1,141 @@
+{
+	"lang": {
+		"enUK": "English (UK)",
+		"enUS": "English (US)",
+		"reverseDev": "Reverse EN (dev)"
+	},
+	"app": {
+		"title": "Castle Celestial View",
+		"copyright": "© 2026 John Castle. Licensed under the MIT License.",
+		"about": "About"
+	},
+	"about": {
+		"title": "About Castle Celestial View",
+		"copyright": "© 2026 John Castle",
+		"license": "Licensed under the MIT License.",
+		"version": "Version {version}",
+		"attributionsTitle": "Open Source Attributions",
+		"sourceCode": "Source Code on GitHub",
+		"reportIssue": "Report an Issue",
+		"close": "Close"
+	},
+	"forms": {
+		"labels": {
+			"latitude": "Latitude",
+			"longitude": "Longitude",
+			"startDate": "Start Date",
+			"startTime": "Start Time",
+			"endDate": "End Date",
+			"endTime": "End Time",
+			"framesPerDay": "Frames per day",
+			"frameCount": "Frame Count",
+			"animationSpeed": "Animation Speed",
+			"elevation": "Elevation"
+		},
+		"placeholders": {
+			"latitude": "Enter latitude (-90 to 90)",
+			"longitude": "Enter longitude (-180 to 180)"
+		}
+	},
+	"buttons": {
+		"loadData": "Load Data",
+		"play": "Play",
+		"pause": "Pause",
+		"restart": "Restart",
+		"restartTooltip": "Restart the animation and return the camera to the default location (frame 1, default view)",
+		"restartAria": "Restart the animation and return the camera to the default location (frame 1, default view)",
+		"recentre": "Recenter",
+		"recentreTooltip": "Return the camera to the default location (centered on earth)",
+		"recentreAria": "Return the camera to the default location (centered on earth)",
+		"newQuery": "New Query",
+		"apply": "Apply",
+		"cancel": "Cancel"
+	},
+	"views": {
+		"solar3d": "Solar System View",
+		"sky": "Sky View"
+	},
+	"validation": {
+		"latitudeRange": "Latitude must be between -90° and 90°",
+		"longitudeRange": "Longitude must be between -180° and 180°",
+		"startBeforeEnd": "Start date must be before end date",
+		"latitudeOutOfRange": "Latitude must be between -90 and 90 degrees",
+		"longitudeOutOfRange": "Longitude must be between -180 and 180 degrees",
+		"frameCountMinimum": "Frame count must be at least 2",
+		"endTimeAfterStart": "End time must be after start time",
+		"invalidDateFormat": "Invalid date or time format",
+		"invalidInput": "Invalid input"
+	},
+	"errors": {
+		"sseConnectionError": "SSE connection error",
+		"loadingFailed": "Failed to load observations",
+		"connectionError": "Connection error",
+		"cancelled": "Loading cancelled by user.",
+		"unknown": "An unknown error occurred",
+		"apiError": "API Error ({status})",
+		"calculationError": "Error calculating"
+	},
+	"success": {
+		"loadedFrame": "Successfully loaded 1 frame",
+		"loadedFrames": "Successfully loaded {count} frames"
+	},
+	"astronomy": {
+		"sunAltitude": "Sun Alt",
+		"sunVisible": "Sun Visible",
+		"sunAzimuth": "Sun Azimuth",
+		"moonAltitude": "Moon Alt",
+		"moonVisible": "Moon Visible",
+		"moonAzimuth": "Moon Azimuth",
+		"moonPhase": "Moon Phase",
+		"illumination": "Illumination",
+		"time": "Time",
+		"frames": "Frames",
+		"julianDate": "Julian Date",
+		"yes": "Yes",
+		"no": "No",
+		"phaseNames": {
+			"newMoon": "New Moon",
+			"waxingCrescent": "Waxing Crescent",
+			"firstQuarter": "First Quarter",
+			"waxingGibbous": "Waxing Gibbous",
+			"fullMoon": "Full Moon",
+			"waningGibbous": "Waning Gibbous",
+			"lastQuarter": "Last Quarter",
+			"waningCrescent": "Waning Crescent"
+		},
+		"dayNames": {
+			"sunday": "Sunday",
+			"monday": "Monday",
+			"tuesday": "Tuesday",
+			"wednesday": "Wednesday",
+			"thursday": "Thursday",
+			"friday": "Friday",
+			"saturday": "Saturday"
+		},
+		"frame": "Frame"
+	},
+	"map": {
+		"description": "Interactive map. Use the zoom controls or scroll to zoom. Click to place a pin when the pin tool is active.",
+		"ariaLabel": "Interactive map",
+		"pinTool": {
+			"buttonTitle": "Place Pin",
+			"activeDescription": "Pin placement tool active. Use arrow keys to pan the map. Press Enter to place a pin at the centre. Press Escape to cancel.",
+			"placed": "Pin placed.",
+			"cancelled": "Pin placement tool cancelled."
+		}
+	},
+	"ui": {
+		"status": {
+			"loading": "Loading...",
+			"yes": "Yes",
+			"no": "No",
+			"animationReset": "Animation reset to initial state."
+		},
+		"units": {
+			"degrees": "°",
+			"percent": "%",
+			"framesPerDay": "frames/day",
+			"totalFrames": "total frames"
+		}
+	}
+}

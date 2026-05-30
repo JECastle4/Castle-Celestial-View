@@ -34,7 +34,8 @@ dist/
 ### Included in Distribution
 
 - `api/` package and `api/services/` subpackage
-- `api/locales/en.json` (production locale only)
+- `api/locales/en-US.json` (production locale only)
+- `api/locales/en-UK.json` (production locale only)
 
 ### Excluded from Distribution
 

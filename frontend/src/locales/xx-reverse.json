@@ -1,4 +1,9 @@
 {
+  "lang": {
+    "enUK": ")KU( hsilgnE",
+    "enUS": ")SU( hsilgnE",
+    "reverseDev": ")ved( NE esreveR"
+  },
   "app": {
     "title": "weiV laitseleC eltsaC",
     "copyright": ".esneciL TIM eht rednu desneciL .eltsaC nhoJ 6202 ©",
@@ -36,7 +41,12 @@
     "loadData": "ataD daoL",
     "play": "yalP",
     "pause": "esuaP",
-    "reset": "teseR",
+    "restart": "tratseR",
+    "restartTooltip": ")weiv tluafed ,1 emarf( noitacol tluafed eht ot aremac eht nruter dna noitamina eht tratseR",
+    "restartAria": ")weiv tluafed ,1 emarf( noitacol tluafed eht ot aremac eht nruter dna noitamina eht tratseR",
+    "recentre": "ertneceR",
+    "recentreTooltip": ")htrae no dertnec( noitacol tluafed eht ot aremac eht nruteR",
+    "recentreAria": ")htrae no dertnec( noitacol tluafed eht ot aremac eht nruteR",
     "newQuery": "yreuQ weN",
     "apply": "ylppA",
     "cancel": "lecnaC"

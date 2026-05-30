@@ -8,7 +8,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Astronomy Scene - Initial Load', () => {
   test('should load the page and have Load Data button enabled', { timeout: 35000 }, async ({ page }) => {
     // Navigate to the home page
-    await page.goto('/en');
+    await page.goto('/en-UK');
 
     // Verify the main heading is present
     await expect(page.getByRole('heading', { name: 'Castle Celestial View' })).toBeVisible();
@@ -156,6 +156,25 @@ test.describe('Astronomy Scene - Sky View Animation Controls', () => {
     if (await speedInput.count()) {
       await speedInput.fill('0.1');
     }
+    
+    // Assert Recentre button is en-UK
+    //const allButtons = await page.locator('.animation-controls button').allTextContents();
+    //console.log('Animation control buttons:', allButtons);
+    const recentreButton = page.getByRole('button', { name: 'Return the camera to the default location (centred on earth)' });
+    await expect(recentreButton).toBeVisible();
+    // Open language menu and select en-US
+    const langBtn = page.locator('.footer-lang-btn');
+    await langBtn.click();
+    const enUSOption = page.locator('.footer-lang-option', { hasText: 'English (US)' });
+    await enUSOption.click();
+    const recenterButton = page.getByRole('button', { name: 'Return the camera to the default location (centered on earth)' });
+    await expect(recenterButton).toBeVisible();
+    // Open language menu and select en-UK
+    await langBtn.click();
+    const enUKOption = page.locator('.footer-lang-option', { hasText: 'English (UK)' });
+    await enUKOption.click();
+    
+
     // Play animation
     const playPauseButton = page.getByRole('button', { name: 'Play' });
     await playPauseButton.click();
@@ -166,7 +185,7 @@ test.describe('Astronomy Scene - Sky View Animation Controls', () => {
     const afterWaitFrameXY = await currentInfo.locator('p').first().innerText();
     // Now assert that the frame has advanced
     expect(afterWaitFrameXY).not.toBe(beforePlayFrameXY);
-    const resetButton = page.getByRole('button', { name: 'Reset' });
+    const resetButton = page.getByRole('button', { name: 'Restart' });
     await resetButton.click();
     await expect(scene).toHaveScreenshot('sky-view-reset-frame.png');
   });

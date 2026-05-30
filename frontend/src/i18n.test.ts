@@ -12,7 +12,15 @@ describe('i18n module', () => {
 
   it('creates an i18n instance with en as default locale', async () => {
     const { getCurrentLocale } = await import('@/i18n');
-    expect(getCurrentLocale()).toBe('en');
+    expect(getCurrentLocale()).toBe('en-UK');
+  });
+
+  it
+  ('creates an i18n instance with en as en-US locale', async () => {
+    const { getCurrentLocale } = await import('@/i18n');
+    const { setCurrentLocale } = await import('@/i18n');
+    setCurrentLocale('en-US');
+    expect(getCurrentLocale()).toBe('en-US');
   });
 
   it('includes xx-reverse messages in dev mode', async () => {
@@ -51,4 +59,14 @@ describe('i18n module', () => {
     setCurrentLocale('xx-reverse');
     expect(i18n.global.t('ui.status.animationReset')).toBe('.etats laitini ot teser noitaminA');
   });
+
+    it('does not include xx-reverse messages in prod mode', async () => {
+      // Simulate production mode by patching import.meta.env.DEV
+      const originalDev = import.meta.env.DEV;
+      import.meta.env.DEV = false;
+      // Re-import the module to get prod config
+      const { i18n } = await import('@/i18n');
+      expect(i18n.global.getLocaleMessage('xx-reverse')).toStrictEqual({});
+      import.meta.env.DEV = originalDev;
+    });
 });

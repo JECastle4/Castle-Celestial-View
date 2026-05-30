@@ -25,7 +25,7 @@ test.describe('About Page', () => {
   });
 
   test('should navigate back to main page from about page', async ({ page }) => {
-    await page.goto('/en/about');
+    await page.goto('/en-UK/about');
 
     const closeLink = page.getByRole('link', { name: /←|Close/i });
     await expect(closeLink).toBeVisible();
