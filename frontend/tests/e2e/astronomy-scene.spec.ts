@@ -156,6 +156,25 @@ test.describe('Astronomy Scene - Sky View Animation Controls', () => {
     if (await speedInput.count()) {
       await speedInput.fill('0.1');
     }
+    
+    // Assert Recentre button is en-UK
+    //const allButtons = await page.locator('.animation-controls button').allTextContents();
+    //console.log('Animation control buttons:', allButtons);
+    const recentreButton = page.getByRole('button', { name: 'Return the camera to the default location (centred on earth)' });
+    await expect(recentreButton).toBeVisible();
+    // Open language menu and select en-US
+    const langBtn = page.locator('.footer-lang-btn');
+    await langBtn.click();
+    const enUSOption = page.locator('.footer-lang-option', { hasText: 'English (US)' });
+    await enUSOption.click();
+    const recenterButton = page.getByRole('button', { name: 'Return the camera to the default location (centered on earth)' });
+    await expect(recenterButton).toBeVisible();
+    // Open language menu and select en-UK
+    await langBtn.click();
+    const enUKOption = page.locator('.footer-lang-option', { hasText: 'English (UK)' });
+    await enUKOption.click();
+    
+
     // Play animation
     const playPauseButton = page.getByRole('button', { name: 'Play' });
     await playPauseButton.click();

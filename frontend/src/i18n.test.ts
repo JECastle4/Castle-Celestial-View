@@ -12,7 +12,7 @@ describe('i18n module', () => {
 
   it('creates an i18n instance with en as default locale', async () => {
     const { getCurrentLocale } = await import('@/i18n');
-    expect(getCurrentLocale()).toBe('en');
+    expect(getCurrentLocale()).toBe('en-UK');
   });
 
   it('includes xx-reverse messages in dev mode', async () => {

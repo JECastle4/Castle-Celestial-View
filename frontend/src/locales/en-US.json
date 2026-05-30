@@ -1,4 +1,9 @@
 {
+	"lang": {
+		"enUK": "English (UK)",
+		"enUS": "English (US)",
+		"reverseDev": "Reverse EN (dev)"
+	},
 	"app": {
 		"title": "Castle Celestial View",
 		"copyright": "© 2026 John Castle. Licensed under the MIT License.",

@@ -32,7 +32,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watchEffect, onMounted, onBeforeUnmount } from 'vue';
+import { ref, watchEffect, onMounted, onBeforeUnmount, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { RouterLink, useRouter, useRoute } from 'vue-router';
 import AstronomyScene from '@/components/AstronomyScene.vue';
@@ -42,13 +42,16 @@ const router = useRouter();
 const route = useRoute();
 const showLangMenu = ref(false);
 const langMenuRef = ref<HTMLElement | null>(null);
-const langOptions = [
-  { value: 'en-UK', label: 'English (UK)', flag: 'fi-gb' },
-  { value: 'en-US', label: 'English (US)', flag: 'fi-us' },
-];
-if (import.meta.env.DEV) {
-  langOptions.push({ value: 'xx-reverse', label: 'Reverse EN (dev only)', flag: 'fi-gb' });
-}
+const langOptions = computed(() => {
+  const opts = [
+    { value: 'en-UK', label: t('lang.enUK'), flag: 'fi-gb' },
+    { value: 'en-US', label: t('lang.enUS'), flag: 'fi-us' },
+  ];
+  if (import.meta.env.DEV) {
+    opts.push({ value: 'xx-reverse', label: t('lang.reverseDev'), flag: 'fi-gb' });
+  }
+  return opts;
+});
 
 function switchLocale(newLocale: string) {
   if (newLocale === locale.value) {

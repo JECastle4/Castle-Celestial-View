@@ -25,7 +25,7 @@ def reverse_strings(obj):
 
 if __name__ == '__main__':
     repo_root = Path(__file__).resolve().parent
-    input_path = repo_root / 'frontend' / 'src' / 'locales' / 'en.json'
+    input_path = repo_root / 'frontend' / 'src' / 'locales' / 'en-UK.json'
     output_path = repo_root / 'frontend' / 'src' / 'locales' / 'xx-reverse.json'
 
     with open(input_path, 'r', encoding='utf-8') as f:

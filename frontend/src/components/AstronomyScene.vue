@@ -151,12 +151,12 @@
         </button>
         <button
           @click="resetAnimation"
-          :title="t('buttons.restartTooltip')"
-          :aria-label="t('buttons.restartAria')"
           class="restart-btn"
+          :title="$t('buttons.restartTooltip')"
+          :aria-label="$t('buttons.restartAria')"
         >
           <i class="fa fa-film" aria-hidden="true" style="margin-right: 0.5em;"></i>
-          {{ t('buttons.restart') }}
+          {{ $t('buttons.restart') }}
         </button>
         <button
           @click="recentreCamera"
