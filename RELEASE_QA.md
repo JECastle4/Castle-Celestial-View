@@ -49,6 +49,9 @@ pytest
 |api\services\sun.py                        |   20   |   0  | 100%||
 |api\utils.py                               |    4   |   0  | 100%||
 
+#### 2026-05-31 218 passed, 10 warnings in 13.91s
+Identical coverage to 2026-05-22
+
 ### Frontend (Vitest)
 
 ```bash
@@ -83,6 +86,31 @@ npm run test:coverage
 |  Moon.ts             |     100 |       90 |     100 |     100 | 18                
 |  Sun.ts              |     100 |       90 |     100 |     100 | 19                
 
+#### 2026-05-31
+|Passed    |Skipped        |
+|----------|---------------|
+| 160      | 22 (182)      |
+
+#### 2026-05-31
+|File                  | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s |
+|----------------------|---------|----------|---------|---------|-------------------|
+|All files             |     100 |    95.08 |     100 |     100 |                   |
+| src                  |     100 |      100 |     100 |     100 |                   |
+|  i18n.ts             |     100 |      100 |     100 |     100 |                  |
+| src/composables      |     100 |      100 |     100 |     100 |                   |
+|  useAstronomyData.ts |     100 |      100 |     100 |     100 |                   |
+|  useToast.ts         |     100 |      100 |     100 |     100 |                   |
+| src/locales          |     100 |      100 |     100 |     100 |                   |
+|  en-UK.json          |     100 |      100 |     100 |     100 |                   |
+|  en-US.json          |     100 |      100 |     100 |     100 |                   |
+|  xx-reverse.json     |     100 |      100 |     100 |     100 |                   |
+| src/services         |     100 |       90 |     100 |     100 |                   |
+|  api.ts              |     100 |       90 |     100 |     100 | 70                |
+| src/three/objects    |     100 |     90.9 |     100 |     100 |                   |
+|  Earth.ts            |     100 |      100 |     100 |     100 |                   |
+|  Moon.ts             |     100 |       90 |     100 |     100 | 18                |
+|  Sun.ts              |     100 |       90 |     100 |     100 | 19                |
+
 - [ ] All unit/component tests pass
 
 ### End-to-End (Playwright)
@@ -104,6 +132,9 @@ Running 44 tests using 11 workers
 #### 2026-05-22
 Running 44 tests using 11 workers
   44 passed (41.1s)
+
+#### 2026-05-31
+Running 48 tests using 11 workers
 
 ---
 
@@ -232,6 +263,8 @@ Use one or more of the following to assist:
 #### 2026-05-11
 0 Issues found on all views
 #### 2026-05-22
+0 Issues found on all views
+#### 2026-05-31
 0 Issues found on all views
 
 ---

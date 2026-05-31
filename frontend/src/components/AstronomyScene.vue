@@ -241,27 +241,24 @@
 }
 .date-range-centered {
   position: relative;
-  left: 50%;
-  transform: translateX(-50%);
   z-index: 10;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-start;
+  justify-content: flex-start;
   width: 420px;
   max-width: 90vw;
-  margin-top: 32px;
-  margin-bottom: 24px;
-  flex: 1 1 auto;
+  margin-top: 0;
   min-height: 0;
+  max-height: 100%;
 }
 .date-range-bordered {
   border: 2px solid #b0b0b0;
   border-radius: 8px;
-  padding: 16px 12px 12px 12px;
+  padding: 16px 12px 6px 12px;
   background: #fafbfc;
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-  margin-bottom: 18px;
+  margin-bottom: 10px;
 }
 .controls-panel {
   position: relative;

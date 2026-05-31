@@ -6,9 +6,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versio
 
 ---
 
-## [Unreleased]
-
----
+## Undeployable
 
 ## [1.0.0] - 2026-05-11
 
@@ -36,6 +34,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versio
 - **Production build verification**: Wheel and dist confirmed clean of dev-only files
 
 ---
+## Released
 
 ## [1.0.1] - 2026-05-22
 ### Changed
@@ -54,3 +53,33 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versio
 - **Accessibility audit**: Manual and automated checks pass.
 - **Licence audit**: No incompatible changes.
 - **Production build verification**: Artifacts verified clean.
+
+## [Unreleased]
+
+---
+
+## [1.0.2] - 2026-05-31
+
+### Added
+- Language selection in the footer; support for en-UK and en-US
+- Recentre button: returns to the default camera position with toast message
+- Date range is centered at the bottom; map fits the view; animation canvas adjusted to fit view
+- HTTPS configuration and hosting information
+
+### Changed
+- Solar System objects are now proportioned closer to real life; Sun, Moon, and Earth sizes improved
+- Button style in footer is consistent; text is white; favicon added to About button
+- Language support moved to resource files;
+
+### Fixed
+- Fixed API proxy and gunicorn config
+
+### Security
+- Updated idna requirement from >=3.15 to >=3.16
+
+### QA Attestation
+- **Automated tests**: All unit, integration, and E2E tests pass
+- **Security scan**: Bandit + pip-audit + npm audit — no known vulnerabilities
+- **Accessibility audit**: Manual and automated checks pass
+- **Licence audit**: No incompatible changes
+- **Production build verification**: Artifacts verified clean
