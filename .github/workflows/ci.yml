@@ -327,20 +327,15 @@ jobs:
         npx playwright install --with-deps
         npx playwright install msedge
 
-    - name: Run Playwright E2E tests (Chromium, WebKit, Edge)
-      run: npx playwright test --project=chromium --project=webkit --project=edge
-      env:
-        CI: true
-
-    - name: Run Playwright E2E tests (Firefox – Xvfb + Mesa software rendering)
+    - name: Run Playwright E2E tests (All browsers – Xvfb + Mesa software rendering)
       run: |
-        # Firefox headless on Linux bypasses X11/GLX entirely, so LIBGL_ALWAYS_SOFTWARE
+        # Firefox on Linux bypasses X11/GLX entirely, so LIBGL_ALWAYS_SOFTWARE
         # never reaches Mesa and WebGL produces a blank canvas.  Running Firefox in
         # headed mode behind an Xvfb virtual display restores the X11/GLX path; Mesa
         # llvmpipe (CPU-based GL) then handles WebGL correctly.
         # Xvfb is installed by `npx playwright install --with-deps` for Firefox on Ubuntu.
         xvfb-run --server-args="-screen 0 1280x720x24" \
-          npx playwright test --project=firefox --headed
+          npx playwright test
       env:
         CI: true
         LIBGL_ALWAYS_SOFTWARE: '1'
