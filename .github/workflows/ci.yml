@@ -327,7 +327,7 @@ jobs:
         npx playwright install --with-deps
         npx playwright install msedge
 
-    - name: Run Playwright E2E tests (Firefox – Xvfb + Mesa software rendering)
+    - name: Run Playwright E2E tests (All brow – Xvfb + Mesa software rendering)
       run: |
         # Firefox on Linux bypasses X11/GLX entirely, so LIBGL_ALWAYS_SOFTWARE
         # never reaches Mesa and WebGL produces a blank canvas.  Running Firefox in
