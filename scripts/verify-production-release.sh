@@ -266,7 +266,8 @@ check_prerequisites() {
     info "frontend/node_modules present  ✓"
   fi
 
-  # Playwright package check if [[ ! -d "$REPO_ROOT/frontend/node_modules/@playwright" ]]; then
+  # Playwright package check
+  if [[ ! -d "$REPO_ROOT/frontend/node_modules/@playwright" ]]; then
     err "@playwright/test not found in node_modules — run 'npm ci' in frontend/"
     missing=1
   fi
