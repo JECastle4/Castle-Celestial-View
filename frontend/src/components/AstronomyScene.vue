@@ -576,7 +576,7 @@ function calculateFrameInterval() {
 // Update celestial object positions
 function updatePositions() {
   const frame = currentFrame.value;
-  if (!frame || !sun || !moon || !venus) return;
+  if (!frame || !sun || !moon || !earth) return;
   
   // Update visibility based on frame data
   if (sun) {
@@ -626,12 +626,14 @@ function updatePositions() {
 // Switch view mode
 function setViewMode(mode: '3D' | 'SKY') {
   viewMode.value = mode;
-  if (sceneManager && earth && sun && moon && venus) {
+  if (sceneManager && earth && sun && moon) {
     sceneManager.setViewMode(mode);
     earth.setViewMode(mode);
     sun.setViewMode(mode.toLowerCase() as 'sky' | '3d');
     moon.setViewMode(mode.toLowerCase() as 'sky' | '3d');
-    venus.setViewMode(mode.toLowerCase() as 'sky' | '3d');
+    if (venus) {
+      venus.setViewMode(mode.toLowerCase() as 'sky' | '3d');
+    }
     updatePositions();
   }
 }
