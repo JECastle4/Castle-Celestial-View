@@ -8,14 +8,12 @@ from astropy.coordinates.baseframe import NonRotationTransformationWarning
 import astropy.units as u
 import numpy as np
 from api.i18n import get_i18n
+from api.models import ObservationDateTime, LocationModel
 
 
 def calculate_moon_phase(
-    date_str: str,
-    time_str: str,
-    latitude: float,
-    longitude: float,
-    elevation: float = 0.0,
+    observation_time: ObservationDateTime,
+    location: LocationModel,
     locale: Optional[str] = None,
 ) -> dict:
     """
@@ -25,11 +23,8 @@ def calculate_moon_phase(
     elongation angle (angular separation) and ecliptic longitude difference.
 
     Args:
-        date_str: Date in ISO format (YYYY-MM-DD)
-        time_str: Time in ISO format (HH:MM:SS)
-        latitude: Latitude in degrees (-90 to 90)
-        longitude: Longitude in degrees (-180 to 180)
-        elevation: Elevation in meters (default: 0.0)
+        observation_time: Date and time of observation
+        location: Observer location (latitude, longitude, elevation)
 
     Returns:
         dict: Dictionary containing:
@@ -39,32 +34,40 @@ def calculate_moon_phase(
             - julian_date: Julian Date of the observation
             - location: Dict with latitude, longitude, elevation
             - input_datetime: Original input datetime string
-    
+
     Raises:
         ValueError: If date/time format is invalid or coordinates out of range
     """
     # Validate coordinates
-    if not -90 <= latitude <= 90:
-        raise ValueError(get_i18n(locale).get('validation.latitudeRange', value=latitude))
-    if not -180 <= longitude <= 180:
-        raise ValueError(get_i18n(locale).get('validation.longitudeRange', value=longitude))
-    
+    if not -90 <= location.latitude <= 90:
+        msg = get_i18n(locale).get('validation.latitudeRange',
+                                     value=location.latitude)
+        raise ValueError(msg)
+    if not -180 <= location.longitude <= 180:
+        msg = get_i18n(locale).get('validation.longitudeRange',
+                                    value=location.longitude)
+        raise ValueError(msg)
+
     # Combine date and time (ISO 8601 format)
-    datetime_str = f"{date_str}T{time_str}"
+    datetime_str = f"{observation_time.date}T{observation_time.time}"
 
     # Convert to astropy Time (assumes UTC)
     time = Time(datetime_str, format="isot", scale="utc")
 
     # Create location
-    location = EarthLocation(
-        lat=latitude * u.deg, lon=longitude * u.deg, height=elevation * u.m
+    earth_location = EarthLocation(
+        lat=location.latitude * u.deg, lon=location.longitude * u.deg,
+        height=location.elevation * u.m
     )
 
     # Get sun and moon positions
     sun = get_sun(time)
-    moon = get_body("moon", time, location=location)
+    moon = get_body("moon", time, location=earth_location)
 
-    return _process_moon_phase(sun, moon, time, datetime_str, latitude, longitude, elevation, locale=locale)
+    return _process_moon_phase(
+        sun, moon, time, datetime_str, location,
+        locale=locale
+    )
 
 
 def _process_moon_phase(
@@ -72,15 +75,13 @@ def _process_moon_phase(
     moon,
     time: Time,
     datetime_str: str,
-    latitude: float,
-    longitude: float,
-    elevation: float,
+    location: LocationModel,
     locale: Optional[str] = None,
 ) -> dict:
     """
     Process moon phase data from sun and moon positions.
     Internal function used by calculate_moon_phase and batch operations.
-    
+
     Args:
         sun: Sun position (GCRS coordinates)
         moon: Moon position (GCRS coordinates)
@@ -89,7 +90,7 @@ def _process_moon_phase(
         latitude: Latitude in degrees
         longitude: Longitude in degrees
         elevation: Elevation in meters
-    
+
     Returns:
         Dictionary with moon phase data
     """
@@ -97,7 +98,7 @@ def _process_moon_phase(
     # This warning is informational and doesn't affect moon phase calculation accuracy
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", NonRotationTransformationWarning)
-        
+
         # Calculate illumination fraction from elongation angle
         # Elongation is the angular separation between sun and moon as seen from Earth
         # elongation=0° → new moon (illum=0), elongation=180° → full moon (illum=1)
@@ -144,9 +145,9 @@ def _process_moon_phase(
         "phase_name": phase_name,
         "julian_date": float(time.jd),
         "location": {
-            "latitude": latitude,
-            "longitude": longitude,
-            "elevation": elevation,
+            "latitude": location.latitude,
+            "longitude": location.longitude,
+            "elevation": location.elevation,
         },
         "input_datetime": datetime_str,
     }

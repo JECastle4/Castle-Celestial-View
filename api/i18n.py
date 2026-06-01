@@ -14,79 +14,76 @@ logger = logging.getLogger(__name__)
 
 class I18n:
     """Manages localization for the API."""
-    
+
     def __init__(self, locale: str = 'en'):
         self.translations: Dict[str, Any] = {}
         self.locale = self._load_locale(locale)
-    
+
     def _get_locale_path(self, locale: str) -> Path:
         """Get the path to a locale JSON file."""
         locales_dir = Path(__file__).parent / 'locales'
         return locales_dir / f'{locale}.json'
-    
+
     def _load_locale(self, locale: str) -> str:
         """Load translations for a given locale. Returns the resolved locale."""
         locale_path = self._get_locale_path(locale)
-        
+
         if not locale_path.exists():
             if locale != 'en':
                 # Fallback to English if locale doesn't exist
                 logger.warning("Locale '%s' not found, falling back to 'en'", locale)
                 return self._load_locale('en')
-            else:
-                raise FileNotFoundError(f"Default locale file not found: {locale_path}")
-        
+            raise FileNotFoundError(f"Default locale file not found: {locale_path}")
+
         try:
             with open(locale_path, 'r', encoding='utf-8') as f:
                 self.translations = json.load(f)
         except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON in locale file {locale_path}: {e}")
-        
+            raise ValueError(
+                f"Invalid JSON in locale file {locale_path}: {e}"
+            ) from e
+
         return locale
-    
+
     def get(self, key: str, default: Optional[str] = None, **kwargs) -> str:
         """
         Get a localized string by key.
-        
+
         Supports dot notation for nested keys: 'dayNames.0'
         Supports string interpolation: get('validation.latitudeRange', value=45)
-        
+
         Args:
             key: Dot-separated key path to the translation
             default: Default value if key not found
             **kwargs: Variables for string interpolation
-        
+
         Returns:
             Localized string with interpolations applied
         """
         # Navigate nested dictionary using dot notation
         parts = key.split('.')
         value = self.translations
-        
+
         for part in parts:
             if isinstance(value, dict) and part in value:
                 value = value[part]
             else:
-                if default is not None:
-                    return default
-                return f"[Missing translation: {key}]"
-        
+                return default if default is not None else f"[Missing translation: {key}]"
+
         if not isinstance(value, str):
-            if default is not None:
-                return default
-            return f"[Invalid translation type for: {key}]"
-        
+            return default if default is not None else f"[Invalid translation type for: {key}]"
+
         # Apply string interpolation
-        if kwargs:
-            try:
-                return value.format(**kwargs)
-            except KeyError as e:
-                return f"[Missing interpolation variable: {e}] {value}"
-            except ValueError as e:
-                return f"[Malformed translation string: {e}] {value}"
-        
-        return value
-    
+        if not kwargs:
+            return value
+
+        try:
+            return value.format(**kwargs)
+        except KeyError as e:
+            return f"[Missing interpolation variable: {e}] {value}"
+        except ValueError as e:
+            return f"[Malformed translation string: {e}] {value}"
+
     def set_locale(self, locale: str) -> None:
         """Switch to a different locale."""
         if locale != self.locale:

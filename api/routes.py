@@ -18,6 +18,9 @@ from api.models import (
     MoonPhaseResponse,
     BatchEarthObservationsRequest,
     BatchEarthObservationsResponse,
+    ObservationDateTime,
+    LocationModel,
+    TimeRange,
 )
 from api.services.dates import calculate_day_of_week
 from api.services.sun import calculate_sun_position
@@ -49,22 +52,28 @@ async def stream_batch_earth_observations(
     longitude: float = Query(..., ge=-180.0, le=180.0),
     elevation: float = Query(0.0)
 ):
+    """Stream batch celestial observations using Server-Sent Events."""
     try:
         # Capture the locale now (ContextVar is not copied into the sync
         # streaming thread that StreamingResponse uses to iterate the generator)
         locale = get_i18n().locale
 
+        time_range = TimeRange(
+            start=ObservationDateTime(date=start_date, time=start_time),
+            end=ObservationDateTime(date=end_date, time=end_time),
+            frame_count=frame_count
+        )
+        location = LocationModel(
+            latitude=latitude,
+            longitude=longitude,
+            elevation=elevation
+        )
+
         def event_generator():
             gen = calculate_batch_earth_observations(
-                start_date=start_date,
-                start_time=start_time,
-                end_date=end_date,
-                end_time=end_time,
-                frame_count=frame_count,
-                latitude=latitude,
-                longitude=longitude,
-                elevation=elevation,
-                locale=locale,
+                time_range=time_range,
+                location=location,
+                locale=locale
             )
             for idx, item in enumerate(gen):
                 if idx < frame_count:
@@ -84,25 +93,25 @@ async def stream_batch_earth_observations(
         raise HTTPException(
             status_code=400,
             detail=f"Invalid input: {str(e)}"
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=500,
             detail=f"Error streaming batch observations: {str(e)}"
-        )
+        ) from e
 
 
 @router.post("/day-of-week", response_model=DayOfWeekResponse)
 async def get_day_of_week(request: DateTimeRequest):
     """
     Calculate the day of the week from a given date and time.
-    
+
     Converts the input date/time to Julian Date (JD) using astropy,
     then calculates which day of the week it falls on.
-    
+
     - **date**: Date in ISO format (YYYY-MM-DD)
     - **time**: Optional time in HH:MM:SS format (defaults to 00:00:00)
-    
+
     Returns:
     - **julian_date**: The JD as a float
     - **day_of_week**: Integer 0-6 (0=Sunday)
@@ -112,33 +121,33 @@ async def get_day_of_week(request: DateTimeRequest):
     try:
         result = calculate_day_of_week(request.date, request.time)
         return DayOfWeekResponse(**result)
-        
+
     except ValueError as e:
         raise HTTPException(
             status_code=400,
             detail=f"Invalid date/time format: {str(e)}"
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=500,
             detail=f"Error calculating day of week: {str(e)}"
-        )
+        ) from e
 
 
 @router.post("/sun-position", response_model=SunPositionResponse)
 async def get_sun_position(request: SunPositionRequest):
     """
     Calculate the sun's position at a given time and location.
-    
+
     Returns altitude (angle above horizon) and azimuth (compass direction),
     along with visibility status.
-    
+
     - **date**: Date in ISO format (YYYY-MM-DD)
     - **time**: Time in HH:MM:SS format
     - **latitude**: Latitude in degrees (-90 to 90)
     - **longitude**: Longitude in degrees (-180 to 180)
     - **elevation**: Elevation above sea level in meters (optional)
-    
+
     Returns:
     - **altitude**: Sun's altitude in degrees (negative = below horizon)
     - **azimuth**: Sun's azimuth in degrees (0=North, 90=East)
@@ -148,41 +157,41 @@ async def get_sun_position(request: SunPositionRequest):
     - **location**: The location used for calculation
     """
     try:
-        result = calculate_sun_position(
-            request.date,
-            request.time,
-            request.latitude,
-            request.longitude,
-            request.elevation
+        observation_time = ObservationDateTime(date=request.date, time=request.time)
+        location = LocationModel(
+            latitude=request.latitude,
+            longitude=request.longitude,
+            elevation=request.elevation
         )
+        result = calculate_sun_position(observation_time, location)
         return SunPositionResponse(**result)
-        
+
     except ValueError as e:
         raise HTTPException(
             status_code=400,
             detail=f"Invalid input: {str(e)}"
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=500,
             detail=f"Error calculating sun position: {str(e)}"
-        )
+        ) from e
 
 
 @router.post("/moon-position", response_model=MoonPositionResponse)
 async def get_moon_position(request: MoonPositionRequest):
     """
     Calculate the moon's position at a given time and location.
-    
+
     Returns altitude (angle above horizon) and azimuth (compass direction),
     along with visibility status.
-    
+
     - **date**: Date in ISO format (YYYY-MM-DD)
     - **time**: Time in HH:MM:SS format
     - **latitude**: Latitude in degrees (-90 to 90)
     - **longitude**: Longitude in degrees (-180 to 180)
     - **elevation**: Elevation above sea level in meters (optional)
-    
+
     Returns:
     - **altitude**: Moon's altitude in degrees (negative = below horizon)
     - **azimuth**: Moon's azimuth in degrees (0=North, 90=East)
@@ -192,52 +201,52 @@ async def get_moon_position(request: MoonPositionRequest):
     - **location**: The location used for calculation
     """
     try:
-        result = calculate_moon_position(
-            request.date,
-            request.time,
-            request.latitude,
-            request.longitude,
-            request.elevation
+        observation_time = ObservationDateTime(date=request.date, time=request.time)
+        location = LocationModel(
+            latitude=request.latitude,
+            longitude=request.longitude,
+            elevation=request.elevation
         )
+        result = calculate_moon_position(observation_time, location)
         return MoonPositionResponse(**result)
-        
+
     except ValueError as e:
         raise HTTPException(
             status_code=400,
             detail=f"Invalid input: {str(e)}"
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=500,
             detail=f"Error calculating moon position: {str(e)}"
-        )
+        ) from e
 
 
 @router.post("/venus-position", response_model=VenusPositionResponse)
 async def get_venus_position(request: VenusPositionRequest):
     """
     Calculate Venus's position and phase at a given time and location.
-    
+
     Returns altitude (angle above horizon), azimuth (compass direction), visibility status,
     sun separation (elongation), and phase information (illumination, phase angle, phase name).
-    
+
     Venus visibility has two dimensions:
     - **Geometric visibility** (is_visible): Venus is above the horizon
-    - **Observable visibility** (naked_eye_visible): Venus is above horizon AND sufficiently 
+    - **Observable visibility** (naked_eye_visible): Venus is above horizon AND sufficiently
       separated from the Sun (typically >10° elongation) to avoid being drowned out by solar glare
-    
+
     Note: Venus phase requires a telescope to observe. Venus never reaches Quarter, Gibbous,
     or Full phases as seen from Earth because its maximum elongation is ~47°, resulting in
     maximum illumination of ~25% (crescent phase).
-    
+
     Available in API v0.2.0+.
-    
+
     - **date**: Date in ISO format (YYYY-MM-DD)
     - **time**: Time in HH:MM:SS format
     - **latitude**: Latitude in degrees (-90 to 90)
     - **longitude**: Longitude in degrees (-180 to 180)
     - **elevation**: Elevation above sea level in meters (optional)
-    
+
     Returns:
     - **altitude**: Venus's altitude in degrees (negative = below horizon)
     - **azimuth**: Venus's azimuth in degrees (0=North, 90=East)
@@ -252,45 +261,48 @@ async def get_venus_position(request: VenusPositionRequest):
     - **location**: The location used for calculation
     """
     try:
+        observation_time = ObservationDateTime(date=request.date, time=request.time)
+        location = LocationModel(
+            latitude=request.latitude,
+            longitude=request.longitude,
+            elevation=request.elevation
+        )
         result = calculate_venus_position(
-            request.date,
-            request.time,
-            request.latitude,
-            request.longitude,
-            request.elevation,
+            observation_time,
+            location,
             locale=get_i18n().locale,
         )
         return VenusPositionResponse(**result)
-        
+
     except ValueError as e:
         raise HTTPException(
             status_code=400,
             detail=f"Invalid input: {str(e)}"
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=500,
             detail=f"Error calculating Venus position: {str(e)}"
-        )
+        ) from e
 
 
 @router.post("/moon-phase", response_model=MoonPhaseResponse)
 async def get_moon_phase(request: MoonPhaseRequest):
     """
     Calculate the moon's phase information at a given time and location.
-    
+
     Returns illumination fraction (0=new, 1=full), phase angle in ecliptic
     longitude (0-180°=waxing, 180-360°=waning), and textual phase name.
-    
+
     Note: Phase calculation requires both sun and moon positions to determine
     the angular separation and ecliptic longitude difference.
-    
+
     - **date**: Date in ISO format (YYYY-MM-DD)
     - **time**: Time in HH:MM:SS format
     - **latitude**: Latitude in degrees (-90 to 90)
     - **longitude**: Longitude in degrees (-180 to 180)
     - **elevation**: Elevation above sea level in meters (optional)
-    
+
     Returns:
     - **illumination**: Fraction illuminated (0.0 to 1.0)
     - **phase_angle**: Angle in ecliptic (0-360°)
@@ -300,26 +312,29 @@ async def get_moon_phase(request: MoonPhaseRequest):
     - **location**: The location used for calculation
     """
     try:
+        observation_time = ObservationDateTime(date=request.date, time=request.time)
+        location = LocationModel(
+            latitude=request.latitude,
+            longitude=request.longitude,
+            elevation=request.elevation
+        )
         result = calculate_moon_phase(
-            request.date,
-            request.time,
-            request.latitude,
-            request.longitude,
-            request.elevation,
+            observation_time,
+            location,
             locale=get_i18n().locale,
         )
         return MoonPhaseResponse(**result)
-        
+
     except ValueError as e:
         raise HTTPException(
             status_code=400,
             detail=f"Invalid input: {str(e)}"
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=500,
             detail=f"Error calculating moon phase: {str(e)}"
-        )
+        ) from e
 
 
 @router.post(
@@ -329,13 +344,13 @@ async def get_moon_phase(request: MoonPhaseRequest):
     summary="Get batch celestial observations from Earth",
     description="""
     Calculate multiple frames of sun and moon positions and moon phase from an Earth location.
-    
+
     This endpoint generates a series of observations between start and end times,
     perfect for animations or time-series visualizations. Each frame contains:
     - Sun position (altitude, azimuth, visibility)
     - Moon position (altitude, azimuth, visibility)
     - Moon phase (illumination, angle, name)
-    
+
     **Note:** For large frame counts, this may take several seconds to compute.
     Current implementation calls position services for each frame.
     """
@@ -343,15 +358,20 @@ async def get_moon_phase(request: MoonPhaseRequest):
 async def get_batch_earth_observations(request: BatchEarthObservationsRequest):
     """Calculate batch observations of celestial positions from Earth"""
     try:
-        gen = calculate_batch_earth_observations(
-            start_date=request.start_date,
-            start_time=request.start_time,
-            end_date=request.end_date,
-            end_time=request.end_time,
-            frame_count=request.frame_count,
+        time_range = TimeRange(
+            start=ObservationDateTime(date=request.start_date, time=request.start_time),
+            end=ObservationDateTime(date=request.end_date, time=request.end_time),
+            frame_count=request.frame_count
+        )
+        location = LocationModel(
             latitude=request.latitude,
             longitude=request.longitude,
             elevation=request.elevation
+        )
+        gen = calculate_batch_earth_observations(
+            time_range=time_range,
+            location=location,
+            locale=get_i18n().locale
         )
         frames = []
         metadata = None
@@ -365,9 +385,9 @@ async def get_batch_earth_observations(request: BatchEarthObservationsRequest):
         raise HTTPException(
             status_code=400,
             detail=f"Invalid input: {str(e)}"
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=500,
             detail=f"Error calculating batch observations: {str(e)}"
-        )
+        ) from e

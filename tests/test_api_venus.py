@@ -2,6 +2,8 @@
 
 import pytest
 from api.services.venus import calculate_venus_position
+from api.models import ObservationDateTime, LocationModel
+from pydantic import ValidationError
 
 
 class TestVenusPositionBasic:
@@ -10,11 +12,8 @@ class TestVenusPositionBasic:
     def test_venus_position_basic(self):
         """Test basic Venus position calculation."""
         result = calculate_venus_position(
-            date_str="2026-06-01",
-            time_str="12:00:00",
-            latitude=0.0,
-            longitude=0.0,
-            elevation=0.0,
+            ObservationDateTime(date="2026-06-01", time="12:00:00"),
+            LocationModel(latitude=0.0, longitude=0.0, elevation=0.0)
         )
 
         assert "altitude" in result
@@ -49,11 +48,8 @@ class TestVenusPositionBasic:
     def test_venus_position_at_equator(self):
         """Test Venus position at equator."""
         result = calculate_venus_position(
-            date_str="2026-06-01",
-            time_str="12:00:00",
-            latitude=0.0,
-            longitude=0.0,
-            elevation=0.0,
+            ObservationDateTime(date="2026-06-01", time="12:00:00"),
+            LocationModel(latitude=0.0, longitude=0.0, elevation=0.0)
         )
 
         assert isinstance(result["altitude"], float)
@@ -62,11 +58,8 @@ class TestVenusPositionBasic:
     def test_venus_position_new_york(self):
         """Test Venus position for New York City."""
         result = calculate_venus_position(
-            date_str="2026-06-01",
-            time_str="12:00:00",
-            latitude=40.7128,
-            longitude=-74.0060,
-            elevation=10.0,
+            ObservationDateTime(date="2026-06-01", time="12:00:00"),
+            LocationModel(latitude=40.7128, longitude=-74.0060, elevation=10.0)
         )
 
         assert "altitude" in result
@@ -77,11 +70,8 @@ class TestVenusPositionBasic:
     def test_venus_position_sydney(self):
         """Test Venus position for Sydney, Australia (southern hemisphere)."""
         result = calculate_venus_position(
-            date_str="2026-06-01",
-            time_str="12:00:00",
-            latitude=-33.8688,
-            longitude=151.2093,
-            elevation=0.0,
+            ObservationDateTime(date="2026-06-01", time="12:00:00"),
+            LocationModel(latitude=-33.8688, longitude=151.2093, elevation=0.0)
         )
 
         assert "altitude" in result
@@ -91,11 +81,8 @@ class TestVenusPositionBasic:
     def test_venus_position_north_pole(self):
         """Test Venus position at North Pole."""
         result = calculate_venus_position(
-            date_str="2026-06-21",
-            time_str="12:00:00",
-            latitude=90.0,
-            longitude=0.0,
-            elevation=0.0,
+            ObservationDateTime(date="2026-06-21", time="12:00:00"),
+            LocationModel(latitude=90.0, longitude=0.0, elevation=0.0)
         )
 
         assert "altitude" in result
@@ -105,11 +92,8 @@ class TestVenusPositionBasic:
     def test_venus_position_south_pole(self):
         """Test Venus position at South Pole."""
         result = calculate_venus_position(
-            date_str="2026-06-21",
-            time_str="12:00:00",
-            latitude=-90.0,
-            longitude=0.0,
-            elevation=0.0,
+            ObservationDateTime(date="2026-06-21", time="12:00:00"),
+            LocationModel(latitude=-90.0, longitude=0.0, elevation=0.0)
         )
 
         assert "altitude" in result
@@ -124,11 +108,8 @@ class TestVenusPhaseCalculation:
         """Test Venus showing crescent phase."""
         # June 1, 2026 Venus is in crescent phase
         result = calculate_venus_position(
-            date_str="2026-06-01",
-            time_str="12:00:00",
-            latitude=40.7128,
-            longitude=-74.0060,
-            elevation=0.0,
+            ObservationDateTime(date="2026-06-01", time="12:00:00"),
+            LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
         )
 
         assert result["phase_name"] in ["New", "Crescent", "Quarter", "Gibbous", "Full"]
@@ -150,11 +131,8 @@ class TestVenusPhaseCalculation:
 
         for date in dates:
             result = calculate_venus_position(
-                date_str=date,
-                time_str="12:00:00",
-                latitude=40.7128,
-                longitude=-74.0060,
-                elevation=0.0,
+                ObservationDateTime(date=date, time="12:00:00"),
+                LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
             )
 
             assert result["phase_name"] in ["New", "Crescent", "Quarter", "Gibbous", "Full"]
@@ -165,11 +143,8 @@ class TestVenusPhaseCalculation:
         results = []
         for month in range(1, 13):
             result = calculate_venus_position(
-                date_str=f"2026-{month:02d}-15",
-                time_str="12:00:00",
-                latitude=40.7128,
-                longitude=-74.0060,
-                elevation=0.0,
+                ObservationDateTime(date=f"2026-{month:02d}-15", time="12:00:00"),
+                LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
             )
             results.append(result["illumination"])
 
@@ -185,11 +160,8 @@ class TestVenusVisibility:
         """Test that naked eye visibility requires sufficient sun separation."""
         # June 1 has high sun separation and should be naked eye visible
         result = calculate_venus_position(
-            date_str="2026-06-01",
-            time_str="20:00:00",
-            latitude=40.7128,
-            longitude=-74.0060,
-            elevation=0.0,
+            ObservationDateTime(date="2026-06-01", time="20:00:00"),
+            LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
         )
 
         # High sun separation means naked eye visible if above horizon
@@ -200,11 +172,8 @@ class TestVenusVisibility:
         """Test that Venus below horizon is not visible."""
         # Test a time when Venus is below horizon
         result = calculate_venus_position(
-            date_str="2026-10-01",
-            time_str="12:00:00",
-            latitude=40.7128,
-            longitude=-74.0060,
-            elevation=0.0,
+            ObservationDateTime(date="2026-10-01", time="12:00:00"),
+            LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
         )
 
         # If below horizon, should not be naked eye visible
@@ -217,11 +186,8 @@ class TestVenusVisibility:
         separations = []
         for month in range(1, 13):
             result = calculate_venus_position(
-                date_str=f"2026-{month:02d}-15",
-                time_str="12:00:00",
-                latitude=40.7128,
-                longitude=-74.0060,
-                elevation=0.0,
+                ObservationDateTime(date=f"2026-{month:02d}-15", time="12:00:00"),
+                LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
             )
             separations.append(result["sun_separation"])
 
@@ -239,11 +205,8 @@ class TestVenusLocationVariations:
 
         for lat in latitudes:
             result = calculate_venus_position(
-                date_str="2026-06-01",
-                time_str="12:00:00",
-                latitude=lat,
-                longitude=0.0,
-                elevation=0.0,
+                ObservationDateTime(date="2026-06-01", time="12:00:00"),
+                LocationModel(latitude=lat, longitude=0.0, elevation=0.0)
             )
 
             assert isinstance(result["altitude"], float)
@@ -255,11 +218,8 @@ class TestVenusLocationVariations:
 
         for lon in longitudes:
             result = calculate_venus_position(
-                date_str="2026-06-01",
-                time_str="12:00:00",
-                latitude=40.7128,
-                longitude=lon,
-                elevation=0.0,
+                ObservationDateTime(date="2026-06-01", time="12:00:00"),
+                LocationModel(latitude=40.7128, longitude=lon, elevation=0.0)
             )
 
             assert isinstance(result["altitude"], float)
@@ -270,11 +230,8 @@ class TestVenusLocationVariations:
 
         for elev in elevations:
             result = calculate_venus_position(
-                date_str="2026-06-01",
-                time_str="12:00:00",
-                latitude=40.7128,
-                longitude=-74.0060,
-                elevation=elev,
+                ObservationDateTime(date="2026-06-01", time="12:00:00"),
+                LocationModel(latitude=40.7128, longitude=-74.0060, elevation=elev)
             )
 
             assert isinstance(result["altitude"], float)
@@ -285,94 +242,54 @@ class TestVenusInputValidation:
     """Tests for input validation."""
 
     def test_invalid_latitude_too_high(self):
-        """Test that latitude > 90 raises error."""
-        with pytest.raises(ValueError) as exc_info:
-            calculate_venus_position(
-                date_str="2026-06-01",
-                time_str="12:00:00",
-                latitude=91.0,
-                longitude=0.0,
-                elevation=0.0,
-            )
-        assert "Latitude" in str(exc_info.value)
+        """Test that latitude > 90 raises ValidationError."""
+        with pytest.raises(ValidationError):
+            LocationModel(latitude=91.0, longitude=0.0, elevation=0.0)
 
     def test_invalid_latitude_too_low(self):
-        """Test that latitude < -90 raises error."""
-        with pytest.raises(ValueError) as exc_info:
-            calculate_venus_position(
-                date_str="2026-06-01",
-                time_str="12:00:00",
-                latitude=-91.0,
-                longitude=0.0,
-                elevation=0.0,
-            )
-        assert "Latitude" in str(exc_info.value)
+        """Test that latitude < -90 raises ValidationError."""
+        with pytest.raises(ValidationError):
+            LocationModel(latitude=-91.0, longitude=0.0, elevation=0.0)
 
     def test_invalid_longitude_too_high(self):
-        """Test that longitude > 180 raises error."""
-        with pytest.raises(ValueError) as exc_info:
-            calculate_venus_position(
-                date_str="2026-06-01",
-                time_str="12:00:00",
-                latitude=0.0,
-                longitude=181.0,
-                elevation=0.0,
-            )
-        assert "Longitude" in str(exc_info.value)
+        """Test that longitude > 180 raises ValidationError."""
+        with pytest.raises(ValidationError):
+            LocationModel(latitude=0.0, longitude=181.0, elevation=0.0)
 
     def test_invalid_longitude_too_low(self):
-        """Test that longitude < -180 raises error."""
-        with pytest.raises(ValueError) as exc_info:
-            calculate_venus_position(
-                date_str="2026-06-01",
-                time_str="12:00:00",
-                latitude=0.0,
-                longitude=-181.0,
-                elevation=0.0,
-            )
-        assert "Longitude" in str(exc_info.value)
+        """Test that longitude < -180 raises ValidationError."""
+        with pytest.raises(ValidationError):
+            LocationModel(latitude=0.0, longitude=-181.0, elevation=0.0)
 
     def test_latitude_boundary_90(self):
         """Test that latitude = 90 is valid."""
         result = calculate_venus_position(
-            date_str="2026-06-01",
-            time_str="12:00:00",
-            latitude=90.0,
-            longitude=0.0,
-            elevation=0.0,
+            ObservationDateTime(date="2026-06-01", time="12:00:00"),
+            LocationModel(latitude=90.0, longitude=0.0, elevation=0.0)
         )
         assert isinstance(result["altitude"], float)
 
     def test_latitude_boundary_minus_90(self):
         """Test that latitude = -90 is valid."""
         result = calculate_venus_position(
-            date_str="2026-06-01",
-            time_str="12:00:00",
-            latitude=-90.0,
-            longitude=0.0,
-            elevation=0.0,
+            ObservationDateTime(date="2026-06-01", time="12:00:00"),
+            LocationModel(latitude=-90.0, longitude=0.0, elevation=0.0)
         )
         assert isinstance(result["altitude"], float)
 
     def test_longitude_boundary_180(self):
         """Test that longitude = 180 is valid."""
         result = calculate_venus_position(
-            date_str="2026-06-01",
-            time_str="12:00:00",
-            latitude=0.0,
-            longitude=180.0,
-            elevation=0.0,
+            ObservationDateTime(date="2026-06-01", time="12:00:00"),
+            LocationModel(latitude=0.0, longitude=180.0, elevation=0.0)
         )
         assert isinstance(result["altitude"], float)
 
     def test_longitude_boundary_minus_180(self):
         """Test that longitude = -180 is valid."""
         result = calculate_venus_position(
-            date_str="2026-06-01",
-            time_str="12:00:00",
-            latitude=0.0,
-            longitude=-180.0,
-            elevation=0.0,
+            ObservationDateTime(date="2026-06-01", time="12:00:00"),
+            LocationModel(latitude=0.0, longitude=-180.0, elevation=0.0)
         )
         assert isinstance(result["altitude"], float)
 
@@ -387,11 +304,8 @@ class TestVenusDateTimeHandling:
         results = []
         for time in times:
             result = calculate_venus_position(
-                date_str="2026-06-01",
-                time_str=time,
-                latitude=40.7128,
-                longitude=-74.0060,
-                elevation=0.0,
+                ObservationDateTime(date="2026-06-01", time=time),
+                LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
             )
             results.append(result)
 
@@ -402,11 +316,8 @@ class TestVenusDateTimeHandling:
     def test_timezone_agnostic(self):
         """Test that calculations use UTC."""
         result = calculate_venus_position(
-            date_str="2026-06-01",
-            time_str="12:00:00",
-            latitude=40.7128,
-            longitude=-74.0060,
-            elevation=0.0,
+            ObservationDateTime(date="2026-06-01", time="12:00:00"),
+            LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
         )
 
         assert result["input_datetime"] == "2026-06-01T12:00:00"
@@ -414,11 +325,8 @@ class TestVenusDateTimeHandling:
     def test_leap_year_february_29(self):
         """Test Venus position on leap year February 29."""
         result = calculate_venus_position(
-            date_str="2024-02-29",
-            time_str="12:00:00",
-            latitude=40.7128,
-            longitude=-74.0060,
-            elevation=0.0,
+            ObservationDateTime(date="2024-02-29", time="12:00:00"),
+            LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
         )
 
         assert isinstance(result["altitude"], float)
@@ -427,11 +335,8 @@ class TestVenusDateTimeHandling:
         """Test Venus calculations throughout 2026."""
         for month in range(1, 13):
             result = calculate_venus_position(
-                date_str=f"2026-{month:02d}-15",
-                time_str="12:00:00",
-                latitude=40.7128,
-                longitude=-74.0060,
-                elevation=0.0,
+                ObservationDateTime(date=f"2026-{month:02d}-15", time="12:00:00"),
+                LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
             )
 
             assert isinstance(result["altitude"], float)
@@ -444,11 +349,8 @@ class TestVenusLocaleSupport:
     def test_venus_with_default_locale(self):
         """Test Venus position with default locale."""
         result = calculate_venus_position(
-            date_str="2026-06-01",
-            time_str="12:00:00",
-            latitude=40.7128,
-            longitude=-74.0060,
-            elevation=0.0,
+            ObservationDateTime(date="2026-06-01", time="12:00:00"),
+            LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0),
             locale=None,
         )
 
@@ -458,11 +360,8 @@ class TestVenusLocaleSupport:
     def test_venus_with_en_locale(self):
         """Test Venus position with English locale."""
         result = calculate_venus_position(
-            date_str="2026-06-01",
-            time_str="12:00:00",
-            latitude=40.7128,
-            longitude=-74.0060,
-            elevation=0.0,
+            ObservationDateTime(date="2026-06-01", time="12:00:00"),
+            LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0),
             locale="en",
         )
 
@@ -472,11 +371,8 @@ class TestVenusLocaleSupport:
     def test_venus_with_en_us_locale(self):
         """Test Venus position with en-US locale."""
         result = calculate_venus_position(
-            date_str="2026-06-01",
-            time_str="12:00:00",
-            latitude=40.7128,
-            longitude=-74.0060,
-            elevation=0.0,
+            ObservationDateTime(date="2026-06-01", time="12:00:00"),
+            LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0),
             locale="en-US",
         )
 
@@ -486,11 +382,8 @@ class TestVenusLocaleSupport:
     def test_venus_with_en_uk_locale(self):
         """Test Venus position with en-UK locale."""
         result = calculate_venus_position(
-            date_str="2026-06-01",
-            time_str="12:00:00",
-            latitude=40.7128,
-            longitude=-74.0060,
-            elevation=0.0,
+            ObservationDateTime(date="2026-06-01", time="12:00:00"),
+            LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0),
             locale="en-UK",
         )
 
@@ -500,11 +393,8 @@ class TestVenusLocaleSupport:
     def test_venus_with_reverse_locale(self):
         """Test Venus position with reverse locale (for testing)."""
         result = calculate_venus_position(
-            date_str="2026-06-01",
-            time_str="12:00:00",
-            latitude=40.7128,
-            longitude=-74.0060,
-            elevation=0.0,
+            ObservationDateTime(date="2026-06-01", time="12:00:00"),
+            LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0),
             locale="xx-reverse",
         )
 
@@ -519,11 +409,8 @@ class TestVenusLocationDictionary:
     def test_location_dict_contains_coordinates(self):
         """Test that location dict has latitude, longitude, elevation."""
         result = calculate_venus_position(
-            date_str="2026-06-01",
-            time_str="12:00:00",
-            latitude=40.7128,
-            longitude=-74.0060,
-            elevation=10.0,
+            ObservationDateTime(date="2026-06-01", time="12:00:00"),
+            LocationModel(latitude=40.7128, longitude=-74.0060, elevation=10.0)
         )
 
         assert result["location"]["latitude"] == 40.7128
@@ -533,11 +420,8 @@ class TestVenusLocationDictionary:
     def test_location_dict_with_zero_elevation(self):
         """Test location dict with zero elevation."""
         result = calculate_venus_position(
-            date_str="2026-06-01",
-            time_str="12:00:00",
-            latitude=0.0,
-            longitude=0.0,
-            elevation=0.0,
+            ObservationDateTime(date="2026-06-01", time="12:00:00"),
+            LocationModel(latitude=0.0, longitude=0.0, elevation=0.0)
         )
 
         assert result["location"]["elevation"] == 0.0
@@ -549,11 +433,8 @@ class TestVenusJulianDate:
     def test_julian_date_reasonable_value(self):
         """Test that Julian Date is in reasonable range."""
         result = calculate_venus_position(
-            date_str="2026-06-01",
-            time_str="12:00:00",
-            latitude=0.0,
-            longitude=0.0,
-            elevation=0.0,
+            ObservationDateTime(date="2026-06-01", time="12:00:00"),
+            LocationModel(latitude=0.0, longitude=0.0, elevation=0.0)
         )
 
         # Julian Date for 2026 should be around 2461100-2461300
@@ -562,27 +443,18 @@ class TestVenusJulianDate:
     def test_julian_date_increases_with_time(self):
         """Test that Julian Date increases as time progresses."""
         result1 = calculate_venus_position(
-            date_str="2026-06-01",
-            time_str="00:00:00",
-            latitude=0.0,
-            longitude=0.0,
-            elevation=0.0,
+            ObservationDateTime(date="2026-06-01", time="00:00:00"),
+            LocationModel(latitude=0.0, longitude=0.0, elevation=0.0)
         )
 
         result2 = calculate_venus_position(
-            date_str="2026-06-01",
-            time_str="12:00:00",
-            latitude=0.0,
-            longitude=0.0,
-            elevation=0.0,
+            ObservationDateTime(date="2026-06-01", time="12:00:00"),
+            LocationModel(latitude=0.0, longitude=0.0, elevation=0.0)
         )
 
         result3 = calculate_venus_position(
-            date_str="2026-06-02",
-            time_str="00:00:00",
-            latitude=0.0,
-            longitude=0.0,
-            elevation=0.0,
+            ObservationDateTime(date="2026-06-02", time="00:00:00"),
+            LocationModel(latitude=0.0, longitude=0.0, elevation=0.0)
         )
 
         assert result1["julian_date"] < result2["julian_date"] < result3["julian_date"]
@@ -595,11 +467,8 @@ class TestVenusAzimuthRanges:
         """Test that azimuth is always in 0-360 range."""
         for month in range(1, 13):
             result = calculate_venus_position(
-                date_str=f"2026-{month:02d}-15",
-                time_str="12:00:00",
-                latitude=40.7128,
-                longitude=-74.0060,
-                elevation=0.0,
+                ObservationDateTime(date=f"2026-{month:02d}-15", time="12:00:00"),
+                LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
             )
 
             assert 0.0 <= result["azimuth"] <= 360.0
@@ -609,11 +478,8 @@ class TestVenusAzimuthRanges:
         azimuths = []
         for hour in range(0, 24, 6):
             result = calculate_venus_position(
-                date_str="2026-06-01",
-                time_str=f"{hour:02d}:00:00",
-                latitude=40.7128,
-                longitude=-74.0060,
-                elevation=0.0,
+                ObservationDateTime(date="2026-06-01", time=f"{hour:02d}:00:00"),
+                LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
             )
             azimuths.append(result["azimuth"])
 

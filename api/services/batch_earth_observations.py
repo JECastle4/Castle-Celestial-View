@@ -4,58 +4,59 @@ from typing import Optional
 from astropy.time import Time
 from astropy.coordinates import get_sun, get_body, AltAz, EarthLocation
 import astropy.units as u
+from api.i18n import get_i18n
+from api.models import TimeRange, LocationModel
 from .sun import _process_sun_position
 from .moon import _process_moon_position
 from .venus import _process_venus_position
 from .moon_phase import _process_moon_phase
-from api.i18n import get_i18n
 
 
 def calculate_batch_earth_observations(
-    start_date: str,
-    start_time: str,
-    end_date: str,
-    end_time: str,
-    frame_count: int,
-    latitude: float,
-    longitude: float,
-    elevation: float = 0.0,
+    time_range: TimeRange,
+    location: LocationModel,
     locale: Optional[str] = None,
 ):
     """
     Calculate batch observations of sun and moon positions from Earth.
-    
+
     This function generates multiple frames of celestial observations between
     a start and end time. Each frame contains sun position, moon position,
     and moon phase information for that specific moment.
-    
+
     Args:
-        start_date: Start date in ISO format (YYYY-MM-DD)
-        start_time: Start time in ISO format (HH:MM:SS)
-        end_date: End date in ISO format (YYYY-MM-DD)
-        end_time: End time in ISO format (HH:MM:SS)
-        frame_count: Number of frames to generate (must be >= 2)
-        latitude: Observer latitude in degrees (-90 to 90)
-        longitude: Observer longitude in degrees (-180 to 180)
-        elevation: Observer elevation in meters (default: 0.0)
+        time_range: TimeRange object containing:
+            - start: ObservationDateTime with start date and time
+            - end: ObservationDateTime with end date and time
+            - frame_count: Number of frames to generate (must be >= 2)
+        location: LocationModel with observer position (latitude, longitude, elevation)
         locale: BCP 47 locale tag (e.g. 'en', 'xx-reverse') used to translate
             validation error messages and moon phase names in each frame.
             Defaults to English when None.
-    
+
     Yields:
         dict: Frame data for each observation
         dict: Metadata after all frames
     """
     _t = get_i18n(locale).get
+
+    # Extract time range components
+    start_date = time_range.start.date
+    start_time = time_range.start.time
+    end_date = time_range.end.date
+    end_time = time_range.end.time
+    frame_count = time_range.frame_count
+
     # Validate frame count
     if frame_count < 2:
         raise ValueError(_t('validation.frameCountMinimum', value=frame_count))
-    # Max frame count is present in FE, but not required here since this is a backend function and designed to be scalable.
+    # Max frame count is present in FE, but not required here since this is
+    # a backend function and designed to be scalable.
     # Validate coordinates
-    if not -90 <= latitude <= 90:
-        raise ValueError(_t('validation.latitudeRange', value=latitude))
-    if not -180 <= longitude <= 180:
-        raise ValueError(_t('validation.longitudeRange', value=longitude))
+    if not -90 <= location.latitude <= 90:
+        raise ValueError(_t('validation.latitudeRange', value=location.latitude))
+    if not -180 <= location.longitude <= 180:
+        raise ValueError(_t('validation.longitudeRange', value=location.longitude))
     # Create start and end times
     start_datetime_str = f"{start_date}T{start_time}"
     end_datetime_str = f"{end_date}T{end_time}"
@@ -70,21 +71,21 @@ def calculate_batch_earth_observations(
     # Generate time steps
     time_delta = (end_t - start_t) / (frame_count - 1)
     times = [start_t + i * time_delta for i in range(frame_count)]
-    # Create location once for all frames
-    location = EarthLocation(
-        lat=latitude * u.deg,
-        lon=longitude * u.deg,
-        height=elevation * u.m
+    # Create Earth location once for all frames
+    earth_location = EarthLocation(
+        lat=location.latitude * u.deg,
+        lon=location.longitude * u.deg,
+        height=location.elevation * u.m
     )
     for obs_time in times:
         iso_parts = obs_time.iso.split()
         date_part = iso_parts[0]
         time_part = iso_parts[1].split('.')[0]
         datetime_str = f"{date_part}T{time_part}"
-        altaz_frame = AltAz(obstime=obs_time, location=location, pressure=0.0)
+        altaz_frame = AltAz(obstime=obs_time, location=earth_location, pressure=0.0)
         sun = get_sun(obs_time)
-        moon = get_body("moon", obs_time, location)
-        venus_with_loc = get_body("venus", obs_time, location)
+        moon = get_body("moon", obs_time, earth_location)
+        venus_with_loc = get_body("venus", obs_time, earth_location)
         # Get Venus at geocenter for geocentric separation/phase calculations (no location)
         venus_gcrs = get_body("venus", obs_time)
         sun_altaz = sun.transform_to(altaz_frame)
@@ -94,17 +95,13 @@ def calculate_batch_earth_observations(
             sun_altaz=sun_altaz,
             time=obs_time,
             datetime_str=datetime_str,
-            latitude=latitude,
-            longitude=longitude,
-            elevation=elevation
+            location=location
         )
         moon_data = _process_moon_position(
             moon_altaz=moon_altaz,
             time=obs_time,
             datetime_str=datetime_str,
-            latitude=latitude,
-            longitude=longitude,
-            elevation=elevation
+            location=location
         )
         venus_data = _process_venus_position(
             venus_altaz=venus_altaz,
@@ -112,18 +109,14 @@ def calculate_batch_earth_observations(
             venus_gcrs=venus_gcrs,
             time=obs_time,
             datetime_str=datetime_str,
-            latitude=latitude,
-            longitude=longitude,
-            elevation=elevation
+            location=location
         )
         phase_data = _process_moon_phase(
             sun=sun,
             moon=moon,
             time=obs_time,
             datetime_str=datetime_str,
-            latitude=latitude,
-            longitude=longitude,
-            elevation=elevation,
+            location=location,
             locale=locale,
         )
         frame = {
@@ -152,9 +145,9 @@ def calculate_batch_earth_observations(
         yield frame
     metadata = {
         "location": {
-            "latitude": latitude,
-            "longitude": longitude,
-            "elevation": elevation
+            "latitude": location.latitude,
+            "longitude": location.longitude,
+            "elevation": location.elevation
         },
         "frame_count": frame_count,
         "start_datetime": start_datetime_str,

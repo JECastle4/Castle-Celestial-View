@@ -4,24 +4,19 @@ from astropy.time import Time
 from astropy.coordinates import get_body, AltAz, EarthLocation
 import astropy.units as u
 from api.i18n import t
+from api.models import ObservationDateTime, LocationModel
 
 
 def calculate_moon_position(
-    date_str: str,
-    time_str: str,
-    latitude: float,
-    longitude: float,
-    elevation: float = 0.0,
+    observation_time: ObservationDateTime,
+    location: LocationModel,
 ) -> dict:
     """
     Calculate the moon's position (altitude and azimuth) from a given location on Earth.
 
     Args:
-        date_str: Date in ISO format (YYYY-MM-DD)
-        time_str: Time in ISO format (HH:MM:SS)
-        latitude: Latitude in degrees (-90 to 90)
-        longitude: Longitude in degrees (-180 to 180)
-        elevation: Elevation in meters (default: 0.0)
+        observation_time: Date and time of observation
+        location: Observer location (latitude, longitude, elevation)
 
     Returns:
         dict: Dictionary containing:
@@ -31,58 +26,55 @@ def calculate_moon_position(
             - julian_date: Julian Date of the observation
             - location: Dict with latitude, longitude, elevation
             - input_datetime: Original input datetime string
-    
+
     Raises:
         ValueError: If date/time format is invalid or coordinates out of range
     """
     # Validate coordinates
-    if not -90 <= latitude <= 90:
-        raise ValueError(t('validation.latitudeRange', value=latitude))
-    if not -180 <= longitude <= 180:
-        raise ValueError(t('validation.longitudeRange', value=longitude))
-    
+    if not -90 <= location.latitude <= 90:
+        raise ValueError(t('validation.latitudeRange', value=location.latitude))
+    if not -180 <= location.longitude <= 180:
+        raise ValueError(t('validation.longitudeRange', value=location.longitude))
+
     # Combine date and time (ISO 8601 format)
-    datetime_str = f"{date_str}T{time_str}"
+    datetime_str = f"{observation_time.date}T{observation_time.time}"
 
     # Convert to astropy Time (assumes UTC)
     time = Time(datetime_str, format="isot", scale="utc")
 
-    # Create location
-    location = EarthLocation(
-        lat=latitude * u.deg, lon=longitude * u.deg, height=elevation * u.m
+    # Create Earth location
+    earth_location = EarthLocation(
+        lat=location.latitude * u.deg, lon=location.longitude * u.deg,
+        height=location.elevation * u.m
     )
 
     # Get moon position
-    moon = get_body("moon", time, location)
+    moon = get_body("moon", time, earth_location)
 
     # Convert to AltAz frame for the given location and time
     # (pressure=0 to ignore atmospheric refraction for simplicity)
-    altaz_frame = AltAz(obstime=time, location=location, pressure=0.0)
+    altaz_frame = AltAz(obstime=time, location=earth_location, pressure=0.0)
     moon_altaz = moon.transform_to(altaz_frame)
 
-    return _process_moon_position(moon_altaz, time, datetime_str, latitude, longitude, elevation)
+    return _process_moon_position(moon_altaz, time, datetime_str, location)
 
 
 def _process_moon_position(
     moon_altaz,
     time: Time,
     datetime_str: str,
-    latitude: float,
-    longitude: float,
-    elevation: float
+    location: LocationModel
 ) -> dict:
     """
     Process moon position data into response format.
     Internal function used by calculate_moon_position and batch operations.
-    
+
     Args:
         moon_altaz: Moon position in AltAz frame
         time: Astropy Time object
         datetime_str: Input datetime string
-        latitude: Latitude in degrees
-        longitude: Longitude in degrees
-        elevation: Elevation in meters
-    
+        location: Observer location with latitude, longitude, elevation
+
     Returns:
         Dictionary with moon position data
     """
@@ -99,9 +91,9 @@ def _process_moon_position(
         "is_visible": is_visible,
         "julian_date": float(time.jd),
         "location": {
-            "latitude": latitude,
-            "longitude": longitude,
-            "elevation": elevation,
+            "latitude": location.latitude,
+            "longitude": location.longitude,
+            "elevation": location.elevation,
         },
         "input_datetime": datetime_str,
     }

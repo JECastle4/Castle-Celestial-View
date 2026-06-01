@@ -1,0 +1,13 @@
+[MASTER]
+# Disable false positive for astropy.units dynamic attributes
+# Astropy creates unit attributes at runtime (u.deg, u.m, u.hour, etc.)
+# which pylint cannot detect statically. This is a known limitation.
+disable=
+    E1101,  # no-member: False positives from astropy.units dynamic attributes
+    R0913,  # too-many-arguments: Necessary for location-based astronomical calculations
+    R0917,  # too-many-positional-arguments: Same as R0913
+    R0914,  # too-many-locals: Functions genuinely need these variables for calculations
+
+[DESIGN]
+max-args=10
+max-locals=50

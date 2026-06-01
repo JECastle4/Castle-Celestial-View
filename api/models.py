@@ -1,14 +1,14 @@
 """
 Pydantic models for API request and response validation
 """
-from pydantic import BaseModel, Field
 from typing import Optional
+from pydantic import BaseModel, Field
 
 
 class DateTimeRequest(BaseModel):
     """Request model for date/time input"""
     date: str = Field(
-        ..., 
+        ...,
         description="Date in ISO format (YYYY-MM-DD)",
         examples=["2026-02-01"]
     )
@@ -39,10 +39,40 @@ class LocationModel(BaseModel):
     )
 
 
+class ObservationDateTime(BaseModel):
+    """Domain model for a date/time observation point"""
+    date: str = Field(
+        ...,
+        description="Date in ISO format (YYYY-MM-DD)"
+    )
+    time: str = Field(
+        default="00:00:00",
+        description="Time in HH:MM:SS format (optional, defaults to midnight)"
+    )
+
+
+class TimeRange(BaseModel):
+    """Domain model for a time range with multiple observation frames"""
+    start: ObservationDateTime = Field(
+        ...,
+        description="Start time for observations"
+    )
+    end: ObservationDateTime = Field(
+        ...,
+        description="End time for observations"
+    )
+    frame_count: int = Field(
+        ...,
+        ge=2,
+        le=10000,
+        description="Number of observation frames to generate"
+    )
+
+
 class SunPositionRequest(BaseModel):
     """Request model for sun position calculation"""
     date: str = Field(
-        ..., 
+        ...,
         description="Date in ISO format (YYYY-MM-DD)",
         examples=["2026-02-01"]
     )
@@ -103,7 +133,7 @@ class SunPositionResponse(BaseModel):
 class MoonPositionRequest(BaseModel):
     """Request model for moon position calculation"""
     date: str = Field(
-        ..., 
+        ...,
         description="Date in ISO format (YYYY-MM-DD)",
         examples=["2026-02-01"]
     )
@@ -164,7 +194,7 @@ class MoonPositionResponse(BaseModel):
 class VenusPositionRequest(BaseModel):
     """Request model for Venus position calculation"""
     date: str = Field(
-        ..., 
+        ...,
         description="Date in ISO format (YYYY-MM-DD)",
         examples=["2026-02-01"]
     )
@@ -214,7 +244,10 @@ class VenusPositionResponse(BaseModel):
     )
     naked_eye_visible: bool = Field(
         ...,
-        description="Whether Venus is naked-eye visible (above horizon AND sufficiently separated from Sun)"
+        description=(
+            "Whether Venus is naked-eye visible "
+            "(above horizon AND sufficiently separated from Sun)"
+        )
     )
     illumination: float = Field(
         ...,
@@ -245,7 +278,7 @@ class VenusPositionResponse(BaseModel):
 class MoonPhaseRequest(BaseModel):
     """Request model for moon phase calculation"""
     date: str = Field(
-        ..., 
+        ...,
         description="Date in ISO format (YYYY-MM-DD)",
         examples=["2026-02-01"]
     )

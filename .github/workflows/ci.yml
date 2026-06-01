@@ -74,7 +74,7 @@ jobs:
     
     - name: Code quality - Pylint
       run: |
-        pylint *.py api/ --exit-zero --output-format=text --reports=y > pylint-report.txt
+        pylint api/ --exit-zero --output-format=text --reports=y > pylint-report.txt
         cat pylint-report.txt
       continue-on-error: true
     

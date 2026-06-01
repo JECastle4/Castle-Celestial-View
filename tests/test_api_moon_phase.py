@@ -1,17 +1,16 @@
 """Tests for the moon phase calculation service."""
 
 import pytest
+from pydantic import ValidationError
 from api.services.moon_phase import calculate_moon_phase
+from api.models import ObservationDateTime, LocationModel
 
 
 def test_moon_phase_basic():
     """Test basic moon phase calculation."""
     result = calculate_moon_phase(
-        date_str="2025-01-01",
-        time_str="00:00:00",
-        latitude=0.0,
-        longitude=0.0,
-        elevation=0.0,
+        ObservationDateTime(date="2025-01-01", time="00:00:00"),
+        LocationModel(latitude=0.0, longitude=0.0, elevation=0.0)
     )
 
     assert "illumination" in result
@@ -35,11 +34,8 @@ def test_new_moon_illumination():
     """Test that new moon has near-zero illumination."""
     # 2025-01-29 is a new moon
     result = calculate_moon_phase(
-        date_str="2025-01-29",
-        time_str="12:00:00",
-        latitude=40.7128,
-        longitude=-74.0060,
-        elevation=0.0,
+        ObservationDateTime(date="2025-01-29", time="12:00:00"),
+        LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
     )
 
     # New moon should have very low illumination
@@ -51,11 +47,8 @@ def test_full_moon_illumination():
     """Test that full moon has near-complete illumination."""
     # 2025-01-13 is a full moon
     result = calculate_moon_phase(
-        date_str="2025-01-13",
-        time_str="22:00:00",
-        latitude=40.7128,
-        longitude=-74.0060,
-        elevation=0.0,
+        ObservationDateTime(date="2025-01-13", time="22:00:00"),
+        LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
     )
 
     # Full moon should have very high illumination
@@ -67,11 +60,8 @@ def test_first_quarter_phase():
     """Test first quarter moon phase."""
     # 2025-01-06 is around first quarter
     result = calculate_moon_phase(
-        date_str="2025-01-06",
-        time_str="23:00:00",
-        latitude=40.7128,
-        longitude=-74.0060,
-        elevation=0.0,
+        ObservationDateTime(date="2025-01-06", time="23:00:00"),
+        LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
     )
 
     # First quarter should have ~50% illumination and phase angle < 180 (waxing)
@@ -84,11 +74,8 @@ def test_last_quarter_phase():
     """Test last quarter moon phase."""
     # 2025-01-21 is around last quarter
     result = calculate_moon_phase(
-        date_str="2025-01-21",
-        time_str="20:00:00",
-        latitude=40.7128,
-        longitude=-74.0060,
-        elevation=0.0,
+        ObservationDateTime(date="2025-01-21", time="20:00:00"),
+        LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
     )
 
     # Last quarter should have ~50% illumination and phase angle > 180 (waning)
@@ -101,11 +88,8 @@ def test_waxing_crescent():
     """Test waxing crescent phase detection."""
     # A few days after new moon
     result = calculate_moon_phase(
-        date_str="2025-02-01",
-        time_str="12:00:00",
-        latitude=40.7128,
-        longitude=-74.0060,
-        elevation=0.0,
+        ObservationDateTime(date="2025-02-01", time="12:00:00"),
+        LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
     )
 
     # Should be waxing (phase_angle < 180) with low illumination
@@ -117,11 +101,8 @@ def test_waning_gibbous():
     """Test waning gibbous phase detection."""
     # A few days after full moon
     result = calculate_moon_phase(
-        date_str="2025-01-16",
-        time_str="12:00:00",
-        latitude=40.7128,
-        longitude=-74.0060,
-        elevation=0.0,
+        ObservationDateTime(date="2025-01-16", time="12:00:00"),
+        LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
     )
 
     # Should be waning (phase_angle > 180) with high illumination
@@ -132,11 +113,8 @@ def test_waning_gibbous():
 def test_phase_angle_range():
     """Test that phase angle is always 0-360."""
     result = calculate_moon_phase(
-        date_str="2025-01-15",
-        time_str="12:00:00",
-        latitude=40.7128,
-        longitude=-74.0060,
-        elevation=0.0,
+        ObservationDateTime(date="2025-01-15", time="12:00:00"),
+        LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
     )
 
     assert 0.0 <= result["phase_angle"] < 360.0
@@ -145,11 +123,8 @@ def test_phase_angle_range():
 def test_illumination_range():
     """Test that illumination is always 0-1."""
     result = calculate_moon_phase(
-        date_str="2025-01-15",
-        time_str="12:00:00",
-        latitude=40.7128,
-        longitude=-74.0060,
-        elevation=0.0,
+        ObservationDateTime(date="2025-01-15", time="12:00:00"),
+        LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
     )
 
     assert 0.0 <= result["illumination"] <= 1.0
@@ -177,11 +152,8 @@ def test_phase_changes_over_month():
 
     for date in dates:
         result = calculate_moon_phase(
-            date_str=date,
-            time_str="12:00:00",
-            latitude=40.7128,
-            longitude=-74.0060,
-            elevation=0.0,
+            ObservationDateTime(date=date, time="12:00:00"),
+            LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
         )
         illuminations.append(result["illumination"])
         phase_angles.append(result["phase_angle"])
@@ -197,19 +169,13 @@ def test_phase_changes_over_month():
 def test_phase_at_different_locations():
     """Test that phase is consistent across locations (it's geocentric)."""
     result_nyc = calculate_moon_phase(
-        date_str="2025-01-15",
-        time_str="12:00:00",
-        latitude=40.7128,
-        longitude=-74.0060,
-        elevation=0.0,
+        ObservationDateTime(date="2025-01-15", time="12:00:00"),
+        LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
     )
 
     result_sydney = calculate_moon_phase(
-        date_str="2025-01-15",
-        time_str="12:00:00",
-        latitude=-33.8688,
-        longitude=151.2093,
-        elevation=0.0,
+        ObservationDateTime(date="2025-01-15", time="12:00:00"),
+        LocationModel(latitude=-33.8688, longitude=151.2093, elevation=0.0)
     )
 
     # Phase should be very similar at same time (small differences due to topocentric correction)
@@ -220,11 +186,8 @@ def test_phase_at_different_locations():
 def test_julian_date_calculation():
     """Test that Julian Date is calculated correctly."""
     result = calculate_moon_phase(
-        date_str="2025-01-01",
-        time_str="00:00:00",
-        latitude=0.0,
-        longitude=0.0,
-        elevation=0.0,
+        ObservationDateTime(date="2025-01-01", time="00:00:00"),
+        LocationModel(latitude=0.0, longitude=0.0, elevation=0.0)
     )
 
     # JD for 2025-01-01 00:00:00 UTC should be around 2460676.5
@@ -234,11 +197,8 @@ def test_julian_date_calculation():
 def test_input_datetime_format():
     """Test that input_datetime is formatted correctly."""
     result = calculate_moon_phase(
-        date_str="2025-01-15",
-        time_str="14:30:45",
-        latitude=40.7128,
-        longitude=-74.0060,
-        elevation=10.0,
+        ObservationDateTime(date="2025-01-15", time="14:30:45"),
+        LocationModel(latitude=40.7128, longitude=-74.0060, elevation=10.0)
     )
 
     assert result["input_datetime"] == "2025-01-15T14:30:45"
@@ -251,11 +211,8 @@ def test_location_data():
     elev = 11.0
 
     result = calculate_moon_phase(
-        date_str="2025-01-15",
-        time_str="12:00:00",
-        latitude=lat,
-        longitude=lon,
-        elevation=elev,
+        ObservationDateTime(date="2025-01-15", time="12:00:00"),
+        LocationModel(latitude=lat, longitude=lon, elevation=elev)
     )
 
     assert result["location"]["latitude"] == lat
@@ -266,11 +223,8 @@ def test_location_data():
 def test_phase_name_values():
     """Test that phase_name is one of the expected values."""
     result = calculate_moon_phase(
-        date_str="2025-01-15",
-        time_str="12:00:00",
-        latitude=40.7128,
-        longitude=-74.0060,
-        elevation=0.0,
+        ObservationDateTime(date="2025-01-15", time="12:00:00"),
+        LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
     )
 
     valid_names = [
@@ -290,11 +244,8 @@ def test_phase_name_values():
 def test_types_are_python_native():
     """Test that returned values are Python native types, not numpy types."""
     result = calculate_moon_phase(
-        date_str="2025-01-15",
-        time_str="12:00:00",
-        latitude=40.7128,
-        longitude=-74.0060,
-        elevation=0.0,
+        ObservationDateTime(date="2025-01-15", time="12:00:00"),
+        LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
     )
 
     # Check that we get Python native types, not numpy
@@ -308,11 +259,8 @@ def test_invalid_date_format():
     """Test that invalid date format raises error."""
     with pytest.raises(Exception):
         calculate_moon_phase(
-            date_str="invalid-date",
-            time_str="12:00:00",
-            latitude=40.7128,
-            longitude=-74.0060,
-            elevation=0.0,
+            ObservationDateTime(date="invalid-date", time="12:00:00"),
+            LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
         )
 
 
@@ -320,32 +268,23 @@ def test_invalid_time_format():
     """Test that invalid time format raises error."""
     with pytest.raises(Exception):
         calculate_moon_phase(
-            date_str="2025-01-15",
-            time_str="25:00:00",
-            latitude=40.7128,
-            longitude=-74.0060,
-            elevation=0.0,
+            ObservationDateTime(date="2025-01-15", time="25:00:00"),
+            LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
         )
 
 def test_invalid_latitude():
-    """Test that latitude outside valid range raises ValueError."""
-    with pytest.raises(ValueError, match="Latitude must be between -90 and 90"):
+    """Test that latitude outside valid range raises ValidationError."""
+    with pytest.raises(ValidationError, match="less_than_equal|greater_than_equal"):
         calculate_moon_phase(
-            date_str="2025-01-15",
-            time_str="12:00:00",
-            latitude=100.0,
-            longitude=0.0,
-            elevation=0.0,
+            ObservationDateTime(date="2025-01-15", time="12:00:00"),
+            LocationModel(latitude=100.0, longitude=0.0, elevation=0.0)
         )
 
 
 def test_invalid_longitude():
-    """Test that longitude outside valid range raises ValueError."""
-    with pytest.raises(ValueError, match="Longitude must be between -180 and 180"):
+    """Test that longitude outside valid range raises ValidationError."""
+    with pytest.raises(ValidationError, match="less_than_equal|greater_than_equal"):
         calculate_moon_phase(
-            date_str="2025-01-15",
-            time_str="12:00:00",
-            latitude=0.0,
-            longitude=200.0,
-            elevation=0.0,
+            ObservationDateTime(date="2025-01-15", time="12:00:00"),
+            LocationModel(latitude=0.0, longitude=200.0, elevation=0.0)
         )

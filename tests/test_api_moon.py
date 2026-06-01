@@ -1,17 +1,16 @@
 """Tests for the moon position calculation service."""
 
 import pytest
+from pydantic import ValidationError
 from api.services.moon import calculate_moon_position
+from api.models import ObservationDateTime, LocationModel
 
 
 def test_moon_position_basic():
     """Test basic moon position calculation."""
     result = calculate_moon_position(
-        date_str="2025-01-01",
-        time_str="00:00:00",
-        latitude=0.0,
-        longitude=0.0,
-        elevation=0.0,
+        ObservationDateTime(date="2025-01-01", time="00:00:00"),
+        LocationModel(latitude=0.0, longitude=0.0, elevation=0.0)
     )
 
     assert "altitude" in result
@@ -34,11 +33,8 @@ def test_moon_position_basic():
 def test_moon_position_new_york():
     """Test moon position for New York City."""
     result = calculate_moon_position(
-        date_str="2025-01-15",
-        time_str="20:00:00",
-        latitude=40.7128,
-        longitude=-74.0060,
-        elevation=10.0,
+        ObservationDateTime(date="2025-01-15", time="20:00:00"),
+        LocationModel(latitude=40.7128, longitude=-74.0060, elevation=10.0)
     )
 
     assert "altitude" in result
@@ -49,11 +45,8 @@ def test_moon_position_new_york():
 def test_moon_position_sydney():
     """Test moon position for Sydney, Australia (southern hemisphere)."""
     result = calculate_moon_position(
-        date_str="2025-01-15",
-        time_str="12:00:00",
-        latitude=-33.8688,
-        longitude=151.2093,
-        elevation=0.0,
+        ObservationDateTime(date="2025-01-15", time="12:00:00"),
+        LocationModel(latitude=-33.8688, longitude=151.2093, elevation=0.0)
     )
 
     assert "altitude" in result
@@ -64,11 +57,8 @@ def test_moon_position_sydney():
 def test_moon_position_north_pole():
     """Test moon position at North Pole."""
     result = calculate_moon_position(
-        date_str="2025-06-21",
-        time_str="12:00:00",
-        latitude=90.0,
-        longitude=0.0,
-        elevation=0.0,
+        ObservationDateTime(date="2025-06-21", time="12:00:00"),
+        LocationModel(latitude=90.0, longitude=0.0, elevation=0.0)
     )
 
     assert "altitude" in result
@@ -79,11 +69,8 @@ def test_moon_position_north_pole():
 def test_moon_position_south_pole():
     """Test moon position at South Pole."""
     result = calculate_moon_position(
-        date_str="2025-12-21",
-        time_str="12:00:00",
-        latitude=-90.0,
-        longitude=0.0,
-        elevation=0.0,
+        ObservationDateTime(date="2025-12-21", time="12:00:00"),
+        LocationModel(latitude=-90.0, longitude=0.0, elevation=0.0)
     )
 
     assert "altitude" in result
@@ -95,11 +82,8 @@ def test_moon_visibility_threshold():
     """Test that visibility is correctly determined by altitude > 0."""
     # This is a spot check - moon visibility varies by date/location
     result = calculate_moon_position(
-        date_str="2025-01-15",
-        time_str="12:00:00",
-        latitude=40.7128,
-        longitude=-74.0060,
-        elevation=0.0,
+        ObservationDateTime(date="2025-01-15", time="12:00:00"),
+        LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
     )
 
     if result["altitude"] > 0:
@@ -117,11 +101,8 @@ def test_moon_visibility_changes_over_time():
     
     for time in times:
         result = calculate_moon_position(
-            date_str="2025-01-15",
-            time_str=time,
-            latitude=40.7128,
-            longitude=-74.0060,
-            elevation=0.0,
+            ObservationDateTime(date="2025-01-15", time=time),
+            LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
         )
         results.append(result)
         
@@ -141,19 +122,13 @@ def test_moon_visibility_changes_over_time():
 def test_moon_position_with_elevation():
     """Test moon position with non-zero elevation."""
     result_sea_level = calculate_moon_position(
-        date_str="2025-01-15",
-        time_str="12:00:00",
-        latitude=40.7128,
-        longitude=-74.0060,
-        elevation=0.0,
+        ObservationDateTime(date="2025-01-15", time="12:00:00"),
+        LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
     )
 
     result_elevated = calculate_moon_position(
-        date_str="2025-01-15",
-        time_str="12:00:00",
-        latitude=40.7128,
-        longitude=-74.0060,
-        elevation=1000.0,
+        ObservationDateTime(date="2025-01-15", time="12:00:00"),
+        LocationModel(latitude=40.7128, longitude=-74.0060, elevation=1000.0)
     )
 
     # Positions should be slightly different due to elevation
@@ -165,19 +140,13 @@ def test_moon_position_with_elevation():
 def test_moon_position_different_times():
     """Test that moon position changes over time."""
     result1 = calculate_moon_position(
-        date_str="2025-01-15",
-        time_str="00:00:00",
-        latitude=40.7128,
-        longitude=-74.0060,
-        elevation=0.0,
+        ObservationDateTime(date="2025-01-15", time="00:00:00"),
+        LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
     )
 
     result2 = calculate_moon_position(
-        date_str="2025-01-15",
-        time_str="12:00:00",
-        latitude=40.7128,
-        longitude=-74.0060,
-        elevation=0.0,
+        ObservationDateTime(date="2025-01-15", time="12:00:00"),
+        LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
     )
 
     # Moon should move significantly in 12 hours
@@ -188,19 +157,13 @@ def test_moon_position_different_times():
 def test_moon_position_different_dates():
     """Test that moon position changes over days."""
     result1 = calculate_moon_position(
-        date_str="2025-01-01",
-        time_str="12:00:00",
-        latitude=40.7128,
-        longitude=-74.0060,
-        elevation=0.0,
+        ObservationDateTime(date="2025-01-01", time="12:00:00"),
+        LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
     )
 
     result2 = calculate_moon_position(
-        date_str="2025-01-15",
-        time_str="12:00:00",
-        latitude=40.7128,
-        longitude=-74.0060,
-        elevation=0.0,
+        ObservationDateTime(date="2025-01-15", time="12:00:00"),
+        LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
     )
 
     # Moon position should be different on different dates
@@ -211,11 +174,8 @@ def test_moon_position_different_dates():
 def test_moon_julian_date_calculation():
     """Test that Julian Date is calculated correctly."""
     result = calculate_moon_position(
-        date_str="2025-01-01",
-        time_str="00:00:00",
-        latitude=0.0,
-        longitude=0.0,
-        elevation=0.0,
+        ObservationDateTime(date="2025-01-01", time="00:00:00"),
+        LocationModel(latitude=0.0, longitude=0.0, elevation=0.0)
     )
 
     # JD for 2025-01-01 00:00:00 UTC should be around 2460676.5
@@ -225,11 +185,8 @@ def test_moon_julian_date_calculation():
 def test_moon_input_datetime_format():
     """Test that input_datetime is formatted correctly."""
     result = calculate_moon_position(
-        date_str="2025-01-15",
-        time_str="14:30:45",
-        latitude=40.7128,
-        longitude=-74.0060,
-        elevation=10.0,
+        ObservationDateTime(date="2025-01-15", time="14:30:45"),
+        LocationModel(latitude=40.7128, longitude=-74.0060, elevation=10.0)
     )
 
     assert result["input_datetime"] == "2025-01-15T14:30:45"
@@ -242,11 +199,8 @@ def test_moon_location_data():
     elev = 11.0
 
     result = calculate_moon_position(
-        date_str="2025-01-15",
-        time_str="12:00:00",
-        latitude=lat,
-        longitude=lon,
-        elevation=elev,
+        ObservationDateTime(date="2025-01-15", time="12:00:00"),
+        LocationModel(latitude=lat, longitude=lon, elevation=elev)
     )
 
     assert result["location"]["latitude"] == lat
@@ -257,11 +211,8 @@ def test_moon_location_data():
 def test_moon_negative_elevation():
     """Test moon position with negative elevation (below sea level)."""
     result = calculate_moon_position(
-        date_str="2025-01-15",
-        time_str="12:00:00",
-        latitude=31.5,  # Dead Sea area
-        longitude=35.5,
-        elevation=-400.0,  # Dead Sea is ~430m below sea level
+        ObservationDateTime(date="2025-01-15", time="12:00:00"),
+        LocationModel(latitude=31.5, longitude=35.5, elevation=-400.0)
     )
 
     assert result["location"]["elevation"] == -400.0
@@ -272,11 +223,8 @@ def test_moon_negative_elevation():
 def test_moon_azimuth_range():
     """Test that azimuth is always in the 0-360 range."""
     result = calculate_moon_position(
-        date_str="2025-01-15",
-        time_str="12:00:00",
-        latitude=40.7128,
-        longitude=-74.0060,
-        elevation=0.0,
+        ObservationDateTime(date="2025-01-15", time="12:00:00"),
+        LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
     )
 
     assert 0 <= result["azimuth"] <= 360
@@ -285,11 +233,8 @@ def test_moon_azimuth_range():
 def test_moon_altitude_range():
     """Test that altitude is always in the -90 to 90 range."""
     result = calculate_moon_position(
-        date_str="2025-01-15",
-        time_str="12:00:00",
-        latitude=40.7128,
-        longitude=-74.0060,
-        elevation=0.0,
+        ObservationDateTime(date="2025-01-15", time="12:00:00"),
+        LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
     )
 
     assert -90 <= result["altitude"] <= 90
@@ -298,19 +243,13 @@ def test_moon_altitude_range():
 def test_moon_extreme_longitudes():
     """Test moon position at extreme longitude values."""
     result_west = calculate_moon_position(
-        date_str="2025-01-15",
-        time_str="12:00:00",
-        latitude=0.0,
-        longitude=-180.0,
-        elevation=0.0,
+        ObservationDateTime(date="2025-01-15", time="12:00:00"),
+        LocationModel(latitude=0.0, longitude=-180.0, elevation=0.0)
     )
 
     result_east = calculate_moon_position(
-        date_str="2025-01-15",
-        time_str="12:00:00",
-        latitude=0.0,
-        longitude=180.0,
-        elevation=0.0,
+        ObservationDateTime(date="2025-01-15", time="12:00:00"),
+        LocationModel(latitude=0.0, longitude=180.0, elevation=0.0)
     )
 
     # Both should be valid
@@ -319,37 +258,28 @@ def test_moon_extreme_longitudes():
 
 
 def test_invalid_latitude():
-    """Test that latitude outside valid range raises ValueError."""
-    with pytest.raises(ValueError, match="Latitude must be between -90 and 90"):
+    """Test that latitude outside valid range raises ValidationError."""
+    with pytest.raises(ValidationError, match="less_than_equal|greater_than_equal"):
         calculate_moon_position(
-            date_str="2025-01-15",
-            time_str="12:00:00",
-            latitude=100.0,
-            longitude=0.0,
-            elevation=0.0,
+            ObservationDateTime(date="2025-01-15", time="12:00:00"),
+            LocationModel(latitude=100.0, longitude=0.0, elevation=0.0)
         )
 
 
 def test_invalid_longitude():
-    """Test that longitude outside valid range raises ValueError."""
-    with pytest.raises(ValueError, match="Longitude must be between -180 and 180"):
+    """Test that longitude outside valid range raises ValidationError."""
+    with pytest.raises(ValidationError, match="less_than_equal|greater_than_equal"):
         calculate_moon_position(
-            date_str="2025-01-15",
-            time_str="12:00:00",
-            latitude=0.0,
-            longitude=200.0,
-            elevation=0.0,
+            ObservationDateTime(date="2025-01-15", time="12:00:00"),
+            LocationModel(latitude=0.0, longitude=200.0, elevation=0.0)
         )
 
 
 def test_moon_types_are_python_native():
     """Test that returned values are Python native types, not numpy types."""
     result = calculate_moon_position(
-        date_str="2025-01-15",
-        time_str="12:00:00",
-        latitude=40.7128,
-        longitude=-74.0060,
-        elevation=0.0,
+        ObservationDateTime(date="2025-01-15", time="12:00:00"),
+        LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
     )
 
     # Check that we get Python native types, not numpy

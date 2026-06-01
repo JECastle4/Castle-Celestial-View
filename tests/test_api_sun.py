@@ -2,7 +2,9 @@
 Unit tests for api/services/sun.py
 """
 import pytest
+from pydantic import ValidationError
 from api.services.sun import calculate_sun_position
+from api.models import ObservationDateTime, LocationModel
 
 
 class TestCalculateSunPosition:
@@ -12,11 +14,8 @@ class TestCalculateSunPosition:
         """Test sun position at solar noon on equator"""
         # At solar noon on the equinox, sun should be near zenith at equator
         result = calculate_sun_position(
-            "2026-03-20",  # Near vernal equinox
-            "12:00:00",
-            latitude=0.0,
-            longitude=0.0,
-            elevation=0.0
+            ObservationDateTime(date="2026-03-20", time="12:00:00"),
+            LocationModel(latitude=0.0, longitude=0.0, elevation=0.0)
         )
         
         assert "altitude" in result
@@ -30,11 +29,8 @@ class TestCalculateSunPosition:
         """Test sun position at midnight (should be below horizon)"""
         # New York at midnight - sun should be below horizon
         result = calculate_sun_position(
-            "2026-02-01",
-            "00:00:00",
-            latitude=40.7128,
-            longitude=-74.0060,
-            elevation=10.0
+            ObservationDateTime(date="2026-02-01", time="00:00:00"),
+            LocationModel(latitude=40.7128, longitude=-74.0060, elevation=10.0)
         )
         
         assert result["is_visible"] is False
@@ -43,10 +39,8 @@ class TestCalculateSunPosition:
     def test_sun_position_new_york_noon(self):
         """Test sun position in New York at noon"""
         result = calculate_sun_position(
-            "2026-06-21",  # Summer solstice
-            "12:00:00",
-            latitude=40.7128,
-            longitude=-74.0060
+            ObservationDateTime(date="2026-06-21", time="12:00:00"),
+            LocationModel(latitude=40.7128, longitude=-74.0060)
         )
         
         # Sun should be visible and relatively high at noon in summer
@@ -56,10 +50,8 @@ class TestCalculateSunPosition:
     def test_sun_position_north_pole_summer(self):
         """Test sun position at North Pole during summer (midnight sun)"""
         result = calculate_sun_position(
-            "2026-06-21",  # Summer solstice
-            "00:00:00",
-            latitude=89.0,  # Near North Pole
-            longitude=0.0
+            ObservationDateTime(date="2026-06-21", time="00:00:00"),
+            LocationModel(latitude=89.0, longitude=0.0)
         )
         
         # During polar summer, sun should be visible even at midnight
@@ -69,10 +61,8 @@ class TestCalculateSunPosition:
     def test_sun_position_north_pole_winter(self):
         """Test sun position at North Pole during winter (polar night)"""
         result = calculate_sun_position(
-            "2026-12-21",  # Winter solstice
-            "12:00:00",
-            latitude=89.0,  # Near North Pole
-            longitude=0.0
+            ObservationDateTime(date="2026-12-21", time="12:00:00"),
+            LocationModel(latitude=89.0, longitude=0.0)
         )
         
         # During polar winter, sun should be below horizon even at noon
@@ -82,11 +72,8 @@ class TestCalculateSunPosition:
     def test_location_returned(self):
         """Test that location information is returned"""
         result = calculate_sun_position(
-            "2026-02-01",
-            "12:00:00",
-            latitude=40.7128,
-            longitude=-74.0060,
-            elevation=100.0
+            ObservationDateTime(date="2026-02-01", time="12:00:00"),
+            LocationModel(latitude=40.7128, longitude=-74.0060, elevation=100.0)
         )
         
         assert "location" in result
@@ -97,10 +84,8 @@ class TestCalculateSunPosition:
     def test_julian_date_returned(self):
         """Test that Julian Date is returned"""
         result = calculate_sun_position(
-            "2026-02-01",
-            "12:00:00",
-            latitude=0.0,
-            longitude=0.0
+            ObservationDateTime(date="2026-02-01", time="12:00:00"),
+            LocationModel(latitude=0.0, longitude=0.0)
         )
         
         assert "julian_date" in result
@@ -110,10 +95,8 @@ class TestCalculateSunPosition:
     def test_input_datetime_returned(self):
         """Test that input datetime is echoed back"""
         result = calculate_sun_position(
-            "2026-02-01",
-            "14:30:45",
-            latitude=40.0,
-            longitude=-75.0
+            ObservationDateTime(date="2026-02-01", time="14:30:45"),
+            LocationModel(latitude=40.0, longitude=-75.0)
         )
         
         assert result["input_datetime"] == "2026-02-01T14:30:45"
@@ -121,10 +104,8 @@ class TestCalculateSunPosition:
     def test_azimuth_range(self):
         """Test that azimuth is always in valid range"""
         result = calculate_sun_position(
-            "2026-02-01",
-            "12:00:00",
-            latitude=40.7128,
-            longitude=-74.0060
+            ObservationDateTime(date="2026-02-01", time="12:00:00"),
+            LocationModel(latitude=40.7128, longitude=-74.0060)
         )
         
         assert 0 <= result["azimuth"] < 360
@@ -132,10 +113,8 @@ class TestCalculateSunPosition:
     def test_altitude_reasonable_range(self):
         """Test that altitude is in reasonable range"""
         result = calculate_sun_position(
-            "2026-02-01",
-            "12:00:00",
-            latitude=40.7128,
-            longitude=-74.0060
+            ObservationDateTime(date="2026-02-01", time="12:00:00"),
+            LocationModel(latitude=40.7128, longitude=-74.0060)
         )
         
         # Altitude should be between -90 and +90 degrees
@@ -143,80 +122,62 @@ class TestCalculateSunPosition:
     
     def test_invalid_latitude_high(self):
         """Test that latitude above 90 raises error"""
-        with pytest.raises(ValueError, match="Latitude must be between"):
+        with pytest.raises(ValidationError, match="less_than_equal|greater_than_equal"):
             calculate_sun_position(
-                "2026-02-01",
-                "12:00:00",
-                latitude=91.0,
-                longitude=0.0
+                ObservationDateTime(date="2026-02-01", time="12:00:00"),
+                LocationModel(latitude=91.0, longitude=0.0)
             )
     
     def test_invalid_latitude_low(self):
         """Test that latitude below -90 raises error"""
-        with pytest.raises(ValueError, match="Latitude must be between"):
+        with pytest.raises(ValidationError, match="less_than_equal|greater_than_equal"):
             calculate_sun_position(
-                "2026-02-01",
-                "12:00:00",
-                latitude=-91.0,
-                longitude=0.0
+                ObservationDateTime(date="2026-02-01", time="12:00:00"),
+                LocationModel(latitude=-91.0, longitude=0.0)
             )
     
     def test_invalid_longitude_high(self):
         """Test that longitude above 180 raises error"""
-        with pytest.raises(ValueError, match="Longitude must be between"):
+        with pytest.raises(ValidationError, match="less_than_equal|greater_than_equal"):
             calculate_sun_position(
-                "2026-02-01",
-                "12:00:00",
-                latitude=0.0,
-                longitude=181.0
+                ObservationDateTime(date="2026-02-01", time="12:00:00"),
+                LocationModel(latitude=0.0, longitude=181.0)
             )
     
     def test_invalid_longitude_low(self):
         """Test that longitude below -180 raises error"""
-        with pytest.raises(ValueError, match="Longitude must be between"):
+        with pytest.raises(ValidationError, match="less_than_equal|greater_than_equal"):
             calculate_sun_position(
-                "2026-02-01",
-                "12:00:00",
-                latitude=0.0,
-                longitude=-181.0
+                ObservationDateTime(date="2026-02-01", time="12:00:00"),
+                LocationModel(latitude=0.0, longitude=-181.0)
             )
     
     def test_invalid_date_format(self):
         """Test that invalid date format raises error"""
         with pytest.raises(ValueError):
             calculate_sun_position(
-                "not-a-date",
-                "12:00:00",
-                latitude=0.0,
-                longitude=0.0
+                ObservationDateTime(date="not-a-date", time="12:00:00"),
+                LocationModel(latitude=0.0, longitude=0.0)
             )
     
     def test_invalid_time_format(self):
         """Test that invalid time format raises error"""
         with pytest.raises(ValueError):
             calculate_sun_position(
-                "2026-02-01",
-                "not-a-time",
-                latitude=0.0,
-                longitude=0.0
+                ObservationDateTime(date="2026-02-01", time="not-a-time"),
+                LocationModel(latitude=0.0, longitude=0.0)
             )
     
     def test_different_elevations(self):
         """Test that different elevations produce slightly different results"""
         result_sea_level = calculate_sun_position(
-            "2026-02-01",
-            "12:00:00",
-            latitude=40.0,
-            longitude=-75.0,
-            elevation=0.0
+            ObservationDateTime(date="2026-02-01", time="12:00:00"),
+            LocationModel(latitude=40.0, longitude=-75.0, elevation=0.0)
         )
         
         result_mountain = calculate_sun_position(
-            "2026-02-01",
-            "12:00:00",
-            latitude=40.0,
-            longitude=-75.0,
-            elevation=3000.0
+            ObservationDateTime(date="2026-02-01", time="12:00:00"),
+            LocationModel(latitude=40.0, longitude=-75.0, elevation=3000.0)
         )
         
         # Altitude might be very slightly different at higher elevation
@@ -228,10 +189,8 @@ class TestCalculateSunPosition:
         """Test sun visibility near horizon"""
         # Find a time/location where sun is near horizon
         result = calculate_sun_position(
-            "2026-02-01",
-            "07:00:00",  # Morning
-            latitude=40.7128,
-            longitude=-74.0060
+            ObservationDateTime(date="2026-02-01", time="07:00:00"),
+            LocationModel(latitude=40.7128, longitude=-74.0060)
         )
         
         # is_visible should match the sign of altitude
@@ -244,10 +203,8 @@ class TestCalculateSunPosition:
         """Test sun position in southern hemisphere"""
         # Sydney, Australia - using UTC time
         result = calculate_sun_position(
-            "2026-02-01",  # Summer in southern hemisphere
-            "02:00:00",  # ~1pm Sydney time (UTC+11)
-            latitude=-33.8688,
-            longitude=151.2093
+            ObservationDateTime(date="2026-02-01", time="02:00:00"),
+            LocationModel(latitude=-33.8688, longitude=151.2093)
         )
         
         assert result["is_visible"] is True
