@@ -187,6 +187,8 @@
           <p><strong>{{ t('astronomy.moonVisible') }}:</strong> {{ currentFrame.moon.is_visible ? t('astronomy.yes') : t('astronomy.no') }}</p>
           <p><strong>{{ t('astronomy.moonPhase') }}:</strong> {{ currentFrame.moon_phase.phase_name }}</p>
           <p><strong>{{ t('astronomy.illumination') }}:</strong> {{ (currentFrame.moon_phase.illumination * 100).toFixed(1) }}{{ t('ui.units.percent') }}</p>
+          <p><strong>Venus Altitude:</strong> {{ typeof currentFrame.venus.altitude === 'number' ? currentFrame.venus.altitude.toFixed(1) : 'N/A' }}{{ t('ui.units.degrees') }}</p>
+          <p><strong>Venus Visible:</strong> {{ currentFrame.venus.is_visible ? t('astronomy.yes') : t('astronomy.no') }}</p>
         </div>
       </div>
     </div>
@@ -286,6 +288,7 @@ import { useAstronomyData } from '@/composables/useAstronomyData';
 import { SceneManager } from '@/three/scene';
 import { Sun } from '@/three/objects/Sun';
 import { Moon } from '@/three/objects/Moon';
+import { Venus } from '@/three/objects/Venus';
 import { Earth } from '@/three/objects/Earth';
 import type { ObservationFrame } from '@/types/api.types';
 
@@ -323,6 +326,7 @@ const { data, loading, error, hasData, frameCount, fetchBatchObservationsSSE, ca
 let sceneManager: SceneManager | null = null;
 let sun: Sun | null = null;
 let moon: Moon | null = null;
+let venus: Venus | null = null;
 let earth: Earth | null = null;
 
 const isAnimating = ref(false);
@@ -401,14 +405,16 @@ const isFormValid = computed(() => {
 
 const initializeObjects = () => {
   if (!canvasRef.value) return;
-  if (!earth || !sun || !moon || !sceneManager) {
+  if (!earth || !sun || !moon || !venus || !sceneManager) {
     sceneManager = new SceneManager(canvasRef.value);
     earth = new Earth();
     sun = new Sun();
     moon = new Moon();
+    venus = new Venus();
     earth.addToScene(sceneManager.scene);
     sun.addToScene(sceneManager.scene);
     moon.addToScene(sceneManager.scene);
+    venus.addToScene(sceneManager.scene);
     // Hide objects until data is loaded
     if (earth && earth.mesh && earth.getGridHelper() && earth.getAxesHelper() && earth.getHemisphereGrid()) {
       earth.mesh.visible = false;
@@ -422,6 +428,9 @@ const initializeObjects = () => {
     }
     if (moon && moon.mesh) {
       moon.mesh.visible = false;
+    }
+    if (venus && venus.mesh) {
+      venus.mesh.visible = false;
     }
     sceneManager.startAnimation(updateAnimation);
   }
@@ -479,7 +488,7 @@ async function loadData() {
         }
       }
     }
-    if (!sun || !moon || !earth || !sceneManager) {
+    if (!sun || !moon || !earth || !venus || !sceneManager) {
       initializeObjects();
     }
     currentIndex.value = 0;
@@ -500,6 +509,9 @@ async function loadData() {
       }
       if (moon) {
         moon.mesh.visible = frame.moon.is_visible;
+      }
+      if (venus) {
+        venus.mesh.visible = frame.venus.is_visible;
       }
     }
   }
@@ -556,7 +568,7 @@ function calculateFrameInterval() {
 // Update celestial object positions
 function updatePositions() {
   const frame = currentFrame.value;
-  if (!frame || !sun || !moon) return;
+  if (!frame || !sun || !moon || !venus) return;
   
   // Update visibility based on frame data
   if (sun) {
@@ -565,6 +577,9 @@ function updatePositions() {
   }
   if (moon) {
     moon.mesh.visible = frame.moon.is_visible;
+  }
+  if (venus) {
+    venus.mesh.visible = frame.venus.is_visible;
   }
   if (earth) {
     // Earth is always visible during animation
@@ -588,17 +603,25 @@ function updatePositions() {
     viewMode.value
   );
 
+  venus.updatePosition(
+    frame.venus.azimuth,
+    frame.venus.altitude,
+    frame.venus.is_visible,
+    viewMode.value
+  );
+
   moon.updatePhase(frame.moon_phase.illumination * 100);
 }
 
 // Switch view mode
 function setViewMode(mode: '3D' | 'SKY') {
   viewMode.value = mode;
-  if (sceneManager && earth && sun && moon) {
+  if (sceneManager && earth && sun && moon && venus) {
     sceneManager.setViewMode(mode);
     earth.setViewMode(mode);
     sun.setViewMode(mode.toLowerCase() as 'sky' | '3d');
     moon.setViewMode(mode.toLowerCase() as 'sky' | '3d');
+    venus.setViewMode(mode.toLowerCase() as 'sky' | '3d');
     updatePositions();
   }
 }

@@ -24,8 +24,8 @@ iers.conf.auto_max_age = None
 
 app = FastAPI(
     title="Astronomy API",
-    description="API for astronomical calculations including day of week, sun/moon positions, and more",
-    version="0.1.0"
+    description="API for astronomical calculations including day of week, sun/moon/Venus positions, and more",
+    version="0.2.0"
 )
 
 # Configure CORS with environment-specific settings

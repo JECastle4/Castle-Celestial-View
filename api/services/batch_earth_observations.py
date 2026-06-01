@@ -6,6 +6,7 @@ from astropy.coordinates import get_sun, get_body, AltAz, EarthLocation
 import astropy.units as u
 from .sun import _process_sun_position
 from .moon import _process_moon_position
+from .venus import _process_venus_position
 from .moon_phase import _process_moon_phase
 from api.i18n import get_i18n
 
@@ -83,8 +84,10 @@ def calculate_batch_earth_observations(
         altaz_frame = AltAz(obstime=obs_time, location=location, pressure=0.0)
         sun = get_sun(obs_time)
         moon = get_body("moon", obs_time, location)
+        venus = get_body("venus", obs_time, location)
         sun_altaz = sun.transform_to(altaz_frame)
         moon_altaz = moon.transform_to(altaz_frame)
+        venus_altaz = venus.transform_to(altaz_frame)
         sun_data = _process_sun_position(
             sun_altaz=sun_altaz,
             time=obs_time,
@@ -95,6 +98,16 @@ def calculate_batch_earth_observations(
         )
         moon_data = _process_moon_position(
             moon_altaz=moon_altaz,
+            time=obs_time,
+            datetime_str=datetime_str,
+            latitude=latitude,
+            longitude=longitude,
+            elevation=elevation
+        )
+        venus_data = _process_venus_position(
+            venus_altaz=venus_altaz,
+            sun=sun,
+            venus_gcrs=venus,
             time=obs_time,
             datetime_str=datetime_str,
             latitude=latitude,
@@ -127,6 +140,11 @@ def calculate_batch_earth_observations(
                 "illumination": phase_data["illumination"],
                 "phase_angle": phase_data["phase_angle"],
                 "phase_name": phase_data["phase_name"]
+            },
+            "venus": {
+                "altitude": venus_data["altitude"],
+                "azimuth": venus_data["azimuth"],
+                "is_visible": venus_data["is_visible"]
             }
         }
         yield frame

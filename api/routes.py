@@ -12,6 +12,8 @@ from api.models import (
     SunPositionResponse,
     MoonPositionRequest,
     MoonPositionResponse,
+    VenusPositionRequest,
+    VenusPositionResponse,
     MoonPhaseRequest,
     MoonPhaseResponse,
     BatchEarthObservationsRequest,
@@ -20,6 +22,7 @@ from api.models import (
 from api.services.dates import calculate_day_of_week
 from api.services.sun import calculate_sun_position
 from api.services.moon import calculate_moon_position
+from api.services.venus import calculate_venus_position
 from api.services.moon_phase import calculate_moon_phase
 from api.services.batch_earth_observations import calculate_batch_earth_observations
 
@@ -207,6 +210,67 @@ async def get_moon_position(request: MoonPositionRequest):
         raise HTTPException(
             status_code=500,
             detail=f"Error calculating moon position: {str(e)}"
+        )
+
+
+@router.post("/venus-position", response_model=VenusPositionResponse)
+async def get_venus_position(request: VenusPositionRequest):
+    """
+    Calculate Venus's position and phase at a given time and location.
+    
+    Returns altitude (angle above horizon), azimuth (compass direction), visibility status,
+    sun separation (elongation), and phase information (illumination, phase angle, phase name).
+    
+    Venus visibility has two dimensions:
+    - **Geometric visibility** (is_visible): Venus is above the horizon
+    - **Observable visibility** (naked_eye_visible): Venus is above horizon AND sufficiently 
+      separated from the Sun (typically >10° elongation) to avoid being drowned out by solar glare
+    
+    Note: Venus phase requires a telescope to observe. Venus never reaches Quarter, Gibbous,
+    or Full phases as seen from Earth because its maximum elongation is ~47°, resulting in
+    maximum illumination of ~25% (crescent phase).
+    
+    Available in API v0.2.0+.
+    
+    - **date**: Date in ISO format (YYYY-MM-DD)
+    - **time**: Time in HH:MM:SS format
+    - **latitude**: Latitude in degrees (-90 to 90)
+    - **longitude**: Longitude in degrees (-180 to 180)
+    - **elevation**: Elevation above sea level in meters (optional)
+    
+    Returns:
+    - **altitude**: Venus's altitude in degrees (negative = below horizon)
+    - **azimuth**: Venus's azimuth in degrees (0=North, 90=East)
+    - **is_visible**: True if Venus is above horizon (altitude > 0°)
+    - **sun_separation**: Angular separation between Venus and Sun in degrees (elongation)
+    - **naked_eye_visible**: True if Venus is both above horizon AND far enough from Sun
+    - **illumination**: Fraction of Venus illuminated (0.0 to 1.0)
+    - **phase_angle**: Venus's phase angle in ecliptic longitude (0 to 360 degrees)
+    - **phase_name**: Textual phase name (New, Crescent, Quarter, Gibbous, Full)
+    - **julian_date**: JD for this calculation
+    - **input_datetime**: The processed input
+    - **location**: The location used for calculation
+    """
+    try:
+        result = calculate_venus_position(
+            request.date,
+            request.time,
+            request.latitude,
+            request.longitude,
+            request.elevation,
+            locale=get_i18n().locale,
+        )
+        return VenusPositionResponse(**result)
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid input: {str(e)}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error calculating Venus position: {str(e)}"
         )
 
 
