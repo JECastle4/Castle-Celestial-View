@@ -12,7 +12,7 @@ import AstronomyScene from './AstronomyScene.vue';
 // Mock Three.js modules to avoid WebGL context errors
 vi.mock('@/three/scene', () => ({
   SceneManager: class MockSceneManager {
-    scene = {};
+    scene = { add: vi.fn(), remove: vi.fn() };
     camera = {};
     renderer = {};
     controls = {};
@@ -44,6 +44,16 @@ vi.mock('@/three/objects/Moon', () => ({
     update = vi.fn();
     updatePosition = vi.fn();
     updatePhase = vi.fn(); // Added for test compatibility
+  },
+}));
+
+vi.mock('@/three/objects/Venus', () => ({
+  Venus: class MockVenus {
+    mesh = { visible: true };
+    addToScene = vi.fn();
+    update = vi.fn();
+    updatePosition = vi.fn();
+    setViewMode = vi.fn();
   },
 }));
 

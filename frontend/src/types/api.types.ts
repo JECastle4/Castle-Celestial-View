@@ -20,7 +20,7 @@ export interface ObservationFrame {
   sun: CelestialPosition;
   moon: CelestialPosition;
   moon_phase: MoonPhaseData;
-  venus: CelestialPosition;
+  venus?: CelestialPosition;
 }
 
 export interface LocationModel {
