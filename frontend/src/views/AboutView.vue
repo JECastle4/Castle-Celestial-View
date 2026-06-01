@@ -44,6 +44,8 @@ const libraries = [
   { name: 'vue-toast-notification', license: 'MIT',         url: 'https://github.com/ankurk91/vue-toast-notification/blob/master/LICENSE' },
   { name: 'OpenLayers',            license: 'BSD-2-Clause', url: 'https://github.com/openlayers/openlayers/blob/main/LICENSE.md' },
   { name: 'Three.js',              license: 'MIT',          url: 'https://github.com/mrdoob/three.js/blob/dev/LICENSE' },
+  { name: 'Font Awesome',          license: 'CC-BY-4.0, OFL-1.1, MIT', url: 'https://github.com/FortAwesome/Font-Awesome/blob/7.x/LICENSE.txt' },
+  { name: 'Flag Icons',            license: 'MIT',          url: 'https://github.com/lipis/flag-icons/blob/main/LICENSE' },
   { name: 'Astropy',               license: 'BSD-3-Clause', url: 'https://github.com/astropy/astropy/blob/main/LICENSE.rst' },
   { name: 'NumPy',                 license: 'BSD-3-Clause', url: 'https://github.com/numpy/numpy/blob/main/LICENSE.txt' },
   { name: 'Matplotlib',            license: 'BSD-compatible', url: 'https://github.com/matplotlib/matplotlib/blob/main/LICENSE/LICENSE' },
