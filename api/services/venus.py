@@ -70,9 +70,10 @@ def calculate_venus_position(
     altaz_frame = AltAz(obstime=obs_time, location=location, pressure=0.0)
     
     # Get Venus position and transform to AltAz coordinates
-    venus_altaz = get_body("venus", obs_time, location).transform_to(altaz_frame)
+    venus_with_loc = get_body("venus", obs_time, location)
+    venus_altaz = venus_with_loc.transform_to(altaz_frame)
     
-    # Get Sun position for phase calculation
+    # Get Sun and Venus at geocenter for geocentric separation/phase calculations
     sun = get_sun(obs_time)
     venus_gcrs = get_body("venus", obs_time)
     

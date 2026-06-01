@@ -84,10 +84,12 @@ def calculate_batch_earth_observations(
         altaz_frame = AltAz(obstime=obs_time, location=location, pressure=0.0)
         sun = get_sun(obs_time)
         moon = get_body("moon", obs_time, location)
-        venus = get_body("venus", obs_time, location)
+        venus_with_loc = get_body("venus", obs_time, location)
+        # Get Venus at geocenter for geocentric separation/phase calculations (no location)
+        venus_gcrs = get_body("venus", obs_time)
         sun_altaz = sun.transform_to(altaz_frame)
         moon_altaz = moon.transform_to(altaz_frame)
-        venus_altaz = venus.transform_to(altaz_frame)
+        venus_altaz = venus_with_loc.transform_to(altaz_frame)
         sun_data = _process_sun_position(
             sun_altaz=sun_altaz,
             time=obs_time,
@@ -107,7 +109,7 @@ def calculate_batch_earth_observations(
         venus_data = _process_venus_position(
             venus_altaz=venus_altaz,
             sun=sun,
-            venus_gcrs=venus,
+            venus_gcrs=venus_gcrs,
             time=obs_time,
             datetime_str=datetime_str,
             latitude=latitude,
