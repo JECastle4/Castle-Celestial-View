@@ -77,7 +77,7 @@ for day_offset in range(1, 32):  # October 1-31
         set_str = f"{set_time.iso}" if set_time else "None"
         
         print(f"2026-10-{day_offset:02d} | {pattern:18} | Rise: {rise_str:30} Set: {set_str:30}")
-    except Exception:  # Skip dates where calculations fail
+    except Exception:  # Skip dates where calculations fail  # nosec B110
         pass
 
 print()
@@ -110,7 +110,7 @@ for day_offset in range(1, 32):  # November 2026
         set_str = f"{set_time.iso}" if set_time else "None"
         
         print(f"2026-11-{day_offset:02d} | {pattern:18} | Rise: {rise_str:30} Set: {set_str:30}")
-    except Exception:  # Skip dates where calculations fail
+    except Exception:  # Skip dates where calculations fail  # nosec B110
         pass
 
 print()
