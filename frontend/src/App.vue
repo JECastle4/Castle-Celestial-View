@@ -56,13 +56,17 @@ const langOptions = computed(() => {
   return opts;
 });
 
+const localePathPrefixRegex = import.meta.env.DEV
+  ? /^\/(en-UK|en-US|xx-reverse)/
+  : /^\/(en-UK|en-US)/;
+
 function switchLocale(newLocale: string) {
   if (newLocale === locale.value) {
     showLangMenu.value = false;
     return;
   }
   // Build new path with the new locale, preserving the current subpath if possible
-  let newPath = route.fullPath.replace(/^\/(en-UK|en-US|xx-reverse)/, '/' + newLocale);
+  let newPath = route.fullPath.replace(localePathPrefixRegex, '/' + newLocale);
   if (!newPath.startsWith('/' + newLocale)) {
     newPath = `/${newLocale}/`;
   }
