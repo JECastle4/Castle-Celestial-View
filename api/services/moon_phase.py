@@ -87,9 +87,8 @@ def _process_moon_phase(
         moon: Moon position (GCRS coordinates)
         time: Astropy Time object
         datetime_str: Input datetime string
-        latitude: Latitude in degrees
-        longitude: Longitude in degrees
-        elevation: Elevation in meters
+        location: Observer location with latitude, longitude, elevation
+        locale: Language locale code for phase names (defaults to 'en')
 
     Returns:
         Dictionary with moon phase data

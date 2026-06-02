@@ -134,8 +134,7 @@ def venus_rise(
         rise on that date for the location.
     """
     # reference midday UTC for the given julianDate
-    # Normalize to noon UTC of the given date (JD.0 = noon UTC, so floor gives us the right day)
-    midday = Time(np.floor(julianDate), format='jd', scale='utc')
+    midday = Time(julianDate, format='jd', scale='utc') + 0.5 * u.day
 
     # compute altitudes over the day
     times, diffs, peak_idx = _compute_venus_altitudes(
@@ -212,8 +211,7 @@ def venus_set(
         set on that date for the location.
     """
     # reference midday UTC for the given julianDate
-    # Normalize to noon UTC of the given date (JD.0 = noon UTC, so floor gives us the right day)
-    midday = Time(np.floor(julianDate), format='jd', scale='utc')
+    midday = Time(julianDate, format='jd', scale='utc') + 0.5 * u.day
 
     # compute altitudes over the day
     times, diffs, peak_idx = _compute_venus_altitudes(

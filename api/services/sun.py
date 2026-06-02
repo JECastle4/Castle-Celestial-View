@@ -74,7 +74,6 @@ def _process_sun_position(
         time: Astropy Time object
         datetime_str: Input datetime string
         location: Observer location with latitude, longitude, elevation
-        elevation: Elevation in meters
 
     Returns:
         Dictionary with sun position data
