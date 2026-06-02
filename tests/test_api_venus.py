@@ -198,6 +198,67 @@ class TestVenusPhaseCalculation:
             f"Month data: {phases_by_month}"
         )
 
+    def test_venus_new_phase_low_illumination(self):
+        """Test Venus New phase with illumination < 10% (code coverage for phase_key="new").
+        
+        The New phase calculation is location-independent (based on orbital geometry).
+        However, NEW PHASE IS BRIEF AND LOCATION-SENSITIVE FOR VISIBILITY:
+        - Oct 9, 2026 noon UTC: Below horizon at New York but above at equator/London
+        - This test validates the phase_name calculation, not observability
+        - Visibility is validated separately by is_visible field
+        """
+        # October 9, 2026: Venus reaches inferior conjunction with ~7% illumination
+        result = calculate_venus_position(
+            ObservationDateTime(date="2026-10-09", time="12:00:00"),
+            LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
+        )
+
+        assert result["phase_name"] == "New", (
+            f"Expected 'New' phase at 2026-10-09 with low illumination, "
+            f"got '{result['phase_name']}' with illumination={result['illumination']:.4f}"
+        )
+        assert result["illumination"] < 0.10, (
+            f"Expected illumination < 0.10 for New phase, got {result['illumination']:.4f}"
+        )
+        assert 0.0 <= result["illumination"] <= 1.0
+
+    def test_venus_new_phase_observable_equator(self):
+        """Test Venus New phase at equator where it's observable above horizon."""
+        # October 9, 2026 at equator: Venus in New phase with ~7% illumination and above horizon
+        result = calculate_venus_position(
+            ObservationDateTime(date="2026-10-09", time="12:00:00"),
+            LocationModel(latitude=0.0, longitude=0.0, elevation=0.0)
+        )
+
+        assert result["phase_name"] == "New", (
+            f"Expected 'New' phase, got '{result['phase_name']}'"
+        )
+        assert result["illumination"] < 0.10, (
+            f"Expected illumination < 0.10 for New phase, got {result['illumination']:.4f}"
+        )
+        # At equator on this date, Venus should be above horizon
+        assert result["is_visible"] is True, (
+            f"Expected Venus to be above horizon at equator, got altitude={result['altitude']:.2f}°"
+        )
+
+    def test_venus_waning_phase_full(self):
+        """Test Venus waning phase with Full illumination (covers waning branch)."""
+        # January 1, 2026: Venus in waning phase at ~99.97% illumination (Full)
+        # Phase angle = 358.8° (waning), so code takes the else branch (line 186)
+        result = calculate_venus_position(
+            ObservationDateTime(date="2026-01-01", time="12:00:00"),
+            LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
+        )
+
+        assert result["phase_name"] == "Full", (
+            f"Expected 'Full' phase at 2026-01-01 (waning), "
+            f"got '{result['phase_name']}' with illumination={result['illumination']:.4f}"
+        )
+        assert result["illumination"] > 0.90, (
+            f"Expected illumination > 90% for Full phase, "
+            f"got {result['illumination']:.4f}"
+        )
+
 
 class TestVenusVisibility:
     """Tests for Venus visibility calculations."""
