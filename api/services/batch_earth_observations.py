@@ -109,7 +109,8 @@ def calculate_batch_earth_observations(
             venus_gcrs=venus_gcrs,
             time=obs_time,
             datetime_str=datetime_str,
-            location=location
+            location=location,
+            locale=locale
         )
         phase_data = _process_moon_phase(
             sun=sun,
