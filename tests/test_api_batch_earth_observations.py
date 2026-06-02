@@ -64,6 +64,17 @@ def test_basic_batch_calculation():
     assert "illumination" in first_frame["moon_phase"]
     assert "phase_angle" in first_frame["moon_phase"]
     assert "phase_name" in first_frame["moon_phase"]
+    # Check Venus position structure
+    assert "venus" in first_frame
+    assert "altitude" in first_frame["venus"]
+    assert "azimuth" in first_frame["venus"]
+    assert "is_visible" in first_frame["venus"]
+    # Check Venus phase structure
+    assert "venus_phase" in first_frame
+    assert "illumination" in first_frame["venus_phase"]
+    assert "phase_angle" in first_frame["venus_phase"]
+    assert "phase_name" in first_frame["venus_phase"]
+    assert "naked_eye_visible" in first_frame["venus_phase"]
     assert first_frame["datetime"] == "2024-01-01T12:00:00"
     # Check metadata
     assert result["metadata"]["frame_count"] == 7

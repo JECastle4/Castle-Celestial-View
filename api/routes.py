@@ -38,7 +38,7 @@ router = APIRouter()
     tags=["batch", "sse"],
     summary="Stream batch celestial observations from Earth (SSE)",
     description="""
-    Streams multiple frames of sun and moon positions and moon phase from an Earth location using Server-Sent Events (SSE).
+    Streams multiple frames of sun, moon, Venus positions and moon/Venus phase from an Earth location using Server-Sent Events (SSE).
     Each frame is sent as a separate SSE event.
     """
 )
@@ -52,7 +52,7 @@ async def stream_batch_earth_observations(
     longitude: float = Query(..., ge=-180.0, le=180.0),
     elevation: float = Query(0.0)
 ):
-    """Stream batch celestial observations using Server-Sent Events."""
+    """Stream batch celestial observations including sun, moon, and Venus data via Server-Sent Events."""
     try:
         # Capture the locale now (ContextVar is not copied into the sync
         # streaming thread that StreamingResponse uses to iterate the generator)
@@ -351,13 +351,15 @@ async def get_moon_phase(request: MoonPhaseRequest):
     tags=["batch"],
     summary="Get batch celestial observations from Earth",
     description="""
-    Calculate multiple frames of sun and moon positions and moon phase from an Earth location.
+    Calculate multiple frames of sun, moon, and Venus positions with moon and Venus phase from an Earth location.
 
     This endpoint generates a series of observations between start and end times,
     perfect for animations or time-series visualizations. Each frame contains:
     - Sun position (altitude, azimuth, visibility)
     - Moon position (altitude, azimuth, visibility)
     - Moon phase (illumination, angle, name)
+    - Venus position (altitude, azimuth, visibility)
+    - Venus phase (illumination, angle, name, naked-eye visibility)
 
     **Note:** For large frame counts, this may take several seconds to compute.
     Current implementation calls position services for each frame.

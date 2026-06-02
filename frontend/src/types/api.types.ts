@@ -1,6 +1,8 @@
 /**
  * API Response Types
- * These match the Pydantic models from the FastAPI backend
+ * Generally match the Pydantic models from the FastAPI backend.
+ * Note: Venus fields are modeled as optional for forward compatibility during FE implementation.
+ * The backend returns Venus data for all frames; optional typing allows gradual FE adoption.
  */
 
 export interface CelestialPosition {
@@ -15,12 +17,20 @@ export interface MoonPhaseData {
   phase_name: string;
 }
 
+export interface VenusPhaseData {
+  illumination: number;
+  phase_angle: number;
+  phase_name: string;
+  naked_eye_visible: boolean;
+}
+
 export interface ObservationFrame {
   datetime: string;
   sun: CelestialPosition;
   moon: CelestialPosition;
   moon_phase: MoonPhaseData;
   venus?: CelestialPosition;
+  venus_phase?: VenusPhaseData;
 }
 
 export interface LocationModel {

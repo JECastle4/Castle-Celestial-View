@@ -22,7 +22,7 @@ def calculate_batch_earth_observations(
 
     This function generates multiple frames of celestial observations between
     a start and end time. Each frame contains sun position, moon position,
-    moon phase, and Venus position/phase information for that specific moment.
+    moon phase, and Venus position with phase information for that specific moment.
 
     Args:
         time_range: TimeRange object containing:
@@ -31,7 +31,7 @@ def calculate_batch_earth_observations(
             - frame_count: Number of frames to generate (must be >= 2)
         location: LocationModel with observer position (latitude, longitude, elevation)
         locale: BCP 47 locale tag (e.g. 'en', 'xx-reverse') used to translate
-            validation error messages and moon phase names in each frame.
+            validation error messages and moon/Venus phase names in each frame.
             Defaults to English when None.
 
     Yields:
@@ -140,6 +140,12 @@ def calculate_batch_earth_observations(
                 "altitude": venus_data["altitude"],
                 "azimuth": venus_data["azimuth"],
                 "is_visible": venus_data["is_visible"]
+            },
+            "venus_phase": {
+                "illumination": venus_data["illumination"],
+                "phase_angle": venus_data["phase_angle"],
+                "phase_name": venus_data["phase_name"],
+                "naked_eye_visible": venus_data["naked_eye_visible"]
             }
         }
         yield frame
