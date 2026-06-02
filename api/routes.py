@@ -245,8 +245,6 @@ async def get_venus_position(request: VenusPositionRequest):
     Note: Venus phase requires a telescope to observe. The "phase angle" field (ecliptic
     longitude difference) is distinct from illumination and indicates waxing/waning direction.
 
-    Available in API v0.2.0+.
-
     - **date**: Date in ISO format (YYYY-MM-DD)
     - **time**: Time in HH:MM:SS format
     - **latitude**: Latitude in degrees (-90 to 90)
