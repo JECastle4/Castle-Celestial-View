@@ -414,8 +414,8 @@ const initializeObjects = () => {
     earth = new Earth();
     sun = new Sun();
     moon = new Moon();
-    if (FEATURE_FLAGS.VENUS_UI_ENABLED && Venus) {
-      venus = new (Venus as any)();
+    if (FEATURE_FLAGS.VENUS_UI_ENABLED) {
+      venus = new Venus();
     }
     earth.addToScene(sceneManager.scene);
     sun.addToScene(sceneManager.scene);

@@ -28,11 +28,18 @@ def calculate_venus_position(
             - altitude: Venus's altitude in degrees (negative = below horizon)
             - azimuth: Venus's azimuth in degrees (0=North, 90=East, 180=South, 270=West)
             - is_visible: Boolean indicating if Venus is above horizon
-            - illumination: Fraction of Venus illuminated (0.0 to 1.0)
-            - phase_angle: Venus's phase angle in ecliptic longitude (0 to 360 degrees)
-            - phase_name: Textual name of the phase (e.g., "Crescent", "Gibbous", "Full", "New")
-            - sun_separation: Angular separation between Venus and Sun in degrees
+            - illumination: Fraction of Venus's disk illuminated by the Sun (0.0 to 1.0),
+              computed using Venus-centric phase angle (IAU standard for inferior planets).
+              Ranges from ~0% at inferior conjunction (closest to Earth) to ~100% at
+              superior conjunction (behind the Sun).
+            - phase_angle: Venus's phase angle in ecliptic longitude (0 to 360 degrees),
+              used to determine waxing vs waning
+            - phase_name: Textual name of the phase based on illumination:
+              New (0-10%), Crescent (10-35%), Quarter (35-50%),
+              Gibbous (50-90%), Full (90%+)
+            - sun_separation: Angular separation between Venus and Sun in degrees (elongation)
             - naked_eye_visible: Boolean indicating if Venus is observable to naked eye
+              (requires altitude > 0° AND sun_separation > 10°)
             - julian_date: The JD for this calculation
             - input_datetime: The processed input string
             - location: Dictionary with lat, lon, elevation
@@ -91,6 +98,11 @@ def _process_venus_position(
     Process Venus position data into response format.
     Internal function used by calculate_venus_position and batch operations.
 
+    Illumination Calculation:
+    Uses Venus-centric phase angle (IAU standard for inferior planets).
+    Phase angle is computed from 3D vectors: Sun direction from Venus and Earth
+    direction from Venus. Illumination = (1 + cos(phase_angle)) / 2.
+
     Args:
         venus_altaz: Venus position in AltAz frame
         sun: Sun position (GCRS coordinates)
@@ -113,11 +125,33 @@ def _process_venus_position(
     # Convert to Python bool to avoid numpy bool type
     is_visible = bool(altitude > 0)
 
-    # Calculate Venus phase (same as Moon method)
-    # Illumination from elongation angle (angular separation between Sun and Venus)
+    # Calculate Venus phase using Venus-centric geometry (IAU standard for inferior planets)
+    # For an inferior planet, the phase angle must be computed from the planet's perspective
+    # using 3D vectors, not from Earth's perspective using angular separation.
+    # Get Cartesian positions (GCRS frame: Earth at origin)
+    venus_pos = venus_gcrs.cartesian.xyz  # Vector from Earth to Venus
+    sun_pos = sun.cartesian.xyz  # Vector from Earth to Sun
+
+    # Vectors from Venus's perspective
+    vec_venus_to_sun = sun_pos - venus_pos  # Sun direction from Venus
+    vec_venus_to_earth = -venus_pos  # Earth direction from Venus
+
+    # Compute angle between the two vectors
+    dot_prod = np.dot(vec_venus_to_sun, vec_venus_to_earth)
+    mag_sun = np.linalg.norm(vec_venus_to_sun)
+    mag_earth = np.linalg.norm(vec_venus_to_earth)
+
+    cos_phase_angle = dot_prod / (mag_sun * mag_earth)
+    # Clamp to avoid numerical errors in arccos
+    cos_phase_angle = np.clip(cos_phase_angle, -1.0, 1.0)
+
+    # Illumination for an inferior planet: (1 + cos(phase_angle)) / 2
+    illumination = float((1.0 + cos_phase_angle) / 2.0)
+
+    # Compute elongation (angular separation between Venus and Sun from Earth)
+    # This is still useful for determining naked-eye visibility
     elongation = sun.separation(venus_gcrs)
     sun_separation = float(elongation.deg)
-    illumination = float(0.5 * (1 - np.cos(elongation.rad)))
 
     # Naked-eye visibility requires both altitude > 0° AND sufficient separation from Sun
     # Venus becomes lost in solar glare at elongations < ~8-10° even if geometrically visible
@@ -135,33 +169,26 @@ def _process_venus_position(
     illum_pct = illumination * 100
 
     if phase_angle < 180:  # Waxing (new → full)
-        if illum_pct < 3:
+        if illum_pct < 10:
             phase_key = "new"
-        elif illum_pct < 47:
+        elif illum_pct < 35:
             phase_key = "crescent"
-        elif illum_pct < 53:  # pragma: no cover - Venus max illumination ~25%
-            # cannot reach Quarter (47-53%)
+        elif illum_pct < 50:
             phase_key = "quarter"
-        elif illum_pct < 97:  # pragma: no cover - Venus max illumination ~25%
-            # cannot reach Gibbous (53-97%)
+        elif illum_pct < 90:
             phase_key = "gibbous"
-        else:  # pragma: no cover - Venus max illumination ~25%
-            # cannot reach Full (95%+)
+        else:  # 90%+
             phase_key = "full"
     else:  # Waning (full → new)
-        if illum_pct > 97:  # pragma: no cover - Venus max illumination ~25%
-            # cannot reach Full (95%+)
+        if illum_pct > 90:
             phase_key = "full"
-        elif illum_pct > 53:  # pragma: no cover - Venus max illumination ~25%
-            # cannot reach Gibbous (53%+)
+        elif illum_pct > 50:
             phase_key = "gibbous"
-        elif illum_pct > 47:  # pragma: no cover - Venus max illumination ~25%
-            # cannot reach Quarter (47%+)
+        elif illum_pct > 35:
             phase_key = "quarter"
-        elif illum_pct > 3:
+        elif illum_pct > 10:
             phase_key = "crescent"
-        else:  # pragma: no cover - Reachable but requires waning phase < 3%
-            # (not in standard test set)
+        else:  # <10%
             phase_key = "new"
 
     # Get localized phase name

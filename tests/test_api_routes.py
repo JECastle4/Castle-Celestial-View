@@ -92,7 +92,7 @@ class TestDayOfWeekEndpoint:
         """Test with malformed JSON"""
         response = client.post(
             "/api/v1/day-of-week",
-            data="not json",
+            content="not json",
             headers={"Content-Type": "application/json"}
         )
         
@@ -1068,6 +1068,7 @@ class TestAcceptLanguage:
             headers={"Accept-Language": "fr, xx-reverse;q=0.9"},
         )
         assert response.status_code == 200
+        assert response.json()["day_name"] == "Sunday"[::-1]
 
 
 class TestExceptionHandling:

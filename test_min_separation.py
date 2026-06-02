@@ -1,5 +1,6 @@
 """Find minimum sun separation during inferior conjunction."""
 from api.services.venus import calculate_venus_position
+from api.models import ObservationDateTime, LocationModel
 
 print("Finding minimum Sun separation during Venus inferior conjunction (May 2026)")
 print("=" * 110)
@@ -23,7 +24,10 @@ print("-" * 110)
 
 min_sep = 999
 for date_str, desc in dates_to_test:
-    result = calculate_venus_position(date_str, "12:00:00", 40.7128, -74.0060, 10.0)
+    result = calculate_venus_position(
+        ObservationDateTime(date=date_str, time="12:00:00"),
+        LocationModel(latitude=40.7128, longitude=-74.0060, elevation=10.0)
+    )
     sep = result["sun_separation"]
     alt = result["altitude"]
     

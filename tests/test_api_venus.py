@@ -148,9 +148,55 @@ class TestVenusPhaseCalculation:
             )
             results.append(result["illumination"])
 
-        # Venus should have varying illumination
-        assert min(results) < 0.2  # Some low illumination values
-        assert max(results) < 0.25  # Max illumination ~25% for Venus
+        # Venus illumination ranges from near 0% (inferior conjunction) to nearly 100% (superior conjunction)
+        assert min(results) < 0.05  # Low illumination near inferior conjunction (~3-4%)
+        assert max(results) > 0.95  # High illumination near superior conjunction (~99%)
+
+    def test_venus_phase_names_throughout_year(self):
+        """Document which Venus phases are actually reached throughout 2026.
+
+        This test verifies the phase-naming thresholds are based on actual astronomical data.
+        Venus illumination is computed from Venus-centric phase angle (IAU standard), which
+        allows illumination from ~0% to ~100% throughout the year, enabling all 5 phases.
+
+        Phase thresholds (based on corrected Venus-centric geometry):
+        - New: 0-10% illumination
+        - Crescent: 10-35% illumination
+        - Quarter: 35-50% illumination
+        - Gibbous: 50-90% illumination
+        - Full: 90%+ illumination (near superior conjunction)
+        """
+        phases_by_month = {}
+        for month in range(1, 13):
+            result = calculate_venus_position(
+                ObservationDateTime(date=f"2026-{month:02d}-15", time="12:00:00"),
+                LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
+            )
+            phase_name = result["phase_name"]
+            illumination = result["illumination"]
+            phases_by_month[month] = {
+                "phase": phase_name,
+                "illumination": illumination
+            }
+
+        # Extract which phases are actually observed
+        phases_observed = {v["phase"] for v in phases_by_month.values()}
+
+        # Verify expected phases are reached throughout 2026
+        # Venus should always reach New and Crescent phases (near inferior/superior conjunctions)
+        assert "New" in phases_observed, (
+            f"New phase never observed in 2026. Month data: {phases_by_month}"
+        )
+        assert "Crescent" in phases_observed, (
+            f"Crescent phase never observed in 2026. Month data: {phases_by_month}"
+        )
+
+        # Venus should reach Full phase near superior conjunction (Oct 2026, illumination >90%)
+        # This is a key validation that the corrected illumination formula is working
+        assert "Full" in phases_observed, (
+            f"Full phase never observed in 2026 (expected near superior conjunction). "
+            f"Month data: {phases_by_month}"
+        )
 
 
 class TestVenusVisibility:

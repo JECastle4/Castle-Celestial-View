@@ -3,6 +3,7 @@ from astropy.coordinates import EarthLocation
 from astropy.time import Time
 import astropy.units as u
 from api.services.venus import calculate_venus_position
+from api.models import ObservationDateTime, LocationModel
 
 # Test location: NYC
 latitude = 40.7128
@@ -28,7 +29,10 @@ print()
 
 for date_str, time_str, description in test_cases:
     try:
-        result = calculate_venus_position(date_str, time_str, latitude, longitude, elevation)
+        result = calculate_venus_position(
+            ObservationDateTime(date=date_str, time=time_str),
+            LocationModel(latitude=latitude, longitude=longitude, elevation=elevation)
+        )
         
         print(f"Date: {date_str} {time_str} UTC — {description}")
         print(f"  Position: Alt={result['altitude']:6.2f}° Az={result['azimuth']:6.2f}°")

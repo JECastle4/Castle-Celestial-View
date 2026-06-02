@@ -1,5 +1,6 @@
 """Test Venus visibility edge case: above horizon but drowned out by solar glare."""
 from api.services.venus import calculate_venus_position
+from api.models import ObservationDateTime, LocationModel
 
 print("=" * 120)
 print("VENUS SOLAR GLARE TEST - Finding cases where Venus is above horizon but NOT naked-eye visible")
@@ -17,7 +18,10 @@ test_dates = [
 ]
 
 for date_str, time_str, description in test_dates:
-    result = calculate_venus_position(date_str, time_str, 40.7128, -74.0060, 10.0)
+    result = calculate_venus_position(
+        ObservationDateTime(date=date_str, time=time_str),
+        LocationModel(latitude=40.7128, longitude=-74.0060, elevation=10.0)
+    )
     
     status = "✓ NAKED-EYE VISIBLE" if result['naked_eye_visible'] else "⚠ DROWNED OUT BY SUN" if result['is_visible'] else "✗ BELOW HORIZON"
     

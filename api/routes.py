@@ -235,9 +235,15 @@ async def get_venus_position(request: VenusPositionRequest):
     - **Observable visibility** (naked_eye_visible): Venus is above horizon AND sufficiently
       separated from the Sun (typically >10° elongation) to avoid being drowned out by solar glare
 
-    Note: Venus phase requires a telescope to observe. Venus never reaches Quarter, Gibbous,
-    or Full phases as seen from Earth because its maximum elongation is ~47°, resulting in
-    maximum illumination of ~25% (crescent phase).
+    Phase Calculation:
+    Venus illumination is computed using Venus-centric phase angle
+    (IAU standard for inferior planets). Illumination ranges from ~0% at inferior
+    conjunction (closest to Earth) to ~100% at superior
+    conjunction (behind the Sun). Phases are classified by illumination:
+    - New: 0-10%, Crescent: 10-35%, Quarter: 35-50%, Gibbous: 50-90%, Full: 90%+
+
+    Note: Venus phase requires a telescope to observe. The "phase angle" field (ecliptic
+    longitude difference) is distinct from illumination and indicates waxing/waning direction.
 
     Available in API v0.2.0+.
 
@@ -253,8 +259,10 @@ async def get_venus_position(request: VenusPositionRequest):
     - **is_visible**: True if Venus is above horizon (altitude > 0°)
     - **sun_separation**: Angular separation between Venus and Sun in degrees (elongation)
     - **naked_eye_visible**: True if Venus is both above horizon AND far enough from Sun
-    - **illumination**: Fraction of Venus illuminated (0.0 to 1.0)
-    - **phase_angle**: Venus's phase angle in ecliptic longitude (0 to 360 degrees)
+    - **illumination**: Fraction of Venus illuminated (0.0 to 1.0),
+      computed from Venus-centric phase angle
+    - **phase_angle**: Venus's phase angle in ecliptic longitude (0 to 360
+      degrees), for waxing/waning
     - **phase_name**: Textual phase name (New, Crescent, Quarter, Gibbous, Full)
     - **julian_date**: JD for this calculation
     - **input_datetime**: The processed input

@@ -1,11 +1,9 @@
 from api.services.venus import calculate_venus_position
+from api.models import ObservationDateTime, LocationModel
 
 result = calculate_venus_position(
-    date_str='2026-06-15',
-    time_str='12:00:00',
-    latitude=0,
-    longitude=0,
-    elevation=0
+    ObservationDateTime(date='2026-06-15', time='12:00:00'),
+    LocationModel(latitude=0, longitude=0, elevation=0)
 )
 
 print(f'Phase name: {result["phase_name"]}')

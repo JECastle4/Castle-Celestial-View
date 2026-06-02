@@ -777,7 +777,7 @@ class TestVenusPositionErrorHandling:
         """Test malformed JSON handling."""
         response = client.post(
             "/api/v1/venus-position",
-            data="not json",
+            content="not json",
             headers={"Content-Type": "application/json"},
         )
 

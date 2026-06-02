@@ -1,5 +1,6 @@
 """Test Venus during conjunction when glare is most likely."""
 from api.services.venus import calculate_venus_position
+from api.models import ObservationDateTime, LocationModel
 
 print("Testing Venus visibility when Sun is nearby (conjunction period)")
 print("=" * 120)
@@ -19,7 +20,10 @@ print("Testing at NOON when Sun is highest in sky:")
 print("-" * 120)
 
 for date_str, time_str, desc in test_cases:
-    result = calculate_venus_position(date_str, time_str, 40.7128, -74.0060, 10.0)
+    result = calculate_venus_position(
+        ObservationDateTime(date=date_str, time=time_str),
+        LocationModel(latitude=40.7128, longitude=-74.0060, elevation=10.0)
+    )
     
     if result["is_visible"] and not result["naked_eye_visible"]:
         status = "⚠ DROWNED OUT - Above horizon but too close to Sun!"

@@ -18,11 +18,11 @@ def calculate_batch_earth_observations(
     locale: Optional[str] = None,
 ):
     """
-    Calculate batch observations of sun and moon positions from Earth.
+    Calculate batch observations of sun, moon, and Venus positions from Earth.
 
     This function generates multiple frames of celestial observations between
     a start and end time. Each frame contains sun position, moon position,
-    and moon phase information for that specific moment.
+    moon phase, and Venus position/phase information for that specific moment.
 
     Args:
         time_range: TimeRange object containing:
