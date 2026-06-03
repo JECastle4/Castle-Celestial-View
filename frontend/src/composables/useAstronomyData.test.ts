@@ -29,14 +29,14 @@ describe('useAstronomyData', () => {
     frames: [
       {
         datetime: '2026-02-02T00:00:00',
-        sun: { altitude: 15.5, azimuth: 120.0, is_visible: true },
-        moon: { altitude: 45.2, azimuth: 230.5, is_visible: true },
+        sun: { altitude: 15.5, azimuth: 120.0, is_visible: true, ra_degrees: 240.0, dec_degrees: -15.0 },
+        moon: { altitude: 45.2, azimuth: 230.5, is_visible: true, ra_degrees: 100.0, dec_degrees: 20.0 },
         moon_phase: { illumination: 0.75, phase_angle: 90.0, phase_name: 'Waxing Gibbous' },
       },
       {
         datetime: '2026-02-02T01:00:00',
-        sun: { altitude: 20.0, azimuth: 125.0, is_visible: true },
-        moon: { altitude: 40.0, azimuth: 235.0, is_visible: true },
+        sun: { altitude: 20.0, azimuth: 125.0, is_visible: true, ra_degrees: 241.0, dec_degrees: -14.8 },
+        moon: { altitude: 40.0, azimuth: 235.0, is_visible: true, ra_degrees: 105.0, dec_degrees: 21.0 },
         moon_phase: { illumination: 0.76, phase_angle: 91.0, phase_name: 'Waxing Gibbous' },
       },
     ],
@@ -407,7 +407,7 @@ describe('useAstronomyData', () => {
   it('should calculate sseProgress correctly', () => {
     const { sseFrames, sseExpectedFrameCount, sseProgress } = useAstronomyData();
 
-    const mockCelestialPosition = { altitude: 45, azimuth: 180, is_visible: true };
+    const mockCelestialPosition = { altitude: 45, azimuth: 180, is_visible: true, ra_degrees: 180.0, dec_degrees: 30.0 };
     const mockMoonPhase = { illumination: 0.5, phase_angle: 90, phase_name: 'Waxing Gibbous' };
 
     // Initial: zero frame count
