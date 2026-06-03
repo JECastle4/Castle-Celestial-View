@@ -194,10 +194,17 @@ def _process_venus_position(
     # Get localized phase name
     phase_name = i18n.get(f"venusPhases.{phase_key}")
 
+    # Extract RA/Dec in ICRS frame (observer-independent celestial coordinates)
+    venus_icrs = venus_altaz.icrs
+    ra_degrees = float(venus_icrs.ra.degree)
+    dec_degrees = float(venus_icrs.dec.degree)
+
     return {
         "altitude": float(altitude),
         "azimuth": float(azimuth),
         "is_visible": is_visible,
+        "ra_degrees": ra_degrees,
+        "dec_degrees": dec_degrees,
         "sun_separation": sun_separation,
         "naked_eye_visible": naked_eye_visible,
         "illumination": illumination,

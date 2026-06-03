@@ -421,6 +421,14 @@ class CelestialPosition(BaseModel):
     altitude: float = Field(..., description="Altitude in degrees")
     azimuth: float = Field(..., description="Azimuth in degrees")
     is_visible: bool = Field(..., description="Whether object is above horizon")
+    ra_degrees: float = Field(
+        ..., ge=0, le=360,
+        description="Right Ascension in decimal degrees (0-360), ICRS epoch"
+    )
+    dec_degrees: float = Field(
+        ..., ge=-90, le=90,
+        description="Declination in decimal degrees (-90 to +90), ICRS epoch"
+    )
 
 
 class MoonPhaseData(BaseModel):

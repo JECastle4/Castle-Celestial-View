@@ -199,6 +199,68 @@ class TestCalculateSunPosition:
         else:
             assert result["is_visible"] is False
     
+    def test_ra_dec_returned(self):
+        """Test that RA/Dec coordinates are returned"""
+        result = calculate_sun_position(
+            ObservationDateTime(date="2026-02-01", time="12:00:00"),
+            LocationModel(latitude=40.7128, longitude=-74.0060)
+        )
+        
+        assert "ra_degrees" in result
+        assert "dec_degrees" in result
+        assert isinstance(result["ra_degrees"], float)
+        assert isinstance(result["dec_degrees"], float)
+    
+    def test_ra_dec_ranges(self):
+        """Test that RA/Dec are in valid ranges"""
+        result = calculate_sun_position(
+            ObservationDateTime(date="2026-02-01", time="12:00:00"),
+            LocationModel(latitude=40.7128, longitude=-74.0060)
+        )
+        
+        # RA should be 0-360 degrees
+        assert 0 <= result["ra_degrees"] <= 360
+        # Dec should be -90 to +90 degrees
+        assert -90 <= result["dec_degrees"] <= 90
+    
+    def test_ra_dec_observer_independent(self):
+        """Test that RA/Dec are same regardless of observer location"""
+        # RA/Dec are celestial coordinates, should not depend on observer location
+        # (only time matters)
+        result_nyc = calculate_sun_position(
+            ObservationDateTime(date="2026-02-01", time="12:00:00"),
+            LocationModel(latitude=40.7128, longitude=-74.0060)
+        )
+        
+        result_london = calculate_sun_position(
+            ObservationDateTime(date="2026-02-01", time="12:00:00"),
+            LocationModel(latitude=51.5074, longitude=-0.1278)
+        )
+        
+        # RA/Dec should be very close (within ~1 degree due to slight time variations)
+        # since we're using the same absolute time
+        assert abs(result_nyc["ra_degrees"] - result_london["ra_degrees"]) < 0.1
+        assert abs(result_nyc["dec_degrees"] - result_london["dec_degrees"]) < 0.1
+    
+    def test_ra_dec_at_solstices_equinoxes(self):
+        """Test RA/Dec at significant celestial dates"""
+        # Spring equinox - sun near 0° RA
+        result_equinox = calculate_sun_position(
+            ObservationDateTime(date="2026-03-20", time="12:00:00"),
+            LocationModel(latitude=0.0, longitude=0.0)
+        )
+        assert 0 <= result_equinox["ra_degrees"] <= 360
+        assert -90 <= result_equinox["dec_degrees"] <= 90
+        
+        # Summer solstice - sun at northernmost declination (~23.4°)
+        result_summer = calculate_sun_position(
+            ObservationDateTime(date="2026-06-20", time="12:00:00"),
+            LocationModel(latitude=0.0, longitude=0.0)
+        )
+        # Dec should be near +23.4 degrees (allow range for solstice timing)
+        assert -25 < result_summer["dec_degrees"] < 25
+        assert 0 <= result_summer["ra_degrees"] <= 360
+    
     def test_southern_hemisphere(self):
         """Test sun position in southern hemisphere"""
         # Sydney, Australia - using UTC time

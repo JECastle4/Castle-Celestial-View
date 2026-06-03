@@ -125,12 +125,16 @@ def calculate_batch_earth_observations(
             "sun": {
                 "altitude": sun_data["altitude"],
                 "azimuth": sun_data["azimuth"],
-                "is_visible": sun_data["is_visible"]
+                "is_visible": sun_data["is_visible"],
+                "ra_degrees": sun_data["ra_degrees"],
+                "dec_degrees": sun_data["dec_degrees"]
             },
             "moon": {
                 "altitude": moon_data["altitude"],
                 "azimuth": moon_data["azimuth"],
-                "is_visible": moon_data["is_visible"]
+                "is_visible": moon_data["is_visible"],
+                "ra_degrees": moon_data["ra_degrees"],
+                "dec_degrees": moon_data["dec_degrees"]
             },
             "moon_phase": {
                 "illumination": phase_data["illumination"],
@@ -140,7 +144,9 @@ def calculate_batch_earth_observations(
             "venus": {
                 "altitude": venus_data["altitude"],
                 "azimuth": venus_data["azimuth"],
-                "is_visible": venus_data["is_visible"]
+                "is_visible": venus_data["is_visible"],
+                "ra_degrees": venus_data["ra_degrees"],
+                "dec_degrees": venus_data["dec_degrees"]
             },
             "venus_phase": {
                 "illumination": venus_data["illumination"],

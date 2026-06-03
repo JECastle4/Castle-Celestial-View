@@ -86,10 +86,17 @@ def _process_sun_position(
     # Convert to Python bool to avoid numpy bool type
     is_visible = bool(altitude > 0)
 
+    # Extract RA/Dec in ICRS frame (observer-independent celestial coordinates)
+    sun_icrs = sun_altaz.icrs
+    ra_degrees = float(sun_icrs.ra.degree)
+    dec_degrees = float(sun_icrs.dec.degree)
+
     return {
         "altitude": float(altitude),
         "azimuth": float(azimuth),
         "is_visible": is_visible,
+        "ra_degrees": ra_degrees,
+        "dec_degrees": dec_degrees,
         "julian_date": float(time.jd),
         "input_datetime": datetime_str,
         "location": {

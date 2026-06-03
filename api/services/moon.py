@@ -85,10 +85,17 @@ def _process_moon_position(
     # Determine visibility (above horizon means altitude > 0)
     is_visible = bool(altitude > 0)
 
+    # Extract RA/Dec in ICRS frame (observer-independent celestial coordinates)
+    moon_icrs = moon_altaz.icrs
+    ra_degrees = float(moon_icrs.ra.degree)
+    dec_degrees = float(moon_icrs.dec.degree)
+
     return {
         "altitude": altitude,
         "azimuth": azimuth,
         "is_visible": is_visible,
+        "ra_degrees": ra_degrees,
+        "dec_degrees": dec_degrees,
         "julian_date": float(time.jd),
         "location": {
             "latitude": location.latitude,
