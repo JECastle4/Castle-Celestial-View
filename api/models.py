@@ -1,14 +1,14 @@
 """
 Pydantic models for API request and response validation
 """
-from pydantic import BaseModel, Field
 from typing import Optional
+from pydantic import BaseModel, Field
 
 
 class DateTimeRequest(BaseModel):
     """Request model for date/time input"""
     date: str = Field(
-        ..., 
+        ...,
         description="Date in ISO format (YYYY-MM-DD)",
         examples=["2026-02-01"]
     )
@@ -39,10 +39,40 @@ class LocationModel(BaseModel):
     )
 
 
+class ObservationDateTime(BaseModel):
+    """Domain model for a date/time observation point"""
+    date: str = Field(
+        ...,
+        description="Date in ISO format (YYYY-MM-DD)"
+    )
+    time: str = Field(
+        default="00:00:00",
+        description="Time in HH:MM:SS format (optional, defaults to midnight)"
+    )
+
+
+class TimeRange(BaseModel):
+    """Domain model for a time range with multiple observation frames"""
+    start: ObservationDateTime = Field(
+        ...,
+        description="Start time for observations"
+    )
+    end: ObservationDateTime = Field(
+        ...,
+        description="End time for observations"
+    )
+    frame_count: int = Field(
+        ...,
+        ge=2,
+        le=10000,
+        description="Number of observation frames to generate"
+    )
+
+
 class SunPositionRequest(BaseModel):
     """Request model for sun position calculation"""
     date: str = Field(
-        ..., 
+        ...,
         description="Date in ISO format (YYYY-MM-DD)",
         examples=["2026-02-01"]
     )
@@ -103,7 +133,7 @@ class SunPositionResponse(BaseModel):
 class MoonPositionRequest(BaseModel):
     """Request model for moon position calculation"""
     date: str = Field(
-        ..., 
+        ...,
         description="Date in ISO format (YYYY-MM-DD)",
         examples=["2026-02-01"]
     )
@@ -161,10 +191,94 @@ class MoonPositionResponse(BaseModel):
     )
 
 
+class VenusPositionRequest(BaseModel):
+    """Request model for Venus position calculation"""
+    date: str = Field(
+        ...,
+        description="Date in ISO format (YYYY-MM-DD)",
+        examples=["2026-02-01"]
+    )
+    time: str = Field(
+        ...,
+        description="Time in HH:MM:SS format",
+        examples=["12:30:45"]
+    )
+    latitude: float = Field(
+        ...,
+        ge=-90,
+        le=90,
+        description="Latitude in degrees (-90 to 90, negative=South)",
+        examples=[40.7128]
+    )
+    longitude: float = Field(
+        ...,
+        ge=-180,
+        le=180,
+        description="Longitude in degrees (-180 to 180, negative=West)",
+        examples=[-74.0060]
+    )
+    elevation: float = Field(
+        default=0.0,
+        description="Elevation above sea level in meters",
+        examples=[10.0]
+    )
+
+
+class VenusPositionResponse(BaseModel):
+    """Response model for Venus position calculation"""
+    altitude: float = Field(
+        ...,
+        description="Venus's altitude in degrees (negative = below horizon)"
+    )
+    azimuth: float = Field(
+        ...,
+        description="Venus's azimuth in degrees (0=North, 90=East, 180=South, 270=West)"
+    )
+    is_visible: bool = Field(
+        ...,
+        description="Whether Venus is above the horizon (altitude > 0°)"
+    )
+    sun_separation: float = Field(
+        ...,
+        description="Angular separation between Venus and Sun in degrees (elongation)"
+    )
+    naked_eye_visible: bool = Field(
+        ...,
+        description=(
+            "Whether Venus is naked-eye visible "
+            "(above horizon AND sufficiently separated from Sun)"
+        )
+    )
+    illumination: float = Field(
+        ...,
+        description="Fraction of Venus illuminated (0.0 to 1.0)"
+    )
+    phase_angle: float = Field(
+        ...,
+        description="Venus's phase angle in ecliptic longitude (0 to 360 degrees)"
+    )
+    phase_name: str = Field(
+        ...,
+        description="Textual name of Venus's phase (New, Crescent, Quarter, Gibbous, Full)"
+    )
+    julian_date: float = Field(
+        ...,
+        description="Julian Date (JD) for this calculation"
+    )
+    input_datetime: str = Field(
+        ...,
+        description="The input date and time that was processed"
+    )
+    location: LocationModel = Field(
+        ...,
+        description="The location used for the calculation"
+    )
+
+
 class MoonPhaseRequest(BaseModel):
     """Request model for moon phase calculation"""
     date: str = Field(
-        ..., 
+        ...,
         description="Date in ISO format (YYYY-MM-DD)",
         examples=["2026-02-01"]
     )
@@ -316,12 +430,22 @@ class MoonPhaseData(BaseModel):
     phase_name: str = Field(..., description="Name of the moon phase")
 
 
+class VenusPhaseData(BaseModel):
+    """Venus phase information"""
+    illumination: float = Field(..., ge=0.0, le=1.0, description="Illumination fraction")
+    phase_angle: float = Field(..., ge=0.0, lt=360.0, description="Phase angle in degrees")
+    phase_name: str = Field(..., description="Name of the Venus phase")
+    naked_eye_visible: bool = Field(..., description="Whether Venus is observable to naked eye")
+
+
 class ObservationFrame(BaseModel):
     """Single frame of observations"""
     datetime: str = Field(..., description="ISO datetime of the frame")
     sun: CelestialPosition = Field(..., description="Sun position")
     moon: CelestialPosition = Field(..., description="Moon position")
     moon_phase: MoonPhaseData = Field(..., description="Moon phase information")
+    venus: CelestialPosition = Field(..., description="Venus position")
+    venus_phase: VenusPhaseData = Field(..., description="Venus phase information")
 
 
 class BatchMetadata(BaseModel):

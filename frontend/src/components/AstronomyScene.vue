@@ -187,6 +187,8 @@
           <p><strong>{{ t('astronomy.moonVisible') }}:</strong> {{ currentFrame.moon.is_visible ? t('astronomy.yes') : t('astronomy.no') }}</p>
           <p><strong>{{ t('astronomy.moonPhase') }}:</strong> {{ currentFrame.moon_phase.phase_name }}</p>
           <p><strong>{{ t('astronomy.illumination') }}:</strong> {{ (currentFrame.moon_phase.illumination * 100).toFixed(1) }}{{ t('ui.units.percent') }}</p>
+          <p v-if="FEATURE_FLAGS_EXPOSED.VENUS_UI_ENABLED && currentFrame.venus"><strong>Venus Altitude:</strong> {{ typeof currentFrame.venus.altitude === 'number' ? currentFrame.venus.altitude.toFixed(1) : 'N/A' }}{{ t('ui.units.degrees') }}</p>
+          <p v-if="FEATURE_FLAGS_EXPOSED.VENUS_UI_ENABLED && currentFrame.venus"><strong>Venus Visible:</strong> {{ currentFrame.venus.is_visible ? t('astronomy.yes') : t('astronomy.no') }}</p>
         </div>
       </div>
     </div>
@@ -286,7 +288,9 @@ import { useAstronomyData } from '@/composables/useAstronomyData';
 import { SceneManager } from '@/three/scene';
 import { Sun } from '@/three/objects/Sun';
 import { Moon } from '@/three/objects/Moon';
+import { Venus } from '@/three/objects/Venus';
 import { Earth } from '@/three/objects/Earth';
+import { FEATURE_FLAGS } from '@/config/features';
 import type { ObservationFrame } from '@/types/api.types';
 
 const BaseMap = defineAsyncComponent(() => import('./BaseMap.vue'));
@@ -294,6 +298,9 @@ const DateRangePicker = defineAsyncComponent(() => import('./DateRangePicker.vue
 
 const { t } = useI18n();
 const toast = useToast();
+
+// Expose feature flags to template
+const FEATURE_FLAGS_EXPOSED = FEATURE_FLAGS;
 
 // Form parameters with defaults
 const today = new Date();
@@ -323,6 +330,7 @@ const { data, loading, error, hasData, frameCount, fetchBatchObservationsSSE, ca
 let sceneManager: SceneManager | null = null;
 let sun: Sun | null = null;
 let moon: Moon | null = null;
+let venus: Venus | null = null;
 let earth: Earth | null = null;
 
 const isAnimating = ref(false);
@@ -401,14 +409,20 @@ const isFormValid = computed(() => {
 
 const initializeObjects = () => {
   if (!canvasRef.value) return;
-  if (!earth || !sun || !moon || !sceneManager) {
+  if (!earth || !sun || !moon || (FEATURE_FLAGS.VENUS_UI_ENABLED && !venus) || !sceneManager) {
     sceneManager = new SceneManager(canvasRef.value);
     earth = new Earth();
     sun = new Sun();
     moon = new Moon();
+    if (FEATURE_FLAGS.VENUS_UI_ENABLED) {
+      venus = new Venus();
+    }
     earth.addToScene(sceneManager.scene);
     sun.addToScene(sceneManager.scene);
     moon.addToScene(sceneManager.scene);
+    if (FEATURE_FLAGS.VENUS_UI_ENABLED && venus) {
+      venus.addToScene(sceneManager.scene);
+    }
     // Hide objects until data is loaded
     if (earth && earth.mesh && earth.getGridHelper() && earth.getAxesHelper() && earth.getHemisphereGrid()) {
       earth.mesh.visible = false;
@@ -422,6 +436,9 @@ const initializeObjects = () => {
     }
     if (moon && moon.mesh) {
       moon.mesh.visible = false;
+    }
+    if (FEATURE_FLAGS.VENUS_UI_ENABLED && venus && venus.mesh) {
+      venus.mesh.visible = false;
     }
     sceneManager.startAnimation(updateAnimation);
   }
@@ -479,7 +496,7 @@ async function loadData() {
         }
       }
     }
-    if (!sun || !moon || !earth || !sceneManager) {
+    if (!sun || !moon || !earth || (FEATURE_FLAGS.VENUS_UI_ENABLED && !venus) || !sceneManager) {
       initializeObjects();
     }
     currentIndex.value = 0;
@@ -500,6 +517,9 @@ async function loadData() {
       }
       if (moon) {
         moon.mesh.visible = frame.moon.is_visible;
+      }
+      if (FEATURE_FLAGS.VENUS_UI_ENABLED && venus && frame.venus) {
+        venus.mesh.visible = frame.venus.is_visible;
       }
     }
   }
@@ -556,7 +576,7 @@ function calculateFrameInterval() {
 // Update celestial object positions
 function updatePositions() {
   const frame = currentFrame.value;
-  if (!frame || !sun || !moon) return;
+  if (!frame || !sun || !moon || !earth) return;
   
   // Update visibility based on frame data
   if (sun) {
@@ -565,6 +585,9 @@ function updatePositions() {
   }
   if (moon) {
     moon.mesh.visible = frame.moon.is_visible;
+  }
+  if (venus && frame.venus) {
+    venus.mesh.visible = frame.venus.is_visible;
   }
   if (earth) {
     // Earth is always visible during animation
@@ -588,6 +611,15 @@ function updatePositions() {
     viewMode.value
   );
 
+  if (FEATURE_FLAGS.VENUS_UI_ENABLED && frame.venus && venus) {
+    venus.updatePosition(
+      frame.venus.azimuth,
+      frame.venus.altitude,
+      frame.venus.is_visible,
+      viewMode.value
+    );
+  }
+
   moon.updatePhase(frame.moon_phase.illumination * 100);
 }
 
@@ -599,6 +631,9 @@ function setViewMode(mode: '3D' | 'SKY') {
     earth.setViewMode(mode);
     sun.setViewMode(mode.toLowerCase() as 'sky' | '3d');
     moon.setViewMode(mode.toLowerCase() as 'sky' | '3d');
+    if (venus) {
+      venus.setViewMode(mode.toLowerCase() as 'sky' | '3d');
+    }
     updatePositions();
   }
 }

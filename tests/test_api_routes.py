@@ -92,7 +92,7 @@ class TestDayOfWeekEndpoint:
         """Test with malformed JSON"""
         response = client.post(
             "/api/v1/day-of-week",
-            data="not json",
+            content="not json",
             headers={"Content-Type": "application/json"}
         )
         
@@ -1069,6 +1069,108 @@ class TestAcceptLanguage:
         )
         assert response.status_code == 200
         assert response.json()["day_name"] == "Sunday"[::-1]
+
+
+class TestExceptionHandling:
+    """Test exception handling across all routes"""
+    
+    def test_day_of_week_value_error(self):
+        """Test ValueError handling in day-of-week endpoint"""
+        from unittest.mock import patch
+        
+        with patch("api.routes.calculate_day_of_week") as mock_calc:
+            mock_calc.side_effect = ValueError("Test calculation error")
+            
+            response = client.post(
+                "/api/v1/day-of-week",
+                json={"date": "2026-02-01"}
+            )
+            
+            assert response.status_code == 400
+            assert "Invalid date/time format" in response.json()["detail"]
+    
+    def test_sun_position_value_error(self):
+        """Test ValueError handling in sun-position endpoint"""
+        from unittest.mock import patch
+        
+        with patch("api.routes.calculate_sun_position") as mock_calc:
+            mock_calc.side_effect = ValueError("Test calculation error")
+            
+            response = client.post(
+                "/api/v1/sun-position",
+                json={
+                    "date": "2026-06-01",
+                    "time": "12:00:00",
+                    "latitude": 40.7128,
+                    "longitude": -74.0060,
+                }
+            )
+            
+            assert response.status_code == 400
+            assert "Invalid input" in response.json()["detail"]
+    
+    def test_moon_position_value_error(self):
+        """Test ValueError handling in moon-position endpoint"""
+        from unittest.mock import patch
+        
+        with patch("api.routes.calculate_moon_position") as mock_calc:
+            mock_calc.side_effect = ValueError("Test calculation error")
+            
+            response = client.post(
+                "/api/v1/moon-position",
+                json={
+                    "date": "2026-06-01",
+                    "time": "12:00:00",
+                    "latitude": 40.7128,
+                    "longitude": -74.0060,
+                }
+            )
+            
+            assert response.status_code == 400
+            assert "Invalid input" in response.json()["detail"]
+    
+    def test_moon_phase_value_error(self):
+        """Test ValueError handling in moon-phase endpoint"""
+        from unittest.mock import patch
+        
+        with patch("api.routes.calculate_moon_phase") as mock_calc:
+            mock_calc.side_effect = ValueError("Test calculation error")
+            
+            response = client.post(
+                "/api/v1/moon-phase",
+                json={
+                    "date": "2026-06-01",
+                    "time": "12:00:00",
+                    "latitude": 40.7128,
+                    "longitude": -74.0060,
+                }
+            )
+            
+            assert response.status_code == 400
+            assert "Invalid input" in response.json()["detail"]
+    
+    def test_batch_earth_observations_value_error(self):
+        """Test ValueError handling in batch-earth-observations endpoint"""
+        from unittest.mock import patch
+        
+        with patch("api.routes.calculate_batch_earth_observations") as mock_calc:
+            mock_calc.side_effect = ValueError("Test calculation error")
+            
+            response = client.post(
+                "/api/v1/batch-earth-observations",
+                json={
+                    "start_date": "2026-06-01",
+                    "start_time": "12:00:00",
+                    "end_date": "2026-06-02",
+                    "end_time": "12:00:00",
+                    "frame_count": 5,
+                    "latitude": 40.7128,
+                    "longitude": -74.0060,
+                }
+            )
+            
+            assert response.status_code == 400
+            assert "Invalid input" in response.json()["detail"]
 
     def test_prefix_match_on_second_preference(self):
         """fr-CA, en;q=0.8 — fr-CA unsupported, 'en' prefix-matches on second tag."""

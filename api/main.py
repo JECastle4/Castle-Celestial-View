@@ -22,10 +22,15 @@ logger = logging.getLogger(__name__)
 iers.conf.auto_download = False
 iers.conf.auto_max_age = None
 
+# Note: API version is independent from the release version (pyproject.toml + frontend/package.json).
+# The API version reflects breaking changes to the API contract; many releases may have no API changes.
 app = FastAPI(
     title="Astronomy API",
-    description="API for astronomical calculations including day of week, sun/moon positions, and more",
-    version="0.1.0"
+    description=(
+        "API for astronomical calculations including day of week, "
+        "sun/moon/Venus positions, and more"
+    ),
+    version="0.2.0"
 )
 
 # Configure CORS with environment-specific settings
