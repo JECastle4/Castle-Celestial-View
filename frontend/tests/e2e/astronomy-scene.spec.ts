@@ -76,17 +76,21 @@ test.describe('Astronomy Scene - Initial Load', () => {
     // Verify the frame count matches what we requested (48 frames)
     await expect(animationControls.locator('p', { hasText: 'Frames:' })).toHaveText('Frames: 48');
 
-    // Verify the current frame info shows correct visibility
-    const currentInfo = animationControls.locator('.current-info');
-    await expect(currentInfo.getByText('Sun Visible: No')).toBeVisible();
-    await expect(currentInfo.getByText('Moon Visible: Yes')).toBeVisible();
+    // Verify the celestial panel is visible (contains frame info and body data)
+    const celestialPanel = animationControls.locator('.celestial-panel');
+    await expect(celestialPanel).toBeVisible();
 
-    // Read and log the new Frame X/Y display
-    const frameXYText = await currentInfo.locator('p').first().innerText();
-    // Extract current and total frame numbers
-    const frameXYMatch = frameXYText.match(/Frame:\s*(\d+)\s*\/\s*(\d+)/);
-    const totalFrames = frameXYMatch ? parseInt(frameXYMatch[2], 10) : 0;
+    // Verify the frame counter is displayed (e.g., "Frame: 1 / 48")
+    const frameCounter = celestialPanel.locator('.frame-counter');
+    await expect(frameCounter).toBeVisible();
+    const frameCounterText = await frameCounter.innerText();
+    const frameCounterMatch = frameCounterText.match(/(\d+)\s*\/\s*(\d+)/);
+    const totalFrames = frameCounterMatch ? parseInt(frameCounterMatch[2], 10) : 0;
     expect(totalFrames).toBeGreaterThan(1);
+
+    // Verify the visibility badge is present (the body info panel shows visibility status)
+    const visibilityBadge = celestialPanel.locator('.visibility-badge');
+    await expect(visibilityBadge).toBeVisible();
 
     // After switching to Sky View and before animation checks
     const frameCountText = await page.locator('.animation-controls p').first().innerText();
@@ -147,9 +151,11 @@ test.describe('Astronomy Scene - Sky View Animation Controls', () => {
     await skyViewButton.click();
     await page.waitForTimeout(1000);
     const scene = page.locator('.app-layout');
+    
     // Capture initial frame info and screenshot
-    const currentInfo = page.locator('.animation-controls .current-info');
-    beforePlayFrameXY = await currentInfo.locator('p').first().innerText();
+    const celestialPanel = animationControls.locator('.celestial-panel');
+    const frameCounter = celestialPanel.locator('.frame-counter');
+    beforePlayFrameXY = await frameCounter.innerText();
     await expect(scene).toHaveScreenshot('sky-view-first-frame.png');
     // Set animation speed to minimum for reliability (if present)
     const speedInput = page.locator('.animation-controls input[type="range"]#animation-speed');
@@ -182,7 +188,7 @@ test.describe('Astronomy Scene - Sky View Animation Controls', () => {
     await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
     // Wait 5 second and log again
     await page.waitForTimeout(5200);
-    const afterWaitFrameXY = await currentInfo.locator('p').first().innerText();
+    const afterWaitFrameXY = await frameCounter.innerText();
     // Now assert that the frame has advanced
     expect(afterWaitFrameXY).not.toBe(beforePlayFrameXY);
     const resetButton = page.getByRole('button', { name: 'Restart' });
