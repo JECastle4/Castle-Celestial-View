@@ -31,6 +31,10 @@ test.describe('About Page', () => {
     await expect(closeLink).toBeVisible();
     await closeLink.click();
 
-    await expect(page.locator('.input-form')).toBeVisible();
+    // Wait for navigation back to home page to complete
+    await page.waitForURL(/\/en-UK\/?$/);
+    
+    // Verify we're back on the home page with the input form visible
+    await expect(page.locator('.input-form')).toBeVisible({ timeout: 10000 });
   });
 });

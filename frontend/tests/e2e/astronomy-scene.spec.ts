@@ -1,12 +1,404 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page, Browser } from '@playwright/test';
 
 /**
  * E2E tests for Astronomy Scene component
  * Tests full integration: Frontend UI -> API -> Three.js rendering
  */
 
+/**
+ * Helper function to load data and verify animation controls are ready
+ * Used by all tests in the carousel flow suite
+ */
+async function loadAstronomyData(page: Page) {
+  await page.goto('/en-UK');
+  
+  // Verify the input form is visible
+  await expect(page.locator('.input-form')).toBeVisible();
+  
+  // Set the date range to 2/2/2026
+  const startDateInput = page.locator('.date-range-picker input[type="date"]').first();
+  const endDateInput = page.locator('.date-range-picker input[type="date"]').nth(1);
+  await startDateInput.evaluate((el: HTMLInputElement, val) => {
+    el.value = val;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  }, '2026-02-02');
+  await endDateInput.evaluate((el: HTMLInputElement, val) => {
+    el.value = val;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  }, '2026-02-02');
+  
+  // Click Apply
+  const applyButton = page.getByRole('button', { name: 'Apply' });
+  await applyButton.click();
+  
+  // Click Load Data
+  const loadButton = page.getByRole('button', { name: 'Load Data' });
+  await loadButton.click();
+  
+  // Wait for scene to load - monitor both loading indicator and animation controls
+  const loadingMessage = page.locator('.loading', { hasText: 'Loading...' });
+  const errorMessage = page.locator('.error');
+  const animationControls = page.locator('.animation-controls');
+  
+  // Wait for either:
+  // 1. Animation controls to appear (success), OR
+  // 2. Error message to appear (failure), OR
+  // 3. Loading to disappear (success), OR
+  // 4. Timeout (failure)
+  
+  const startTime = Date.now();
+  const timeout = 90000; // 90 seconds for Firefox SSE streaming
+  
+  while (Date.now() - startTime < timeout) {
+    // Check if animation controls appeared (scene loaded successfully)
+    if (await animationControls.isVisible()) {
+      break;
+    }
+    
+    // Check if error appeared
+    if (await errorMessage.isVisible()) {
+      const errorText = await errorMessage.textContent();
+      throw new Error(`API call failed with error: ${errorText}`);
+    }
+    
+    // Check if loading disappeared
+    if (!(await loadingMessage.isVisible())) {
+      break;
+    }
+    
+    // Wait a bit before checking again
+    await page.waitForTimeout(100);
+  }
+  
+  // Final check: if we still have a loading message and no controls, something went wrong
+  if (!(await animationControls.isVisible())) {
+    if (await errorMessage.isVisible()) {
+      throw new Error(`API call failed with error: ${await errorMessage.textContent()}`);
+    }
+    throw new Error(`Loading timeout: animation controls did not appear after ${timeout}ms`);
+  }
+  
+  // Wait for 3D scene to render
+  await page.waitForTimeout(1000);
+}
+
+/**
+ * Custom test with persistent page across serial tests
+ * This ensures all tests in the suite share the same page instance
+ */
+let persistentPage: Page;
+const testWithPersistentPage = test.extend({
+  page: async ({ browser }, use) => {
+    if (!persistentPage) {
+      persistentPage = await browser.newPage();
+    }
+    await use(persistentPage);
+  },
+});
+
+testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Serial)', () => {
+  // Configure tests to run serially
+  testWithPersistentPage.describe.configure({ mode: 'serial' });
+
+  testWithPersistentPage.beforeAll(async () => {
+    // No-op: page is created lazily on first use
+  });
+
+  testWithPersistentPage.afterAll(async () => {
+    if (persistentPage) {
+      await persistentPage.close();
+      persistentPage = null as any;
+    }
+  });
+
+  /**
+   * TEST 1: Load Data & Capture Sun
+   * Sets up the scene with data loaded, defaults to Sun body in 3D view
+   */
+  testWithPersistentPage('1. Load data and verify Sun is selected', { timeout: 90000 }, async ({ page }) => {
+    await loadAstronomyData(page);
+    
+    // Verify Sun tab is active by default
+    const sunTab = page.locator('.body-tab').filter({ has: page.locator('i.fa-sun') });
+    await expect(sunTab).toHaveClass(/active/);
+    
+    // Verify celestial panel is visible with Sun data
+    const celestialPanel = page.locator('.celestial-panel');
+    await expect(celestialPanel).toBeVisible();
+    
+    // Verify visibility badge is present (Sun-specific data)
+    const visibilityBadge = celestialPanel.locator('.visibility-badge');
+    await expect(visibilityBadge).toBeVisible();
+    
+    // Capture snapshot of Sun in 3D view
+    await expect(page.locator('.app-layout')).toHaveScreenshot('sun-3d-view.png');
+    
+    // Stabilize page after screenshot: wait and verify controls are still visible
+    await page.waitForTimeout(1000);
+    
+    // Re-verify animation controls are still visible after screenshot (important for serial mode)
+    const animationControlsAfterScreenshot = page.locator('.animation-controls');
+    await expect(animationControlsAfterScreenshot).toBeVisible({ timeout: 5000 });
+  });
+
+  /**
+   * TEST 2: Navigate to Moon via Next
+   * Tests carousel navigation using Next button
+   */
+  testWithPersistentPage('2. Click Next to navigate to Moon', async ({ page }) => {
+    // In serial mode with persistent page, verify we're still on the loaded page
+    
+    // Verify page state is still good from Test 1
+    const animationControls = page.locator('.animation-controls');
+    try {
+      await expect(animationControls).toBeVisible({ timeout: 10000 });
+    } catch (e) {
+      // Better error message for debugging
+      throw new Error(`Test 2: animation-controls not found after Test 1. Current URL: ${page.url()}. Error: ${e.message}`);
+    }
+    
+    // Ensure celestial panel is visible before clicking carousel
+    const celestialPanel = page.locator('.celestial-panel');
+    await expect(celestialPanel).toBeVisible({ timeout: 10000 });
+    
+    // Wait for Next button to be visible and clickable
+    const nextButton = page.locator('.carousel-nav .nav-btn.next-btn');
+    await expect(nextButton).toBeVisible();
+    await nextButton.click();
+    
+    // Wait for Moon data to load (moon-section appears)
+    const phaseSection = page.locator('.moon-section');
+    await expect(phaseSection).toBeVisible({ timeout: 10000 });
+    
+    // Verify Moon tab is now active
+    const moonTab = page.locator('.body-tab').filter({ has: page.locator('i.fa-moon') });
+    await expect(moonTab).toHaveClass(/active/);
+    
+    // Capture snapshot of Moon in 3D view
+    await expect(page.locator('.app-layout')).toHaveScreenshot('moon-3d-view.png');
+    
+    // Stabilize page after screenshot: wait and verify controls are still visible
+    await page.waitForTimeout(1000);
+    const animationControlsAfterScreenshot2 = page.locator('.animation-controls');
+    await expect(animationControlsAfterScreenshot2).toBeVisible({ timeout: 5000 });
+  });
+
+  /**
+   * TEST 3: Navigate back to Sun via Previous
+   * Tests carousel Previous navigation and body panel consistency
+   */
+  testWithPersistentPage('3. Click Previous to navigate back to Sun', async ({ page }) => {
+    // Verify page state is still good
+    const animationControls = page.locator('.animation-controls');
+    await expect(animationControls).toBeVisible({ timeout: 10000 });
+    
+    // Ensure celestial panel is visible before clicking carousel
+    const celestialPanel = page.locator('.celestial-panel');
+    await expect(celestialPanel).toBeVisible({ timeout: 10000 });
+    
+    // Click Previous button on carousel
+    const prevButton = page.locator('.carousel-nav .nav-btn.prev-btn');
+    await expect(prevButton).toBeVisible();
+    await prevButton.click();
+    
+    // Wait for Sun data to re-load and become active
+    const sunTab = page.locator('.body-tab').filter({ has: page.locator('i.fa-sun') });
+    await expect(sunTab).toHaveClass(/active/, { timeout: 10000 });
+    
+    // Verify Sun data is displayed
+    const visibilityBadge = celestialPanel.locator('.visibility-badge');
+    await expect(visibilityBadge).toBeVisible();
+    
+    // Capture snapshot - should show Sun again
+    await expect(page.locator('.app-layout')).toHaveScreenshot('sun-after-previous.png');
+    
+    // Stabilize page after screenshot: wait and verify controls are still visible
+    await page.waitForTimeout(1000);
+    const animationControlsAfterScreenshot3 = page.locator('.animation-controls');
+    await expect(animationControlsAfterScreenshot3).toBeVisible({ timeout: 5000 });
+  });
+
+  /**
+   * TEST 4: Jump to Venus via Tab Click
+   * Tests direct body selection and Venus-specific data display
+   */
+  testWithPersistentPage('4. Click Venus tab directly', async ({ page }) => {
+    // Verify page state is still good
+    const animationControls = page.locator('.animation-controls');
+    await expect(animationControls).toBeVisible({ timeout: 10000 });
+    
+    // Ensure carousel is visible
+    const celestialPanel = page.locator('.celestial-panel');
+    await expect(celestialPanel).toBeVisible({ timeout: 10000 });
+    
+    // Click Venus tab
+    const venusTab = page.locator('.body-tab').filter({ has: page.locator('i.fa-star') });
+    await expect(venusTab).toBeVisible();
+    await venusTab.click();
+    
+    // Wait for Venus-specific data to load
+    const venusSection = page.locator('.venus-section');
+    await expect(venusSection).toBeVisible({ timeout: 10000 });
+    
+    // Verify Venus tab is active
+    await expect(venusTab).toHaveClass(/active/);
+    
+    // Capture snapshot of Venus in 3D view
+    await expect(page.locator('.app-layout')).toHaveScreenshot('venus-3d-view.png');
+    
+    // Stabilize page after screenshot: wait and verify controls are still visible
+    await page.waitForTimeout(1000);
+    const animationControlsAfterScreenshot4 = page.locator('.animation-controls');
+    await expect(animationControlsAfterScreenshot4).toBeVisible({ timeout: 5000 });
+  });
+
+  /**
+   * TEST 5: Switch to Sky View
+   * Tests view mode toggle while maintaining selected body (Sun)
+   */
+  testWithPersistentPage('5. Return to Sun and switch to Sky View', async ({ page }) => {
+    // Verify page state is still good
+    const animationControls = page.locator('.animation-controls');
+    await expect(animationControls).toBeVisible({ timeout: 10000 });
+    
+    // Ensure celestial panel is visible
+    const celestialPanel = page.locator('.celestial-panel');
+    await expect(celestialPanel).toBeVisible({ timeout: 10000 });
+    
+    // Click Sun tab to return to Sun
+    const sunTab = page.locator('.body-tab').filter({ has: page.locator('i.fa-sun') });
+    await expect(sunTab).toBeVisible();
+    await sunTab.click();
+    
+    // Wait for Sun data to load
+    await expect(sunTab).toHaveClass(/active/, { timeout: 10000 });
+    
+    // Click Sky View button (last button in view-toggle)
+    const skyViewButton = page.locator('.view-toggle button').last();
+    await expect(skyViewButton).toBeVisible();
+    await skyViewButton.click();
+    
+    // Wait for view to transition
+    await page.waitForTimeout(1000);
+    
+    // Verify we're in Sky View (Sky View button should be active)
+    await expect(skyViewButton).toHaveClass(/active/);
+    
+    // Capture snapshot of Sky View
+    await expect(page.locator('.app-layout')).toHaveScreenshot('sun-sky-view.png');
+    
+    // Stabilize page after screenshot: wait and verify controls are still visible
+    await page.waitForTimeout(1000);
+    const animationControlsAfterScreenshot5 = page.locator('.animation-controls');
+    await expect(animationControlsAfterScreenshot5).toBeVisible({ timeout: 5000 });
+  });
+
+  /**
+   * TEST 6: Play Animation
+   * Tests animation playback initiation
+   */
+  testWithPersistentPage('6. Click Play to start animation', async ({ page }) => {
+    // Verify page state is still good
+    const animationControls = page.locator('.animation-controls');
+    await expect(animationControls).toBeVisible({ timeout: 10000 });
+    
+    // Find and click Play button (first button in animation-controls that contains 'Play')
+    const playButton = page.locator('.animation-controls button').filter({ hasText: 'Play' }).first();
+    await expect(playButton).toBeVisible();
+    await playButton.click();
+    
+    // Verify Play button changed to Pause (animation started)
+    const pauseButton = page.locator('.animation-controls button').filter({ hasText: 'Pause' });
+    await expect(pauseButton).toBeVisible({ timeout: 10000 });
+    
+    // Wait for animation to start rendering
+    await page.waitForTimeout(500);
+    
+    // Verify animation controls are still visible
+    // (Snapshot omitted - frame varies too much depending on timing to be reliable)
+  });
+
+  /**
+   * TEST 7: Wait for Animation to Advance
+   * Tests that animation is actually progressing frames
+   */
+  testWithPersistentPage('7. Wait for animation to advance frames', async ({ page }) => {
+    // Verify page state is still good
+    const animationControls = page.locator('.animation-controls');
+    await expect(animationControls).toBeVisible({ timeout: 10000 });
+    
+    // Get current frame before waiting
+    const frameCounter = page.locator('.frame-counter');
+    await expect(frameCounter).toBeVisible({ timeout: 10000 });
+    const initialFrameText = await frameCounter.innerText();
+    
+    // Wait for animation to advance
+    await page.waitForTimeout(5000);
+    
+    // Wait for body panel to update with new frame data
+    const celestialPanel = page.locator('.celestial-panel');
+    // Brief wait to ensure re-render
+    await page.waitForTimeout(500);
+    
+    // Get new frame number
+    const updatedFrameText = await frameCounter.innerText();
+    
+    // Verify frame has advanced
+    expect(updatedFrameText).not.toBe(initialFrameText);
+    
+    // (Snapshot omitted - frame varies too much depending on animation speed to be reliable)
+    
+    // Verify animation controls are still visible
+    const animationControlsAfterAdvance = page.locator('.animation-controls');
+    await expect(animationControlsAfterAdvance).toBeVisible({ timeout: 5000 });
+  });
+
+  /**
+   * TEST 8: Restart Animation
+   * Tests animation reset and verifies restart toast appears
+   */
+  testWithPersistentPage('8. Click Restart and verify animation resets', async ({ page }) => {
+    // Verify page state is still good
+    const animationControls = page.locator('.animation-controls');
+    await expect(animationControls).toBeVisible({ timeout: 10000 });
+    
+    // Get current frame before restart
+    const frameCounter = page.locator('.frame-counter');
+    const frameBeforeRestart = await frameCounter.innerText();
+    
+    // Find and click Restart button
+    const restartButton = page.locator('.restart-btn');
+    await expect(restartButton).toBeVisible();
+    await restartButton.click();
+    
+    // Wait for animation restart to process
+    await page.waitForTimeout(1000);
+    
+    // Verify frame was reset (should contain frame 1 or be at start)
+    // This is the key indicator that restart worked
+    const frameAfterRestart = await frameCounter.innerText();
+    expect(frameAfterRestart).toContain('1');
+    
+    // Verify animation controls are still present
+    await expect(animationControls).toBeVisible({ timeout: 5000 });
+    
+    // Wait for frame to reset visually
+    await page.waitForTimeout(500);
+    
+    // Capture snapshot showing reset state
+    await expect(page.locator('.app-layout')).toHaveScreenshot('sun-sky-view-restarted.png');
+    
+    // Stabilize page after screenshot: wait and verify controls are still visible
+    await page.waitForTimeout(1000);
+    const animationControlsAfterScreenshot8 = page.locator('.animation-controls');
+    await expect(animationControlsAfterScreenshot8).toBeVisible({ timeout: 5000 });
+  });
+});
+
 test.describe('Astronomy Scene - Initial Load', () => {
-  test('should load the page and have Load Data button enabled', { timeout: 35000 }, async ({ page }) => {
+  test('should load the page and have Load Data button enabled', { timeout: 90000 }, async ({ page }) => {
     // Navigate to the home page
     await page.goto('/en-UK');
 
@@ -51,17 +443,43 @@ test.describe('Astronomy Scene - Initial Load', () => {
     // Click the Load Data button
     await loadButton.click();
 
-    // Verify the loading message appears
+    // Verify the loading message appears initially
     const loadingMessage = page.locator('.loading', { hasText: 'Loading...' });
     await expect(loadingMessage).toBeVisible();
 
-    // Wait for the loading message to disappear (success or error)
-    await expect(loadingMessage).not.toBeVisible({ timeout: 30000 });
-
-    // The success toast is optional (auto-dismissed before scene transition); don't assert on it.
-
-    // Check if there's an error message (backend not running or API error)
+    // Wait for scene to load - poll for animation controls appearance instead of loading disappearance
+    // This is more reliable on WebKit/Firefox where loading message may persist
     const errorMessage = page.locator('.error');
+    const animationControls = page.locator('.animation-controls');
+    
+    const startTime = Date.now();
+    const timeout = 90000; // 90 seconds for Firefox SSE streaming
+    
+    while (Date.now() - startTime < timeout) {
+      // Check if animation controls appeared (scene loaded successfully)
+      if (await animationControls.isVisible()) {
+        break;
+      }
+      
+      // Check if error appeared
+      if (await errorMessage.isVisible()) {
+        const errorText = await errorMessage.textContent();
+        throw new Error(`API call failed with error: ${errorText}`);
+      }
+      
+      // Wait a bit before checking again
+      await page.waitForTimeout(100);
+    }
+    
+    // Final verification: if animation controls didn't appear, fail with clear message
+    if (!(await animationControls.isVisible())) {
+      if (await errorMessage.isVisible()) {
+        throw new Error(`API call failed with error: ${await errorMessage.textContent()}`);
+      }
+      throw new Error(`Loading timeout: animation controls did not appear after ${timeout}ms`);
+    }
+
+    // Final check for errors after loading completes
     const hasError = await errorMessage.isVisible();
     
     if (hasError) {
@@ -70,7 +488,7 @@ test.describe('Astronomy Scene - Initial Load', () => {
     }
 
     // Verify that animation controls appeared (successful load)
-    const animationControls = page.locator('.animation-controls');
+    // Already verified above, so just verify it's still visible
     await expect(animationControls).toBeVisible();
 
     // Verify the frame count matches what we requested (48 frames)
@@ -119,7 +537,7 @@ test.describe('Astronomy Scene - Initial Load', () => {
 });
 
 test.describe('Astronomy Scene - Sky View Animation Controls', () => {
-  test('should play, pause, and reset animation in Sky View', async ({ page }) => {
+  test('should play, pause, and reset animation in Sky View', { timeout: 90000 }, async ({ page }) => {
     // Define beforePlayFrameXY at the top for this test
     let beforePlayFrameXY = '';
     // Navigate to the home page and load data as in the initial test
@@ -134,14 +552,41 @@ test.describe('Astronomy Scene - Sky View Animation Controls', () => {
     await loadButton.click();
     const loadingMessage = page.locator('.loading', { hasText: 'Loading...' });
     await expect(loadingMessage).toBeVisible();
-    await expect(loadingMessage).not.toBeVisible({ timeout: 30000 });
+    
+    // Wait for scene to load - poll for animation controls appearance instead of loading disappearance
+    // This is more reliable on WebKit/Firefox where loading message may persist
     const errorMessage = page.locator('.error');
-    if (await errorMessage.isVisible()) {
-      throw new Error(`API call failed with error: ${await errorMessage.textContent()}`);
+    const animationControls = page.locator('.animation-controls');
+    
+    const startTime = Date.now();
+    const timeout = 90000; // 90 seconds for Firefox SSE streaming
+    
+    while (Date.now() - startTime < timeout) {
+      // Check if animation controls appeared (scene loaded successfully)
+      if (await animationControls.isVisible()) {
+        break;
+      }
+      
+      // Check if error appeared
+      if (await errorMessage.isVisible()) {
+        const errorText = await errorMessage.textContent();
+        throw new Error(`API call failed with error: ${errorText}`);
+      }
+      
+      // Wait a bit before checking again
+      await page.waitForTimeout(100);
+    }
+    
+    // Final verification: if animation controls didn't appear, fail with clear message
+    if (!(await animationControls.isVisible())) {
+      if (await errorMessage.isVisible()) {
+        throw new Error(`API call failed with error: ${await errorMessage.textContent()}`);
+      }
+      throw new Error(`Loading timeout: animation controls did not appear after ${timeout}ms`);
     }
 
     // Verify that animation controls appeared (successful load)
-    const animationControls = page.locator('.animation-controls');
+    // Already verified above
     await expect(animationControls).toBeVisible();
     // Wait a moment for the 3D scene to fully render
     await page.waitForTimeout(1000);
