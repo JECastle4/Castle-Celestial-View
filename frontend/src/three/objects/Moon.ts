@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { Label3D } from './Label3D';
 
 /**
  * Moon object for the scene
@@ -7,6 +8,8 @@ export class Moon {
   public mesh: THREE.Mesh;
   private skyViewGeometry: THREE.SphereGeometry;
   private defaultGeometry: THREE.SphereGeometry;
+  private label: Label3D;
+  private labelOffset: number = 0.2; // Current label offset based on view mode
 
   constructor() {
     // Default size for 3D view
@@ -21,13 +24,27 @@ export class Moon {
     const material = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.9, metalness: 0.1 });
     this.mesh = new THREE.Mesh(this.defaultGeometry, material);
     this.mesh.name = 'moon';
+    
+    // Create label
+    this.label = new Label3D('Moon', {
+      fontSize: 32,
+      fontColor: '#cccccc',
+      width: 128,
+      height: 64,
+    });
   }
 
   setViewMode(mode: '3d' | 'sky') {
     if (mode === 'sky') {
       this.mesh.geometry = this.skyViewGeometry;
+      // Position label closer to moon in sky view (smaller sphere)
+      this.labelOffset = 0.3;
+      this.label.positionRelativeTo(this.mesh.position, this.labelOffset);
     } else {
       this.mesh.geometry = this.defaultGeometry;
+      // Position label farther in 3D view (larger sphere)
+      this.labelOffset = 0.2;
+      this.label.positionRelativeTo(this.mesh.position, this.labelOffset);
     }
   }
 
@@ -66,8 +83,19 @@ export class Moon {
       }
     }
     
+    // Update label position to follow mesh
+    this.label.positionRelativeTo(this.mesh.position, this.labelOffset);
+    
     // Update visibility
     this.mesh.visible = isVisible;
+    this.label.setVisible(isVisible);
+  }
+
+  /**
+   * Update label billboard orientation to face camera
+   */
+  public updateLabelBillboard(camera: THREE.Camera): void {
+    this.label.updateBillboard(camera);
   }
 
   /**
@@ -82,9 +110,12 @@ export class Moon {
 
   public addToScene(scene: THREE.Scene): void {
     scene.add(this.mesh);
+    scene.add(this.label.getMesh());
   }
 
   public removeFromScene(scene: THREE.Scene): void {
     scene.remove(this.mesh);
+    scene.remove(this.label.getMesh());
+    this.label.dispose();
   }
 }

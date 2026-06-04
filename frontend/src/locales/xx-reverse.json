@@ -41,6 +41,8 @@
     "loadData": "ataD daoL",
     "play": "yalP",
     "pause": "esuaP",
+    "previous": "suoiverP",
+    "next": "txeN",
     "restart": "tratseR",
     "restartTooltip": ")weiv tluafed ,1 emarf( noitacol tluafed eht ot aremac eht nruter dna noitamina eht tratseR",
     "restartAria": ")weiv tluafed ,1 emarf( noitacol tluafed eht ot aremac eht nruter dna noitamina eht tratseR",

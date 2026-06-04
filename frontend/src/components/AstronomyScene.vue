@@ -421,12 +421,12 @@ const isFormValid = computed(() => {
 
 const initializeObjects = () => {
   if (!canvasRef.value) return;
-  if (!earth || !sun || !moon || (FEATURE_FLAGS.VENUS_UI_ENABLED && !venus) || !sceneManager) {
+  if (!earth || !sun || !moon || (FEATURE_FLAGS.VENUS_ENABLED && !venus) || !sceneManager) {
     sceneManager = new SceneManager(canvasRef.value);
     earth = new Earth();
     sun = new Sun();
     moon = new Moon();
-    if (FEATURE_FLAGS.VENUS_UI_ENABLED) {
+    if (FEATURE_FLAGS.VENUS_ENABLED) {
       venus = new Venus();
     }
     earth.addToScene(sceneManager.scene);
@@ -449,7 +449,7 @@ const initializeObjects = () => {
     if (moon && moon.mesh) {
       moon.mesh.visible = false;
     }
-    if (FEATURE_FLAGS.VENUS_UI_ENABLED && venus && venus.mesh) {
+    if (FEATURE_FLAGS.VENUS_ENABLED && venus && venus.mesh) {
       venus.mesh.visible = false;
     }
     sceneManager.startAnimation(updateAnimation);
@@ -508,7 +508,7 @@ async function loadData() {
         }
       }
     }
-    if (!sun || !moon || !earth || (FEATURE_FLAGS.VENUS_UI_ENABLED && !venus) || !sceneManager) {
+    if (!sun || !moon || !earth || (FEATURE_FLAGS.VENUS_ENABLED && !venus) || !sceneManager) {
       initializeObjects();
     }
     currentIndex.value = 0;
@@ -623,7 +623,7 @@ function updatePositions() {
     viewMode.value
   );
 
-  if (FEATURE_FLAGS.VENUS_UI_ENABLED && frame.venus && venus) {
+  if (FEATURE_FLAGS.VENUS_ENABLED && frame.venus && venus) {
     venus.updatePosition(
       frame.venus.azimuth,
       frame.venus.altitude,
@@ -633,6 +633,15 @@ function updatePositions() {
   }
 
   moon.updatePhase(frame.moon_phase.illumination * 100);
+  
+  // Update label billboard orientations to face camera
+  if (sceneManager) {
+    sun.updateLabelBillboard(sceneManager.camera);
+    moon.updateLabelBillboard(sceneManager.camera);
+    if (FEATURE_FLAGS.VENUS_ENABLED && venus) {
+      venus.updateLabelBillboard(sceneManager.camera);
+    }
+  }
 }
 
 // Switch view mode

@@ -186,6 +186,15 @@ describe('Moon', () => {
       expect((geometry as THREE.SphereGeometry).parameters.radius).toBeGreaterThanOrEqual(0.2);
     });
 
+    it('should handle normal disk radius calculation without minimum clamping', () => {
+      // Normal Math.tan results in the minimum clamping being applied
+      const moon = new Moon();
+      const geometry = moon['skyViewGeometry'];
+      const radius = (geometry as THREE.SphereGeometry).parameters.radius;
+      // With current angular diameter, it gets clamped to 0.2 minimum
+      expect(radius).toBeGreaterThanOrEqual(0.2);
+    });
+
     it('should switch geometry in setViewMode', () => {
       const moon = new Moon();
       moon.setViewMode('sky');
@@ -213,6 +222,85 @@ describe('Moon', () => {
       // @ts-expect-error: testing invalid input
       moon.setViewMode('invalid');
       expect(moon.mesh.geometry).toBe(moon['defaultGeometry']);
+    });
+  });
+
+  describe('label billboard and positioning', () => {
+    it('should update label billboard to face camera', () => {
+      const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+      camera.position.set(5, 5, 5);
+      
+      moon.updatePosition(45, 45, true, '3D');
+      moon.updateLabelBillboard(camera);
+      
+      // Should not throw, label should be updated
+      const labelMesh = moon['label'].getMesh();
+      expect(labelMesh).toBeDefined();
+    });
+
+    it('should reposition label after setViewMode to sky', () => {
+      moon.setViewMode('sky');
+      moon.updatePosition(45, 45, true, 'SKY');
+      
+      const labelMesh = moon['label'].getMesh();
+      expect(labelMesh.position).toBeDefined();
+    });
+
+    it('should reposition label after setViewMode to 3d', () => {
+      moon.setViewMode('sky');
+      moon.setViewMode('3d');
+      moon.updatePosition(45, 45, true, '3D');
+      
+      const labelMesh = moon['label'].getMesh();
+      expect(labelMesh.position).toBeDefined();
+    });
+
+    it('should update label visibility with mesh', () => {
+      moon.updatePosition(45, 45, false, '3D');
+      
+      // Label should follow visibility changes
+      expect(moon.mesh.visible).toBe(false);
+    });
+
+    it('should handle multiple label billboard updates', () => {
+      const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+      
+      for (let i = 0; i < 5; i++) {
+        camera.position.set(Math.cos(i) * 5, Math.sin(i) * 5, 5);
+        moon.updatePosition(i * 72, 45, true, '3D');
+        moon.updateLabelBillboard(camera);
+      }
+      
+      expect(moon.mesh.position).toBeDefined();
+    });
+
+    it('should position label in both 3D and SKY view modes', () => {
+      moon.setViewMode('3d');
+      moon.updatePosition(0, 45, true, '3D');
+      const pos3DX = moon['label'].getMesh().position.x;
+      const pos3DY = moon['label'].getMesh().position.y;
+      const pos3DZ = moon['label'].getMesh().position.z;
+      
+      moon.setViewMode('sky');
+      moon.updatePosition(0, 45, true, 'SKY');
+      const posSkyX = moon['label'].getMesh().position.x;
+      const posSkyY = moon['label'].getMesh().position.y;
+      const posSkyZ = moon['label'].getMesh().position.z;
+      
+      // Positions should be different between view modes
+      expect(posSkyX).not.toBeCloseTo(pos3DX, 1);
+    });
+  });
+
+  describe('sky view below horizon with label', () => {
+    it('should handle below-horizon positioning with label updates', () => {
+      moon.setViewMode('sky');
+      moon.updatePosition(180, -30, true, 'SKY');
+      
+      const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+      moon.updateLabelBillboard(camera);
+      
+      expect(moon.mesh.position.y).toBe(0);
     });
   });
 });

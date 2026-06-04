@@ -41,6 +41,8 @@
 		"loadData": "Load Data",
 		"play": "Play",
 		"pause": "Pause",
+		"previous": "Previous",
+		"next": "Next",
 		"restart": "Restart",
 		"restartTooltip": "Restart the animation and return the camera to the default location (frame 1, default view)",
 		"restartAria": "Restart the animation and return the camera to the default location (frame 1, default view)",

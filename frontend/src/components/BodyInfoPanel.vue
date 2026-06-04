@@ -1,9 +1,13 @@
 <template>
-  <div class="body-info-panel">
+  <div class="body-info-panel" role="region" :aria-label="t('astronomy.celestialCoordinates')">
     <template v-if="bodyData">
       <!-- Visibility Status -->
       <div class="info-section visibility-section">
-        <div :class="['visibility-badge', { visible: bodyData.is_visible, hidden: !bodyData.is_visible }]">
+        <div 
+          :class="['visibility-badge', { visible: bodyData.is_visible, hidden: !bodyData.is_visible }]"
+          tabindex="0"
+          :aria-label="`Visible: ${t(bodyData.is_visible ? 'astronomy.yes' : 'astronomy.no')}`"
+        >
           <i :class="`fa ${bodyData.is_visible ? 'fa-eye' : 'fa-eye-slash'}`" aria-hidden="true"></i>
           {{ t(bodyData.is_visible ? 'astronomy.yes' : 'astronomy.no') }}
         </div>
@@ -11,13 +15,21 @@
 
       <!-- Celestial Coordinates (Primary) -->
       <div class="info-section coordinates-section">
-        <h3 class="section-title">{{ t('astronomy.celestialCoordinates') }}</h3>
+        <h2 class="section-title">{{ t('astronomy.celestialCoordinates') }}</h2>
         <div class="coordinate-pair">
-          <div class="coordinate-item">
+          <div 
+            class="coordinate-item"
+            tabindex="0"
+            :aria-label="`Right Ascension: ${formatRA(bodyData.ra_degrees)}`"
+          >
             <span class="label">RA:</span>
             <span class="value">{{ formatRA(bodyData.ra_degrees) }}</span>
           </div>
-          <div class="coordinate-item">
+          <div 
+            class="coordinate-item"
+            tabindex="0"
+            :aria-label="`Declination: ${formatDec(bodyData.dec_degrees)}`"
+          >
             <span class="label">Dec:</span>
             <span class="value">{{ formatDec(bodyData.dec_degrees) }}</span>
           </div>
@@ -26,13 +38,21 @@
 
       <!-- Horizontal Coordinates (Secondary) -->
       <div class="info-section coordinates-section">
-        <h3 class="section-title">{{ t('astronomy.horizontalCoordinates') }}</h3>
+        <h2 class="section-title">{{ t('astronomy.horizontalCoordinates') }}</h2>
         <div class="coordinate-pair">
-          <div class="coordinate-item">
+          <div 
+            class="coordinate-item"
+            tabindex="0"
+            :aria-label="`${t('astronomy.altitude')}: ${formatAltitude(bodyData.altitude)}`"
+          >
             <span class="label">{{ t('astronomy.altitude') }}:</span>
             <span class="value">{{ formatAltitude(bodyData.altitude) }}</span>
           </div>
-          <div class="coordinate-item">
+          <div 
+            class="coordinate-item"
+            tabindex="0"
+            :aria-label="`${t('astronomy.azimuth')}: ${formatAzimuth(bodyData.azimuth)}`"
+          >
             <span class="label">{{ t('astronomy.azimuth') }}:</span>
             <span class="value">{{ formatAzimuth(bodyData.azimuth) }}</span>
           </div>
@@ -40,18 +60,33 @@
       </div>
 
       <!-- Moon-specific Data -->
-      <div v-if="bodyId === 'moon' && moonPhaseData" class="info-section moon-section">
-        <h3 class="section-title">{{ t('astronomy.moonPhase') }}</h3>
+      <div 
+        v-if="bodyId === 'moon' && moonPhaseData" 
+        class="info-section moon-section"
+      >
+        <h2 class="section-title">{{ t('astronomy.moonPhase') }}</h2>
         <div class="phase-info">
-          <div class="phase-name">
+          <div 
+            class="phase-name"
+            tabindex="0"
+            :aria-label="`${t('astronomy.phase')}: ${moonPhaseData.phase_name}`"
+          >
             <span class="label">{{ t('astronomy.phase') }}:</span>
             <span class="value">{{ moonPhaseData.phase_name }}</span>
           </div>
-          <div class="illumination">
+          <div 
+            class="illumination"
+            tabindex="0"
+            :aria-label="`${t('astronomy.illumination')}: ${formatPercentage(moonPhaseData.illumination)}`"
+          >
             <span class="label">{{ t('astronomy.illumination') }}:</span>
             <span class="value">{{ formatPercentage(moonPhaseData.illumination) }}</span>
           </div>
-          <div class="phase-angle">
+          <div 
+            class="phase-angle"
+            tabindex="0"
+            :aria-label="`${t('astronomy.phaseAngle')}: ${formatAngle(moonPhaseData.phase_angle)}`"
+          >
             <span class="label">{{ t('astronomy.phaseAngle') }}:</span>
             <span class="value">{{ formatAngle(moonPhaseData.phase_angle) }}</span>
           </div>
@@ -59,18 +94,33 @@
       </div>
 
       <!-- Venus-specific Data -->
-      <div v-if="bodyId === 'venus' && venusPhasData" class="info-section venus-section">
-        <h3 class="section-title">{{ t('astronomy.venusData') }}</h3>
+      <div 
+        v-if="bodyId === 'venus' && venusPhasData" 
+        class="info-section venus-section"
+      >
+        <h2 class="section-title">{{ t('astronomy.venusData') }}</h2>
         <div class="venus-info">
-          <div class="phase-name">
+          <div 
+            class="phase-name"
+            tabindex="0"
+            :aria-label="`${t('astronomy.phase')}: ${venusPhasData.phase_name}`"
+          >
             <span class="label">{{ t('astronomy.phase') }}:</span>
             <span class="value">{{ venusPhasData.phase_name }}</span>
           </div>
-          <div class="illumination">
+          <div 
+            class="illumination"
+            tabindex="0"
+            :aria-label="`${t('astronomy.illumination')}: ${formatPercentage(venusPhasData.illumination)}`"
+          >
             <span class="label">{{ t('astronomy.illumination') }}:</span>
             <span class="value">{{ formatPercentage(venusPhasData.illumination) }}</span>
           </div>
-          <div class="naked-eye">
+          <div 
+            class="naked-eye"
+            tabindex="0"
+            :aria-label="`${t('astronomy.nakedEyeVisible')}: ${t(venusPhasData.naked_eye_visible ? 'astronomy.yes' : 'astronomy.no')}`"
+          >
             <span class="label">{{ t('astronomy.nakedEyeVisible') }}:</span>
             <span :class="['value', { yes: venusPhasData.naked_eye_visible, no: !venusPhasData.naked_eye_visible }]">
               {{ venusPhasData.naked_eye_visible ? t('astronomy.yes') : t('astronomy.no') }}
@@ -153,6 +203,12 @@ const formatPercentage = (value: number): string => {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+.info-section:focus {
+  outline: 2px solid #90d9ff;
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .section-title {

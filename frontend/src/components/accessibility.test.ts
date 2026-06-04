@@ -4,6 +4,7 @@ import { axe, toHaveNoViolations } from 'jest-axe';
 import { ref } from 'vue';
 import AstronomyScene from './AstronomyScene.vue';
 import DateRangePicker from './DateRangePicker.vue';
+import { resetFeatureFlags } from '../test-setup';
 
 expect.extend(toHaveNoViolations);
 
@@ -21,13 +22,23 @@ vi.mock('@/three/objects/Sun', () => ({
   Sun: class {
     mesh = { visible: true };
     getLight = () => ({ visible: true });
-    addToScene = vi.fn(); update = vi.fn(); updatePosition = vi.fn();
+    addToScene = vi.fn(); update = vi.fn(); updatePosition = vi.fn(); 
+    updateLabelBillboard = vi.fn(); setViewMode = vi.fn();
   },
 }));
 vi.mock('@/three/objects/Moon', () => ({
   Moon: class {
     mesh = { visible: true };
     addToScene = vi.fn(); update = vi.fn(); updatePosition = vi.fn(); updatePhase = vi.fn();
+    updateLabelBillboard = vi.fn(); setViewMode = vi.fn(); 
+  },
+}));
+vi.mock('@/three/objects/Venus', () => ({
+  Venus: class {
+    mesh = { visible: true };
+    label = { setVisible: vi.fn() };
+    addToScene = vi.fn(); update = vi.fn(); updatePosition = vi.fn(); 
+    updateLabelBillboard = vi.fn(); setViewMode = vi.fn(); removeFromScene = vi.fn();
   },
 }));
 vi.mock('@/three/objects/Earth', () => ({
@@ -69,8 +80,8 @@ vi.mock('@/composables/useAstronomyData', () => ({
 function makeFrame() {
   return {
     datetime: '2026-01-01T00:00:00',
-    sun: { altitude: 10, azimuth: 180, is_visible: true, ra: 0, dec: 0 },
-    moon: { altitude: 5, azimuth: 90, is_visible: true, ra: 0, dec: 0 },
+    sun: { altitude: 10, azimuth: 180, is_visible: true, ra_degrees: 0, dec_degrees: 0 },
+    moon: { altitude: 5, azimuth: 90, is_visible: true, ra_degrees: 0, dec_degrees: 0 },
     moon_phase: { phase_name: 'Full Moon', illumination: 1.0, phase_angle: 0 },
   };
 }
@@ -81,6 +92,7 @@ describe('Accessibility – AstronomyScene (form state)', () => {
   let wrapper: ReturnType<typeof mount>;
 
   beforeEach(() => {
+    resetFeatureFlags();
     mockLoading.value = false;
     mockError.value = null;
     mockData.value = null;
@@ -103,6 +115,7 @@ describe('Accessibility – AstronomyScene (animation-controls state)', () => {
   let wrapper: ReturnType<typeof mount>;
 
   beforeEach(() => {
+    resetFeatureFlags();
     mockLoading.value = false;
     mockError.value = null;
     mockHasData.value = true;
