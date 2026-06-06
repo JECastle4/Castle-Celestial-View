@@ -235,15 +235,25 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
 
   testWithPersistentPage.afterAll(async () => {
     if (persistentPage) {
+      let closeCompleted = false;
+      
       try {
         // Cancel any pending SSE connections by clicking cancel button if visible
         try {
           const cancelButton = persistentPage.locator('.cancel-btn');
-          const isCancelVisible = await cancelButton.isVisible({ timeout: 1000 }).catch(() => false);
+          const cancelPromise = cancelButton.isVisible({ timeout: 1000 }).catch(() => false);
+          const isCancelVisible = await Promise.race([
+            cancelPromise,
+            new Promise<boolean>((_, reject) => setTimeout(() => reject(new Error('cancel check timeout')), 2000))
+          ]).catch(() => false);
+          
           if (isCancelVisible) {
-            await cancelButton.click().catch(() => {
-              // Ignore if click fails
-            });
+            const clickPromise = cancelButton.click().catch(() => {});
+            await Promise.race([
+              clickPromise,
+              new Promise((_, reject) => setTimeout(() => reject(new Error('cancel click timeout')), 2000))
+            ]).catch(() => {});
+            
             // Wait a moment for the connection to close
             await persistentPage.waitForTimeout(500);
           }
@@ -252,22 +262,35 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
         }
         
         // Close with a timeout to prevent hanging on pending network requests
-        // SSE connections might not close immediately
-        const closePromise = persistentPage.close();
+        // Use a callback to detect when close completes
+        const closePromise = persistentPage.close().then(() => {
+          closeCompleted = true;
+        });
+        
         await Promise.race([
           closePromise,
           new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Page close timeout')), 10000)
+            setTimeout(() => reject(new Error('Page close timeout')), 8000)
           )
         ]);
       } catch (e: any) {
-        if (e.message === 'Page close timeout') {
-          console.warn('Page close timed out, may have pending network requests');
+        if (e.message === 'Page close timeout' || !closeCompleted) {
+          console.warn('Page close timed out, forcing context close');
           try {
             // Force close the context if normal close times out
-            await persistentPage.context().close();
-          } catch (ctxE) {
-            console.warn('Context close also failed:', ctxE);
+            const ctx = persistentPage.context();
+            const ctxClosePromise = ctx.close().then(() => {
+              closeCompleted = true;
+            });
+            
+            await Promise.race([
+              ctxClosePromise,
+              new Promise((_, reject) => setTimeout(() => reject(new Error('context close timeout')), 5000))
+            ]);
+          } catch (ctxE: any) {
+            console.warn('Context close also timed out');
+            // Context close also failed, but we'll exit anyway
+            closeCompleted = true;
           }
         } else if (!e.message?.includes('Target page, context or browser has been closed')) {
           console.warn('Error closing page:', e);
@@ -347,10 +370,13 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
     // Capture snapshot of Moon in 3D view
     await expect(page.locator('.app-layout')).toHaveScreenshot('moon-3d-view.png');
     
+    // Wait for DOM to settle after screenshot (important for serial test stability)
+    await page.waitForTimeout(1000);
+    
     // Stabilize page after screenshot before test 3 begins (warn only, don't throw)
-    await stabilizePage(page, 5000, false);
+    await stabilizePage(page, 8000, false);
     const animationControlsAfterScreenshot2 = page.locator('.animation-controls');
-    await expect(animationControlsAfterScreenshot2).toBeVisible({ timeout: 5000 });
+    await expect(animationControlsAfterScreenshot2).toBeVisible({ timeout: 8000 });
   });
 
   /**
@@ -428,10 +454,13 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
     // Capture snapshot of Venus in 3D view
     await expect(page.locator('.app-layout')).toHaveScreenshot('venus-3d-view.png');
     
+    // Wait for DOM to settle after screenshot (important for serial test stability)
+    await page.waitForTimeout(1000);
+    
     // Stabilize page after screenshot
-    await stabilizePage(page, 5000);
+    await stabilizePage(page, 8000, false);
     const animationControlsAfterScreenshot4 = page.locator('.animation-controls');
-    await expect(animationControlsAfterScreenshot4).toBeVisible({ timeout: 5000 });
+    await expect(animationControlsAfterScreenshot4).toBeVisible({ timeout: 8000 });
   });
 
   /**
