@@ -8,11 +8,16 @@ import { test, expect, Page, Browser } from '@playwright/test';
 /**
  * Helper function to stabilize page between tests
  * Ensures all elements are properly rendered and visible
+ * @param page - Playwright page object
+ * @param timeoutMs - How long to wait for stabilization
+ * @param throwOnFailure - If true, throws error on failure; if false, just logs warning
  */
-async function stabilizePage(page: Page, timeoutMs: number = 5000) {
+async function stabilizePage(page: Page, timeoutMs: number = 8000, throwOnFailure: boolean = true) {
   const startTime = Date.now();
+  let lastError: any;
+  let isStabilized = false;
   
-  while (Date.now() - startTime < timeoutMs) {
+  while (Date.now() - startTime < timeoutMs && !isStabilized) {
     try {
       // Check if page is still valid
       if (page.isClosed?.()) {
@@ -20,18 +25,41 @@ async function stabilizePage(page: Page, timeoutMs: number = 5000) {
         return;
       }
       
-      // Check that animation controls exist in DOM
+      // Check that animation controls exist in DOM with explicit wait
       const animationControls = page.locator('.animation-controls');
-      const isVisible = await animationControls.isVisible({ timeout: 100 }).catch(() => false);
+      
+      // Use waitFor instead of isVisible for better reliability
+      try {
+        await animationControls.waitFor({ state: 'attached', timeout: 1000 });
+      } catch (e) {
+        // Element not attached yet, continue retrying
+        await page.waitForTimeout(200);
+        continue;
+      }
+      
+      const isVisible = await animationControls.isVisible({ timeout: 500 }).catch(() => false);
       
       // Check that celestial panel is visible
       const celestialPanel = page.locator('.celestial-panel');
-      const panelVisible = await celestialPanel.isVisible({ timeout: 100 }).catch(() => false);
+      let panelVisible = false;
+      try {
+        await celestialPanel.waitFor({ state: 'attached', timeout: 1000 });
+        panelVisible = await celestialPanel.isVisible({ timeout: 500 }).catch(() => false);
+      } catch (e) {
+        // Panel not ready yet, continue
+      }
       
       // If both are visible, page is stable
       if (isVisible && panelVisible) {
-        await page.waitForTimeout(200); // Extra wait to ensure stability
+        await page.waitForTimeout(300); // Extra wait to ensure stability
+        isStabilized = true;
+        console.log(`[stabilizePage] Success after ${Date.now() - startTime}ms`);
         return;
+      }
+      
+      // Log what we found for debugging
+      if (Date.now() - startTime > 2000) { // Only log after 2s to reduce noise
+        console.log(`[stabilizePage] Retrying... controls=${isVisible}, panel=${panelVisible}`);
       }
     } catch (e: any) {
       // Page might be closed or other error
@@ -39,14 +67,22 @@ async function stabilizePage(page: Page, timeoutMs: number = 5000) {
         console.warn('Page was closed during stabilization');
         return;
       }
+      lastError = e;
       // Continue trying for other errors
     }
     
-    await page.waitForTimeout(100);
+    await page.waitForTimeout(200);
   }
   
-  // If we get here, page might not be fully stable but continue anyway
-  console.warn('Page did not fully stabilize within timeout');
+  // If we didn't stabilize
+  const elapsed = Date.now() - startTime;
+  const message = `[stabilizePage] Failed after ${elapsed}ms. Last error: ${lastError?.message || 'elements not visible'}`;
+  
+  if (throwOnFailure) {
+    throw new Error(message);
+  } else {
+    console.warn(message);
+  }
 }
 
 /**
@@ -311,8 +347,8 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
     // Capture snapshot of Moon in 3D view
     await expect(page.locator('.app-layout')).toHaveScreenshot('moon-3d-view.png');
     
-    // Stabilize page after screenshot before test 3 begins
-    await stabilizePage(page, 5000);
+    // Stabilize page after screenshot before test 3 begins (warn only, don't throw)
+    await stabilizePage(page, 5000, false);
     const animationControlsAfterScreenshot2 = page.locator('.animation-controls');
     await expect(animationControlsAfterScreenshot2).toBeVisible({ timeout: 5000 });
   });
@@ -323,7 +359,7 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
    */
   testWithPersistentPage('3. Click Previous to navigate back to Sun', { timeout: 90000 }, async ({ page }) => {
     // Stabilize page before proceeding - this helps with flakiness in CI environments
-    await stabilizePage(page, 8000);
+    await stabilizePage(page, 8000, true);
     
     // Verify page state is still good with extended timeout for CI
     const animationControls = page.locator('.animation-controls');
@@ -364,7 +400,7 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
    */
   testWithPersistentPage('4. Click Venus tab directly', { timeout: 90000 }, async ({ page }) => {
     // Stabilize page before proceeding
-    await stabilizePage(page, 5000);
+    await stabilizePage(page, 8000, true);
     
     // Verify page state is still good
     const animationControls = page.locator('.animation-controls');
@@ -404,7 +440,7 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
    */
   testWithPersistentPage('5. Return to Sun and switch to Sky View', { timeout: 90000 }, async ({ page }) => {
     // Stabilize page before proceeding
-    await stabilizePage(page, 5000);
+    await stabilizePage(page, 8000, true);
     
     // Verify page state is still good
     const animationControls = page.locator('.animation-controls');
@@ -439,8 +475,8 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
     // Capture snapshot of Sky View
     await expect(page.locator('.app-layout')).toHaveScreenshot('sun-sky-view.png');
     
-    // Stabilize page after screenshot
-    await stabilizePage(page, 5000);
+    // Stabilize page after screenshot (warn only, don't throw)
+    await stabilizePage(page, 5000, false);
     const animationControlsAfterScreenshot5 = page.locator('.animation-controls');
     await expect(animationControlsAfterScreenshot5).toBeVisible({ timeout: 5000 });
   });
@@ -451,7 +487,7 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
    */
   testWithPersistentPage('6. Click Play to start animation', { timeout: 90000 }, async ({ page }) => {
     // Stabilize page before proceeding
-    await stabilizePage(page, 5000);
+    await stabilizePage(page, 8000, true);
     
     // Verify page state is still good
     const animationControls = page.locator('.animation-controls');
@@ -482,7 +518,7 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
    */
   testWithPersistentPage('7. Wait for animation to advance frames', { timeout: 90000 }, async ({ page }) => {
     // Stabilize page before proceeding
-    await stabilizePage(page, 5000);
+    await stabilizePage(page, 8000, true);
     
     // Verify page state is still good
     const animationControls = page.locator('.animation-controls');
@@ -520,7 +556,7 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
    */
   testWithPersistentPage('8. Click Restart and verify animation resets', { timeout: 90000 }, async ({ page }) => {
     // Stabilize page before proceeding
-    await stabilizePage(page, 5000);
+    await stabilizePage(page, 8000, true);
     
     // Verify page state is still good
     const animationControls = page.locator('.animation-controls');
@@ -542,30 +578,8 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
     // Wait for animation restart to process
     await page.waitForTimeout(1000);
     
-    // Verify frame was reset with retry logic
-    // Frame might not update immediately, so retry a few times
-    let frameAfterRestart = '';
-    let frameReset = false;
-    const maxRetries = 10;
-    
-    for (let i = 0; i < maxRetries; i++) {
-      try {
-        frameAfterRestart = await frameCounter.innerText({ timeout: 5000 });
-        if (frameAfterRestart.includes('1')) {
-          frameReset = true;
-          break;
-        }
-      } catch (e) {
-        console.log(`Retry ${i + 1}/${maxRetries}: Could not get frame text or frame not reset yet`);
-      }
-      
-      if (!frameReset && i < maxRetries - 1) {
-        await page.waitForTimeout(500); // Wait before retry
-      }
-    }
-    
-    // Verify frame was reset
-    expect(frameAfterRestart).toContain('1', `Expected frame to reset to 1, but got: ${frameAfterRestart}`);
+    // Verify frame was reset - wait for frame counter to update
+    await expect(frameCounter).toHaveText(/\b1\b/, { timeout: 10000 });
     
     // Verify animation controls are still present
     await expect(animationControls).toBeVisible({ timeout: 5000 });
@@ -573,23 +587,23 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
     // Wait for frame to reset visually
     await page.waitForTimeout(500);
     
-    // Capture snapshot showing reset state
-    // Add try-catch to prevent hanging on slow CI, timeout after 15s
+    // Capture snapshot showing reset state (with timeout to prevent hanging)
+    const screenshotPromise = expect(page.locator('.app-layout')).toHaveScreenshot('sun-sky-view-restarted.png');
     try {
       await Promise.race([
-        expect(page.locator('.app-layout')).toHaveScreenshot('sun-sky-view-restarted.png'),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Screenshot timeout')), 15000))
+        screenshotPromise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000))
       ]);
     } catch (e: any) {
-      if (e.message === 'Screenshot timeout') {
-        console.warn('Screenshot took too long, skipping');
+      if (e.message === 'timeout') {
+        console.warn('Screenshot timeout in test 8, skipping screenshot');
       } else {
         throw e;
       }
     }
     
-    // Stabilize page after screenshot
-    await stabilizePage(page, 5000);
+    // Stabilize page after screenshot (warn only, don't throw)
+    await stabilizePage(page, 5000, false);
     const animationControlsAfterScreenshot8 = page.locator('.animation-controls');
     await expect(animationControlsAfterScreenshot8).toBeVisible({ timeout: 5000 });
   });
@@ -796,8 +810,9 @@ test.describe('Astronomy Scene - Sky View Animation Controls', () => {
     const scene = page.locator('.app-layout');
     
     // Capture initial frame info and screenshot
-    const celestialPanel = animationControls.locator('.celestial-panel');
-    const frameCounter = celestialPanel.locator('.frame-counter');
+    const celestialPanel = page.locator('.celestial-panel');
+    const frameCounter = page.locator('.animation-controls .frame-counter');
+    await expect(frameCounter).toBeVisible({ timeout: 5000 });
     beforePlayFrameXY = await frameCounter.innerText();
     await expect(scene).toHaveScreenshot('sky-view-first-frame.png');
     // Set animation speed to minimum for reliability (if present)
