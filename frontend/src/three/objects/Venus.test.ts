@@ -295,14 +295,10 @@ describe('Venus', () => {
       venus.setViewMode('3d');
       venus.updatePosition(0, 45, true, '3D');
       const pos3DX = venus['label'].getMesh().position.x;
-      const pos3DY = venus['label'].getMesh().position.y;
-      const pos3DZ = venus['label'].getMesh().position.z;
       
       venus.setViewMode('sky');
       venus.updatePosition(0, 45, true, 'SKY');
       const posSkyX = venus['label'].getMesh().position.x;
-      const posSkyY = venus['label'].getMesh().position.y;
-      const posSkyZ = venus['label'].getMesh().position.z;
       
       // Positions should be different between view modes
       expect(posSkyX).not.toBeCloseTo(pos3DX, 1);

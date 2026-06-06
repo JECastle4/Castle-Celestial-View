@@ -278,14 +278,10 @@ describe('Moon', () => {
       moon.setViewMode('3d');
       moon.updatePosition(0, 45, true, '3D');
       const pos3DX = moon['label'].getMesh().position.x;
-      const pos3DY = moon['label'].getMesh().position.y;
-      const pos3DZ = moon['label'].getMesh().position.z;
       
       moon.setViewMode('sky');
       moon.updatePosition(0, 45, true, 'SKY');
       const posSkyX = moon['label'].getMesh().position.x;
-      const posSkyY = moon['label'].getMesh().position.y;
-      const posSkyZ = moon['label'].getMesh().position.z;
       
       // Positions should be different between view modes
       expect(posSkyX).not.toBeCloseTo(pos3DX, 1);

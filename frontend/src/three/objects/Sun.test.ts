@@ -277,14 +277,10 @@ describe('Sun', () => {
       sun.setViewMode('3d');
       sun.updatePosition(0, 45, true, '3D');
       const pos3DX = sun['label'].getMesh().position.x;
-      const pos3DY = sun['label'].getMesh().position.y;
-      const pos3DZ = sun['label'].getMesh().position.z;
       
       sun.setViewMode('sky');
       sun.updatePosition(0, 45, true, 'SKY');
       const posSkyX = sun['label'].getMesh().position.x;
-      const posSkyY = sun['label'].getMesh().position.y;
-      const posSkyZ = sun['label'].getMesh().position.z;
       
       // Positions should be different between view modes
       expect(posSkyX).not.toBeCloseTo(pos3DX, 1);

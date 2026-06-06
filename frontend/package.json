@@ -4,7 +4,7 @@
   "type": "module",
   "license": "MIT",
   "description": "A web application that generates animations of the sky and solar system based on user-specified parameters, using data from the Astronomy Animation API.",
-  "author": "John Castle",  
+  "author": "John Castle",
   "engines": {
     "node": ">=20.19.0"
   },
@@ -40,6 +40,7 @@
     "@emnapi/runtime": "^1.10.0",
     "@playwright/test": "^1.60.0",
     "@types/jest-axe": "^3.5.9",
+    "@types/node": "^25.9.2",
     "@types/three": "^0.184.0",
     "@typescript-eslint/parser": "^8.59.4",
     "@vitejs/plugin-vue": "^6.0.7",
