@@ -21,7 +21,7 @@ describe('AstronomyApiClient', () => {
       const mockResponse: BatchEarthObservationsResponse = {
         frames: [
           {
-            datetime: '2026-02-02T00:00:00',
+            datetime: '2026-02-02T00:00:00Z',
             sun: { altitude: 15.5, azimuth: 120.0, is_visible: true, ra_degrees: 240.0, dec_degrees: -15.0 },
             moon: { altitude: 45.2, azimuth: 230.5, is_visible: true, ra_degrees: 100.0, dec_degrees: 20.0 },
             moon_phase: { illumination: 0.75, phase_angle: 90.0, phase_name: 'Waxing Gibbous' },
@@ -30,8 +30,8 @@ describe('AstronomyApiClient', () => {
         metadata: {
           location: { latitude: 51.5, longitude: -0.1, elevation: 0 },
           frame_count: 1,
-          start_datetime: '2026-02-02T00:00:00',
-          end_datetime: '2026-02-02T01:00:00',
+          start_datetime: '2026-02-02T00:00:00Z',
+          end_datetime: '2026-02-02T01:00:00Z',
           time_span_hours: 1.0,
         },
       };

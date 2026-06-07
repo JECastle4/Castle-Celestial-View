@@ -432,7 +432,7 @@ const initializeObjects = () => {
     earth.addToScene(sceneManager.scene);
     sun.addToScene(sceneManager.scene);
     moon.addToScene(sceneManager.scene);
-    if (FEATURE_FLAGS.VENUS_UI_ENABLED && venus) {
+    if (venus) {
       venus.addToScene(sceneManager.scene);
     }
     // Hide objects until data is loaded
@@ -530,7 +530,7 @@ async function loadData() {
       if (moon) {
         moon.mesh.visible = frame.moon.is_visible;
       }
-      if (FEATURE_FLAGS.VENUS_UI_ENABLED && venus && frame.venus) {
+      if (venus && frame.venus) {
         venus.mesh.visible = frame.venus.is_visible;
       }
     }

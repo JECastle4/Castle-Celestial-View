@@ -25,7 +25,7 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { LocationModel } from '@/types/api.types';
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
 const props = defineProps<{
   currentFrameIndex: number;
@@ -38,7 +38,9 @@ const formattedDateTime = computed(() => {
   // Parse ISO datetime format: 2026-02-01T12:00:00Z (API always includes 'Z' for UTC)
   try {
     const date = new Date(props.datetime);
-    return date.toLocaleString(undefined, {
+    // Use explicit i18n locale to ensure consistent formatting across environments
+    // and Playwright screenshots, matching the selected language/region
+    return date.toLocaleString(locale.value, {
       year: 'numeric',
       month: 'short',
       day: 'numeric',

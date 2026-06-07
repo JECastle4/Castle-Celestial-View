@@ -7,7 +7,6 @@ export const testFeatureFlags = {
   SUN_ENABLED: true,
   MOON_ENABLED: true,
   VENUS_ENABLED: false,  // Disabled by default to avoid carousel rendering issues
-  VENUS_UI_ENABLED: false,
 }
 
 vi.mock('@/config/features', () => ({
@@ -25,7 +24,6 @@ export function resetFeatureFlags(): void {
     SUN_ENABLED: true,
     MOON_ENABLED: true,
     VENUS_ENABLED: false,
-    VENUS_UI_ENABLED: false,
   });
 }
 
@@ -87,12 +85,12 @@ console.error = function(...args: any[]) {
 // WebGL/GPU features that aren't available in test environment
 if (typeof process !== 'undefined' && process.on) {
   process.on('unhandledRejection', (reason: any) => {
-    // Suppress errors related to DOM/WebGL that don't affect test outcomes
-    if (reason?.message?.includes?.('nextSibling') || 
-        reason?.message?.includes?.('reading property')) {
+    // Only suppress the specific known happy-dom/WebGL context error
+    // Error signature: "Cannot read property 'getContext' of null" or similar canvas-related failures
+    if (reason?.message?.includes?.('getContext') && reason?.message?.includes?.('null')) {
       return;
     }
-    // Let other rejections be handled normally
+    // Let all other rejections be handled normally to catch real test failures
     console.error('Unhandled Rejection:', reason);
   });
 }

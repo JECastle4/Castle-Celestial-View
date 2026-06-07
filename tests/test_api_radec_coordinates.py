@@ -104,8 +104,17 @@ class TestMoonRADec:
         # Dec should be -90 to +90 degrees (moon's orbit is ~5.3 degrees inclined to ecliptic)
         assert -30 < result["dec_degrees"] < 30  # Moon's declination range
     
-    def test_moon_ra_dec_observer_independent(self):
-        """Test that moon RA/Dec don't depend on observer location"""
+    def test_moon_ra_dec_observer_dependent_parallax(self):
+        """Test that moon RA/Dec are observer-dependent due to parallax
+        
+        The Moon's RA/Dec returned by the API are topocentric/apparent coordinates
+        derived from an AltAz frame. Parallax effects vary significantly with observer
+        location (typically up to ~1 degree for the Moon).
+        
+        This test verifies:
+        1. Values differ between observers (showing parallax effect exists)
+        2. Differences stay within expected parallax bounds (~1 degree)
+        """
         result_nyc = calculate_moon_position(
             ObservationDateTime(date="2026-02-01", time="12:00:00"),
             LocationModel(latitude=40.7128, longitude=-74.0060)
@@ -116,9 +125,16 @@ class TestMoonRADec:
             LocationModel(latitude=51.5074, longitude=-0.1278)
         )
         
-        # RA/Dec should be very close (within ~1 degree)
-        assert abs(result_nyc["ra_degrees"] - result_london["ra_degrees"]) < 1.0
-        assert abs(result_nyc["dec_degrees"] - result_london["dec_degrees"]) < 1.0
+        # Parallax should cause measurable differences in RA/Dec
+        ra_diff = abs(result_nyc["ra_degrees"] - result_london["ra_degrees"])
+        dec_diff = abs(result_nyc["dec_degrees"] - result_london["dec_degrees"])
+        
+        # Differences should be non-zero (showing observer-dependence)
+        assert ra_diff > 0 or dec_diff > 0, "Moon RA/Dec should vary by observer location due to parallax"
+        
+        # But stay within typical lunar parallax bound (~1 degree)
+        assert ra_diff < 1.0, f"RA difference {ra_diff}° exceeds expected parallax bound"
+        assert dec_diff < 1.0, f"Dec difference {dec_diff}° exceeds expected parallax bound"
     
     def test_moon_ra_dec_changes_over_time(self):
         """Test that moon RA/Dec change over time periods"""

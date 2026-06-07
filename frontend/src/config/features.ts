@@ -8,7 +8,4 @@ export const FEATURE_FLAGS = {
   SUN_ENABLED: true,
   MOON_ENABLED: true,
   VENUS_ENABLED: true,
-  
-  // Legacy flag for backward compatibility - enabled if Venus is enabled
-  VENUS_UI_ENABLED: true,
-} as const;
+};
