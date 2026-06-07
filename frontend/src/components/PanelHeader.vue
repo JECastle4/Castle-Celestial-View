@@ -24,6 +24,7 @@
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { LocationModel } from '@/types/api.types';
+import { normalizeLocaleForIntl } from '@/utils/locale';
 
 const { t, locale } = useI18n();
 
@@ -38,9 +39,12 @@ const formattedDateTime = computed(() => {
   // Parse ISO datetime format: 2026-02-01T12:00:00Z (API always includes 'Z' for UTC)
   try {
     const date = new Date(props.datetime);
-    // Use explicit i18n locale to ensure consistent formatting across environments
-    // and Playwright screenshots, matching the selected language/region
-    return date.toLocaleString(locale.value, {
+    // Normalize app locale to valid BCP-47 tag before calling toLocaleString,
+    // since some app locales (e.g., en-UK, xx-reverse) are non-standard and not
+    // recognized by Intl APIs. Ensures consistent formatting and prevents Playwright
+    // screenshot drift from fallback to raw ISO strings.
+    const intlLocale = normalizeLocaleForIntl(locale.value);
+    return date.toLocaleString(intlLocale, {
       year: 'numeric',
       month: 'short',
       day: 'numeric',

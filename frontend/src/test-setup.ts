@@ -6,7 +6,7 @@ import { vi } from 'vitest'
 export const testFeatureFlags = {
   SUN_ENABLED: true,
   MOON_ENABLED: true,
-  VENUS_ENABLED: false,  // Disabled by default to avoid carousel rendering issues
+  VENUS_ENABLED: false,  // Disabled by default to avoid creating/updating Venus Three.js objects and keep test fixtures minimal
 }
 
 vi.mock('@/config/features', () => ({
