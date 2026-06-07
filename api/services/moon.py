@@ -48,7 +48,8 @@ def calculate_moon_position(
         height=location.elevation * u.m
     )
 
-    # Get moon position in geocentric (GCRS) and AltAz coordinates
+    # Get moon position in topocentric (observer-dependent) GCRS coordinates
+    # Since earth_location is provided, this includes parallax based on observer location
     moon_gcrs = get_body("moon", time, earth_location)
 
     # Convert to AltAz frame for the given location and time
@@ -87,10 +88,10 @@ def _process_moon_position(
     # Determine visibility (above horizon means altitude > 0)
     is_visible = bool(altitude > 0)
 
-    # Extract RA/Dec in GCRS frame (geocentric, observer-independent)
-    # GCRS is the standard geocentric celestial reference frame used by astropy's get_body()
-    # Note: For topocentric RA/Dec accounting for parallax, moon_gcrs was computed
-    # with the observer's location via get_body(..., earth_location).
+    # Extract RA/Dec in GCRS frame (topocentric, observer-dependent)
+    # Moon coordinates from get_body('moon', obstime, location=earth_location) are
+    # topocentric and account for parallax based on observer location.
+    # GCRS is the standard celestial reference frame used by astropy
     ra_degrees = float(moon_gcrs.ra.degree)
     dec_degrees = float(moon_gcrs.dec.degree)
 

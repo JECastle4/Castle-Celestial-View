@@ -423,11 +423,19 @@ class CelestialPosition(BaseModel):
     is_visible: bool = Field(..., description="Whether object is above horizon")
     ra_degrees: float = Field(
         ..., ge=0, le=360,
-        description="Right Ascension in decimal degrees (0-360), ICRS epoch"
+        description=(
+            "Right Ascension in decimal degrees (0-360), GCRS frame. "
+            "For Sun: geocentric/observer-independent. "
+            "For Moon/Venus: topocentric/observer-dependent (includes parallax)"
+        )
     )
     dec_degrees: float = Field(
         ..., ge=-90, le=90,
-        description="Declination in decimal degrees (-90 to +90), ICRS epoch"
+        description=(
+            "Declination in decimal degrees (-90 to +90), GCRS frame. "
+            "For Sun: geocentric/observer-independent. "
+            "For Moon/Venus: topocentric/observer-dependent (includes parallax)"
+        )
     )
 
 

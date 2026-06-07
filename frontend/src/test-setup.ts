@@ -71,19 +71,24 @@ config.global.plugins = [i18n]
 // Suppress Three.js warnings about mock objects in tests
 // The Label3D mock in tests isn't a true THREE.Object3D, which causes console warnings
 // but doesn't affect test functionality
-const originalError = console.error;
-console.error = function(...args: any[]) {
-  // Suppress THREE.Object3D.add warnings for mock objects
-  if (args[0]?.toString?.().includes('THREE.Object3D.add')) {
-    return;
-  }
-  originalError.apply(console, args);
-};
+// Guard: Install wrapper only once per worker process to avoid nested wrappers
+if (!(console.error as any).__testSetupWrapped) {
+  const originalError = console.error;
+  console.error = function(...args: any[]) {
+    // Suppress THREE.Object3D.add warnings for mock objects
+    if (args[0]?.toString?.().includes('THREE.Object3D.add')) {
+      return;
+    }
+    originalError.apply(console, args);
+  };
+  (console.error as any).__testSetupWrapped = true;
+}
 
 // Handle unhandled promise rejections from Vue component rendering
 // These occur in happy-dom environment when Vue components try to access
 // WebGL/GPU features that aren't available in test environment
-if (typeof process !== 'undefined' && process.on) {
+// Guard: Install handler only once per worker process to avoid duplicate listeners and MaxListeners warnings
+if (typeof process !== 'undefined' && process.on && !(process as any).__testUnhandledRejectionHandlerInstalled) {
   process.on('unhandledRejection', (reason: any) => {
     // Only suppress the specific known happy-dom/WebGL context error
     // Error signature: "Cannot read property 'getContext' of null" or similar canvas-related failures
@@ -93,4 +98,5 @@ if (typeof process !== 'undefined' && process.on) {
     // Let all other rejections be handled normally to catch real test failures
     console.error('Unhandled Rejection:', reason);
   });
+  (process as any).__testUnhandledRejectionHandlerInstalled = true;
 }

@@ -34,13 +34,13 @@ class TestSunRADec:
         # Dec should be -90 to +90 degrees
         assert -90 <= result["dec_degrees"] <= 90
     
-    def test_sun_ra_dec_observer_dependent_small_parallax(self):
-        """Test that sun RA/Dec are observer-dependent but with minimal parallax
+    def test_sun_ra_dec_geocentric_observer_independent(self):
+        """Test that Sun RA/Dec are geocentric and observer-independent
         
-        The Sun's RA/Dec returned by the API are topocentric/apparent coordinates
-        derived from an AltAz frame. While the Sun exhibits parallax effects due to
-        observer location, these are very small (~0.005 degrees) due to the Sun's
-        great distance. This test verifies differences stay within expected bounds.
+        The Sun's RA/Dec returned by the API are geocentric coordinates from get_sun()
+        in GCRS frame. These are observer-independent—the same datetime produces identical
+        coordinates regardless of observer location. The Sun is distant enough (~1 AU) that
+        parallax is negligible, confirming observer-independence.
         """
         result_nyc = calculate_sun_position(
             ObservationDateTime(date="2026-02-01", time="12:00:00"),
@@ -52,7 +52,7 @@ class TestSunRADec:
             LocationModel(latitude=51.5074, longitude=-0.1278)
         )
         
-        # Parallax for the Sun is negligible, so RA/Dec should be nearly identical
+        # Geocentric coordinates should be identical regardless of observer location
         # (within ~0.01 degree due to numerical precision, not actual parallax)
         assert abs(result_nyc["ra_degrees"] - result_london["ra_degrees"]) < 0.01
         assert abs(result_nyc["dec_degrees"] - result_london["dec_degrees"]) < 0.01

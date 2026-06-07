@@ -195,10 +195,10 @@ def _process_venus_position(
     # Get localized phase name
     phase_name = i18n.get(f"venusPhases.{phase_key}")
 
-    # Extract RA/Dec in GCRS frame (geocentric, with observer parallax)
-    # Venus coordinates from get_body(..., earth_location) are topocentric
-    # (account for parallax based on observer location and distance to Venus)
-    # GCRS is the standard geocentric celestial reference frame used by astropy
+    # Extract RA/Dec in GCRS frame (topocentric/apparent, observer-dependent)
+    # Venus coordinates from get_body(..., earth_location) are topocentric coordinates
+    # that account for parallax based on observer location and distance to Venus
+    # GCRS is the standard celestial reference frame used by astropy
     ra_degrees = float(venus_with_loc.ra.degree)
     dec_degrees = float(venus_with_loc.dec.degree)
 
