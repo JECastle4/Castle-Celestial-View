@@ -189,7 +189,7 @@ def test_moon_input_datetime_format():
         LocationModel(latitude=40.7128, longitude=-74.0060, elevation=10.0)
     )
 
-    assert result["input_datetime"] == "2025-01-15T14:30:45"
+    assert result["input_datetime"] == "2025-01-15T14:30:45Z"
 
 
 def test_moon_location_data():

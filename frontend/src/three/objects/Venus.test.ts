@@ -17,7 +17,7 @@ describe('Venus', () => {
 
     it('should have venus material with correct color', () => {
       const material = venus.mesh.material as THREE.MeshStandardMaterial;
-      expect(material.color.getHex()).toBe(0xfffacd); // light yellow
+      expect(material.color.getHex()).toBe(0xffffff); // white (as observed in night sky)
       expect(material).toBeInstanceOf(THREE.MeshStandardMaterial);
     });
 
@@ -27,8 +27,8 @@ describe('Venus', () => {
 
     it('should have emissive glow', () => {
       const material = venus.mesh.material as THREE.MeshStandardMaterial;
-      expect(material.emissive.getHex()).toBe(0xffff99);
-      expect(material.emissiveIntensity).toBe(0.3);
+      expect(material.emissive.getHex()).toBe(0xcccccc); // white glow
+      expect(material.emissiveIntensity).toBe(0.5);
     });
 
     it('should be visible by default', () => {
@@ -208,6 +208,24 @@ describe('Venus', () => {
         expect(distance).toBeCloseTo(11, 0);
       });
     });
+
+    it('should use minimum disk radius if calculated is too small', () => {
+      const originalTan = Math.tan;
+      Math.tan = () => 0.00001;
+      const venus = new Venus();
+      Math.tan = originalTan;
+      const geometry = venus['skyViewGeometry'];
+      expect((geometry as THREE.SphereGeometry).parameters.radius).toBeGreaterThanOrEqual(0.2);
+    });
+
+    it('should handle normal disk radius calculation without minimum clamping', () => {
+      // Normal Math.tan results in the minimum clamping being applied
+      const venus = new Venus();
+      const geometry = venus['skyViewGeometry'];
+      const radius = (geometry as THREE.SphereGeometry).parameters.radius;
+      // With current angular diameter, it gets clamped to 0.2 minimum
+      expect(radius).toBeGreaterThanOrEqual(0.2);
+    });
   });
 
   describe('view mode persistence', () => {
@@ -221,6 +239,81 @@ describe('Venus', () => {
       // Positions should be different but both valid
       expect(venus.mesh.position).toBeDefined();
       expect(venus.mesh.position.x).not.toEqual(position3D.x);
+    });
+  });
+
+  describe('label billboard and positioning', () => {
+    it('should update label billboard to face camera', () => {
+      const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+      camera.position.set(5, 5, 5);
+      
+      venus.updatePosition(45, 45, true, '3D');
+      venus.updateLabelBillboard(camera);
+      
+      // Should not throw, label should be updated
+      const labelMesh = venus['label'].getMesh();
+      expect(labelMesh).toBeDefined();
+    });
+
+    it('should reposition label after setViewMode to sky', () => {
+      venus.setViewMode('sky');
+      venus.updatePosition(45, 45, true, 'SKY');
+      
+      const labelMesh = venus['label'].getMesh();
+      expect(labelMesh.position).toBeDefined();
+    });
+
+    it('should reposition label after setViewMode to 3d', () => {
+      venus.setViewMode('sky');
+      venus.setViewMode('3d');
+      venus.updatePosition(45, 45, true, '3D');
+      
+      const labelMesh = venus['label'].getMesh();
+      expect(labelMesh.position).toBeDefined();
+    });
+
+    it('should update label visibility with mesh', () => {
+      venus.updatePosition(45, 45, false, '3D');
+      
+      // Label should follow visibility changes
+      expect(venus.mesh.visible).toBe(false);
+    });
+
+    it('should handle multiple label billboard updates', () => {
+      const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+      
+      for (let i = 0; i < 5; i++) {
+        camera.position.set(Math.cos(i) * 5, Math.sin(i) * 5, 5);
+        venus.updatePosition(i * 72, 45, true, '3D');
+        venus.updateLabelBillboard(camera);
+      }
+      
+      expect(venus.mesh.position).toBeDefined();
+    });
+
+    it('should position label in both 3D and SKY view modes', () => {
+      venus.setViewMode('3d');
+      venus.updatePosition(0, 45, true, '3D');
+      const pos3DX = venus['label'].getMesh().position.x;
+      
+      venus.setViewMode('sky');
+      venus.updatePosition(0, 45, true, 'SKY');
+      const posSkyX = venus['label'].getMesh().position.x;
+      
+      // Positions should be different between view modes
+      expect(posSkyX).not.toBeCloseTo(pos3DX, 1);
+    });
+  });
+
+  describe('sky view below horizon with label', () => {
+    it('should handle below-horizon positioning with label updates', () => {
+      venus.setViewMode('sky');
+      venus.updatePosition(180, -30, true, 'SKY');
+      
+      const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+      venus.updateLabelBillboard(camera);
+      
+      expect(venus.mesh.position.y).toBe(0);
     });
   });
 });

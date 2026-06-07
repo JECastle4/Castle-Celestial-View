@@ -56,10 +56,10 @@ def calculate_venus_position(
         raise ValueError(i18n.get('validation.longitudeRange', value=location.longitude))
 
     # Combine date and time (ISO 8601 format)
-    datetime_str = f"{observation_time.date}T{observation_time.time}"
+    datetime_str = f"{observation_time.date}T{observation_time.time}Z"
 
     # Convert to astropy Time
-    obs_time = Time(datetime_str, format='isot', scale='utc')
+    obs_time = Time(datetime_str.rstrip('Z'), format='isot', scale='utc')
 
     # Create Earth location
     earth_location = EarthLocation(
@@ -80,12 +80,13 @@ def calculate_venus_position(
     venus_gcrs = get_body("venus", obs_time)
 
     return _process_venus_position(
-        venus_altaz, sun, venus_gcrs, obs_time, datetime_str, location,
+        venus_with_loc, venus_altaz, sun, venus_gcrs, obs_time, datetime_str, location,
         locale=locale
     )
 
 
 def _process_venus_position(
+    venus_with_loc,
     venus_altaz,
     sun,
     venus_gcrs,
@@ -104,6 +105,8 @@ def _process_venus_position(
     direction from Venus. Illumination = (1 + cos(phase_angle)) / 2.
 
     Args:
+        venus_with_loc: Venus position in topocentric GCRS frame
+            (observer-dependent, includes parallax)
         venus_altaz: Venus position in AltAz frame
         sun: Sun position (GCRS coordinates)
         venus_gcrs: Venus position (GCRS coordinates)
@@ -194,10 +197,19 @@ def _process_venus_position(
     # Get localized phase name
     phase_name = i18n.get(f"venusPhases.{phase_key}")
 
+    # Extract RA/Dec in GCRS frame (topocentric/apparent, observer-dependent)
+    # Venus coordinates from get_body(..., earth_location) are topocentric coordinates
+    # that account for parallax based on observer location and distance to Venus
+    # GCRS is the standard celestial reference frame used by astropy
+    ra_degrees = float(venus_with_loc.ra.degree)
+    dec_degrees = float(venus_with_loc.dec.degree)
+
     return {
         "altitude": float(altitude),
         "azimuth": float(azimuth),
         "is_visible": is_visible,
+        "ra_degrees": ra_degrees,
+        "dec_degrees": dec_degrees,
         "sun_separation": sun_separation,
         "naked_eye_visible": naked_eye_visible,
         "illumination": illumination,

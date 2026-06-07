@@ -24,7 +24,7 @@ class TestDayOfWeekEndpoint:
         assert data["day_name"] == "Sunday"
         assert "julian_date" in data
         assert isinstance(data["julian_date"], float)
-        assert data["input_datetime"] == "2026-02-01T00:00:00"
+        assert data["input_datetime"] == "2026-02-01T00:00:00Z"
     
     def test_valid_request_with_time(self):
         """Test valid request with both date and time"""
@@ -38,7 +38,7 @@ class TestDayOfWeekEndpoint:
         
         assert data["day_of_week"] == 0
         assert data["day_name"] == "Sunday"
-        assert data["input_datetime"] == "2026-02-01T14:30:45"
+        assert data["input_datetime"] == "2026-02-01T14:30:45Z"
     
     def test_different_days_of_week(self):
         """Test multiple dates to verify different days"""
@@ -658,7 +658,7 @@ class TestBatchEarthObservationsEndpoint:
         assert "sun" in first_frame
         assert "moon" in first_frame
         assert "moon_phase" in first_frame
-        assert first_frame["datetime"] == "2024-01-01T12:00:00"
+        assert first_frame["datetime"] == "2024-01-01T12:00:00Z"
         
         # Check sun data structure
         assert "altitude" in first_frame["sun"]
@@ -678,13 +678,13 @@ class TestBatchEarthObservationsEndpoint:
         # Check metadata
         assert "metadata" in data
         assert data["metadata"]["frame_count"] == 7
-        assert data["metadata"]["start_datetime"] == "2024-01-01T12:00:00"
-        assert data["metadata"]["end_datetime"] == "2024-01-01T18:00:00"
+        assert data["metadata"]["start_datetime"] == "2024-01-01T12:00:00Z"
+        assert data["metadata"]["end_datetime"] == "2024-01-01T18:00:00Z"
         assert data["metadata"]["time_span_hours"] == 6.0
         
         # Check last frame
         last_frame = data["frames"][-1]
-        assert last_frame["datetime"] == "2024-01-01T18:00:00"
+        assert last_frame["datetime"] == "2024-01-01T18:00:00Z"
     
     def test_batch_with_default_times(self):
         """Test batch request with default start and end times"""
@@ -703,8 +703,8 @@ class TestBatchEarthObservationsEndpoint:
         data = response.json()
         
         # Default start_time is 00:00:00, default end_time is 23:59:59
-        assert data["frames"][0]["datetime"] == "2024-01-01T00:00:00"
-        assert data["frames"][-1]["datetime"] == "2024-01-01T23:59:59"
+        assert data["frames"][0]["datetime"] == "2024-01-01T00:00:00Z"
+        assert data["frames"][-1]["datetime"] == "2024-01-01T23:59:59Z"
     
     def test_batch_minimum_two_frames(self):
         """Test batch request with minimum frame count"""
@@ -868,9 +868,9 @@ class TestBatchEarthObservationsEndpoint:
         data = response.json()
         
         assert len(data["frames"]) == 3
-        assert data["frames"][0]["datetime"] == "2024-01-01T12:00:00"
-        assert data["frames"][1]["datetime"] == "2024-01-02T12:00:00"
-        assert data["frames"][2]["datetime"] == "2024-01-03T12:00:00"
+        assert data["frames"][0]["datetime"] == "2024-01-01T12:00:00Z"
+        assert data["frames"][1]["datetime"] == "2024-01-02T12:00:00Z"
+        assert data["frames"][2]["datetime"] == "2024-01-03T12:00:00Z"
         assert data["metadata"]["time_span_hours"] == 48.0
     
     def test_batch_negative_elevation(self):
@@ -954,11 +954,11 @@ class TestBatchEarthObservationsEndpoint:
         data = response.json()
         
         # Check frames are evenly spaced at 1 hour intervals
-        assert data["frames"][0]["datetime"] == "2024-01-01T00:00:00"
-        assert data["frames"][1]["datetime"] == "2024-01-01T01:00:00"
-        assert data["frames"][2]["datetime"] == "2024-01-01T02:00:00"
-        assert data["frames"][3]["datetime"] == "2024-01-01T03:00:00"
-        assert data["frames"][4]["datetime"] == "2024-01-01T04:00:00"
+        assert data["frames"][0]["datetime"] == "2024-01-01T00:00:00Z"
+        assert data["frames"][1]["datetime"] == "2024-01-01T01:00:00Z"
+        assert data["frames"][2]["datetime"] == "2024-01-01T02:00:00Z"
+        assert data["frames"][3]["datetime"] == "2024-01-01T03:00:00Z"
+        assert data["frames"][4]["datetime"] == "2024-01-01T04:00:00Z"
 
 
 class TestAcceptLanguage:

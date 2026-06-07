@@ -49,10 +49,10 @@ def calculate_moon_phase(
         raise ValueError(msg)
 
     # Combine date and time (ISO 8601 format)
-    datetime_str = f"{observation_time.date}T{observation_time.time}"
+    datetime_str = f"{observation_time.date}T{observation_time.time}Z"
 
     # Convert to astropy Time (assumes UTC)
-    time = Time(datetime_str, format="isot", scale="utc")
+    time = Time(datetime_str.rstrip('Z'), format="isot", scale="utc")
 
     # Create location
     earth_location = EarthLocation(

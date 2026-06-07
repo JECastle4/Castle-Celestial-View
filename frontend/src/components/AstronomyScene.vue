@@ -178,17 +178,25 @@
           <span>{{ animationSpeed.toFixed(1) }}x</span>
         </div>
         
-        <div v-if="currentFrame" class="current-info">
-          <p><strong>{{ t('astronomy.frame') }}:</strong> {{ currentIndex + 1 }} / {{ frameCount }}</p>
-          <p><strong>{{ t('astronomy.time') }}:</strong> {{ currentFrame.datetime }}</p>
-          <p><strong>{{ t('astronomy.sunAltitude') }}:</strong> {{ typeof currentFrame.sun.altitude === 'number' ? currentFrame.sun.altitude.toFixed(1) : 'N/A' }}{{ t('ui.units.degrees') }}</p>
-          <p><strong>{{ t('astronomy.sunVisible') }}:</strong> {{ currentFrame.sun.is_visible ? t('astronomy.yes') : t('astronomy.no') }}</p>
-          <p><strong>{{ t('astronomy.moonAltitude') }}:</strong> {{ typeof currentFrame.moon.altitude === 'number' ? currentFrame.moon.altitude.toFixed(1) : 'N/A' }}{{ t('ui.units.degrees') }}</p>
-          <p><strong>{{ t('astronomy.moonVisible') }}:</strong> {{ currentFrame.moon.is_visible ? t('astronomy.yes') : t('astronomy.no') }}</p>
-          <p><strong>{{ t('astronomy.moonPhase') }}:</strong> {{ currentFrame.moon_phase.phase_name }}</p>
-          <p><strong>{{ t('astronomy.illumination') }}:</strong> {{ (currentFrame.moon_phase.illumination * 100).toFixed(1) }}{{ t('ui.units.percent') }}</p>
-          <p v-if="FEATURE_FLAGS_EXPOSED.VENUS_UI_ENABLED && currentFrame.venus"><strong>Venus Altitude:</strong> {{ typeof currentFrame.venus.altitude === 'number' ? currentFrame.venus.altitude.toFixed(1) : 'N/A' }}{{ t('ui.units.degrees') }}</p>
-          <p v-if="FEATURE_FLAGS_EXPOSED.VENUS_UI_ENABLED && currentFrame.venus"><strong>Venus Visible:</strong> {{ currentFrame.venus.is_visible ? t('astronomy.yes') : t('astronomy.no') }}</p>
+        <div v-if="currentFrame" class="celestial-panel">
+          <PanelHeader
+            :currentFrameIndex="currentIndex"
+            :totalFrames="frameCount"
+            :datetime="currentFrame.datetime"
+            :location="params"
+          />
+          
+          <CelestialBodyCarousel
+            :selectedBody="selectedBodyId"
+            @update:selectedBody="(bodyId) => selectedBodyId = bodyId"
+          />
+          
+          <BodyInfoPanel
+            :bodyId="selectedBodyId"
+            :bodyData="selectedBodyId === 'sun' ? currentFrame.sun : selectedBodyId === 'moon' ? currentFrame.moon : currentFrame.venus"
+            :moonPhaseData="selectedBodyId === 'moon' ? currentFrame.moon_phase : undefined"
+            :venusPhaseData="selectedBodyId === 'venus' ? currentFrame.venus_phase : undefined"
+          />
         </div>
       </div>
     </div>
@@ -292,15 +300,15 @@ import { Venus } from '@/three/objects/Venus';
 import { Earth } from '@/three/objects/Earth';
 import { FEATURE_FLAGS } from '@/config/features';
 import type { ObservationFrame } from '@/types/api.types';
+import CelestialBodyCarousel from './CelestialBodyCarousel.vue';
+import BodyInfoPanel from './BodyInfoPanel.vue';
+import PanelHeader from './PanelHeader.vue';
 
 const BaseMap = defineAsyncComponent(() => import('./BaseMap.vue'));
 const DateRangePicker = defineAsyncComponent(() => import('./DateRangePicker.vue'));
 
 const { t } = useI18n();
 const toast = useToast();
-
-// Expose feature flags to template
-const FEATURE_FLAGS_EXPOSED = FEATURE_FLAGS;
 
 // Form parameters with defaults
 const today = new Date();
@@ -313,6 +321,7 @@ const endDate = `${yyyy}-${mm}-${dd}`;
 const params = ref({
   latitude: 51.5,
   longitude: -0.1,
+  elevation: 0,
   start_date: startDate,
   start_time: '00:00:00',
   end_date: endDate,
@@ -321,6 +330,9 @@ const params = ref({
 });
 
 const framesPerDay = ref(48);
+
+// Celestial body carousel state
+const selectedBodyId = ref('sun');
 
 // Canvas reference
 const canvasRef = ref<HTMLCanvasElement | null>(null);
@@ -409,18 +421,18 @@ const isFormValid = computed(() => {
 
 const initializeObjects = () => {
   if (!canvasRef.value) return;
-  if (!earth || !sun || !moon || (FEATURE_FLAGS.VENUS_UI_ENABLED && !venus) || !sceneManager) {
+  if (!earth || !sun || !moon || (FEATURE_FLAGS.VENUS_ENABLED && !venus) || !sceneManager) {
     sceneManager = new SceneManager(canvasRef.value);
     earth = new Earth();
     sun = new Sun();
     moon = new Moon();
-    if (FEATURE_FLAGS.VENUS_UI_ENABLED) {
+    if (FEATURE_FLAGS.VENUS_ENABLED) {
       venus = new Venus();
     }
     earth.addToScene(sceneManager.scene);
     sun.addToScene(sceneManager.scene);
     moon.addToScene(sceneManager.scene);
-    if (FEATURE_FLAGS.VENUS_UI_ENABLED && venus) {
+    if (venus) {
       venus.addToScene(sceneManager.scene);
     }
     // Hide objects until data is loaded
@@ -437,7 +449,7 @@ const initializeObjects = () => {
     if (moon && moon.mesh) {
       moon.mesh.visible = false;
     }
-    if (FEATURE_FLAGS.VENUS_UI_ENABLED && venus && venus.mesh) {
+    if (FEATURE_FLAGS.VENUS_ENABLED && venus && venus.mesh) {
       venus.mesh.visible = false;
     }
     sceneManager.startAnimation(updateAnimation);
@@ -496,7 +508,7 @@ async function loadData() {
         }
       }
     }
-    if (!sun || !moon || !earth || (FEATURE_FLAGS.VENUS_UI_ENABLED && !venus) || !sceneManager) {
+    if (!sun || !moon || !earth || (FEATURE_FLAGS.VENUS_ENABLED && !venus) || !sceneManager) {
       initializeObjects();
     }
     currentIndex.value = 0;
@@ -518,7 +530,7 @@ async function loadData() {
       if (moon) {
         moon.mesh.visible = frame.moon.is_visible;
       }
-      if (FEATURE_FLAGS.VENUS_UI_ENABLED && venus && frame.venus) {
+      if (venus && frame.venus) {
         venus.mesh.visible = frame.venus.is_visible;
       }
     }
@@ -611,7 +623,7 @@ function updatePositions() {
     viewMode.value
   );
 
-  if (FEATURE_FLAGS.VENUS_UI_ENABLED && frame.venus && venus) {
+  if (FEATURE_FLAGS.VENUS_ENABLED && frame.venus && venus) {
     venus.updatePosition(
       frame.venus.azimuth,
       frame.venus.altitude,
@@ -621,6 +633,15 @@ function updatePositions() {
   }
 
   moon.updatePhase(frame.moon_phase.illumination * 100);
+  
+  // Update label billboard orientations to face camera
+  if (sceneManager) {
+    sun.updateLabelBillboard(sceneManager.camera);
+    moon.updateLabelBillboard(sceneManager.camera);
+    if (FEATURE_FLAGS.VENUS_ENABLED && venus) {
+      venus.updateLabelBillboard(sceneManager.camera);
+    }
+  }
 }
 
 // Switch view mode
@@ -976,15 +997,14 @@ button {
   font-size: 1em;
 }
 
-.current-info {
+.celestial-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
   margin-top: 15px;
-  padding-top: 15px;
+  padding: 0;
   border-top: 1px solid #555;
   font-size: 0.85em;
-}
-
-.current-info p {
-  margin: 5px 0;
 }
 
 /* Ensure canvas always fills its parent container */

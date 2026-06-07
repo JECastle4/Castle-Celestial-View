@@ -38,10 +38,10 @@ def calculate_sun_position(
         raise ValueError(t('validation.longitudeRange', value=location.longitude))
 
     # Combine date and time (ISO 8601 format)
-    datetime_str = f"{observation_time.date}T{observation_time.time}"
+    datetime_str = f"{observation_time.date}T{observation_time.time}Z"
 
     # Convert to astropy Time
-    obs_time = Time(datetime_str, format='isot', scale='utc')
+    obs_time = Time(datetime_str.rstrip('Z'), format='isot', scale='utc')
 
     # Create Earth location
     earth_location = EarthLocation(
@@ -53,13 +53,15 @@ def calculate_sun_position(
     # Create AltAz frame (pressure=0 to ignore atmospheric refraction for simplicity)
     altaz_frame = AltAz(obstime=obs_time, location=earth_location, pressure=0.0)
 
-    # Get sun position and transform to AltAz coordinates
-    sun_altaz = get_sun(obs_time).transform_to(altaz_frame)
+    # Get sun position in geocentric (GCRS) and AltAz coordinates
+    sun_gcrs = get_sun(obs_time)
+    sun_altaz = sun_gcrs.transform_to(altaz_frame)
 
-    return _process_sun_position(sun_altaz, obs_time, datetime_str, location)
+    return _process_sun_position(sun_gcrs, sun_altaz, obs_time, datetime_str, location)
 
 
 def _process_sun_position(
+    sun_gcrs,
     sun_altaz,
     time: Time,
     datetime_str: str,
@@ -70,7 +72,8 @@ def _process_sun_position(
     Internal function used by calculate_sun_position and batch operations.
 
     Args:
-        sun_altaz: Sun position in AltAz frame
+        sun_gcrs: Sun position in geocentric GCRS frame (for accurate RA/Dec)
+        sun_altaz: Sun position in AltAz frame (for altitude/azimuth)
         time: Astropy Time object
         datetime_str: Input datetime string
         location: Observer location with latitude, longitude, elevation
@@ -78,7 +81,7 @@ def _process_sun_position(
     Returns:
         Dictionary with sun position data
     """
-    # Extract altitude and azimuth
+    # Extract altitude and azimuth from AltAz frame
     altitude = sun_altaz.alt.degree
     azimuth = sun_altaz.az.degree
 
@@ -86,10 +89,18 @@ def _process_sun_position(
     # Convert to Python bool to avoid numpy bool type
     is_visible = bool(altitude > 0)
 
+    # Extract RA/Dec in GCRS frame (geocentric, observer-independent)
+    # GCRS is the standard geocentric celestial reference frame used by astropy's get_sun()
+    # Note: These are geocentric coordinates independent of observer location
+    ra_degrees = float(sun_gcrs.ra.degree)
+    dec_degrees = float(sun_gcrs.dec.degree)
+
     return {
         "altitude": float(altitude),
         "azimuth": float(azimuth),
         "is_visible": is_visible,
+        "ra_degrees": ra_degrees,
+        "dec_degrees": dec_degrees,
         "julian_date": float(time.jd),
         "input_datetime": datetime_str,
         "location": {

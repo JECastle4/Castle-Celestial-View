@@ -9,6 +9,8 @@ export interface CelestialPosition {
   altitude: number;
   azimuth: number;
   is_visible: boolean;
+  ra_degrees: number;
+  dec_degrees: number;
 }
 
 export interface MoonPhaseData {

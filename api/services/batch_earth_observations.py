@@ -58,10 +58,10 @@ def calculate_batch_earth_observations(
     if not -180 <= location.longitude <= 180:
         raise ValueError(_t('validation.longitudeRange', value=location.longitude))
     # Create start and end times
-    start_datetime_str = f"{start_date}T{start_time}"
-    end_datetime_str = f"{end_date}T{end_time}"
-    start_t = Time(start_datetime_str, format="isot", scale="utc")
-    end_t = Time(end_datetime_str, format="isot", scale="utc")
+    start_datetime_str = f"{start_date}T{start_time}Z"
+    end_datetime_str = f"{end_date}T{end_time}Z"
+    start_t = Time(start_datetime_str.rstrip('Z'), format="isot", scale="utc")
+    end_t = Time(end_datetime_str.rstrip('Z'), format="isot", scale="utc")
     # Validate time order
     if end_t <= start_t:
         raise ValueError(_t('validation.endTimeAfterStart'))
@@ -81,7 +81,7 @@ def calculate_batch_earth_observations(
         iso_parts = obs_time.iso.split()
         date_part = iso_parts[0]
         time_part = iso_parts[1].split('.')[0]
-        datetime_str = f"{date_part}T{time_part}"
+        datetime_str = f"{date_part}T{time_part}Z"
         altaz_frame = AltAz(obstime=obs_time, location=earth_location, pressure=0.0)
         sun = get_sun(obs_time)
         moon = get_body("moon", obs_time, earth_location)
@@ -92,18 +92,21 @@ def calculate_batch_earth_observations(
         moon_altaz = moon.transform_to(altaz_frame)
         venus_altaz = venus_with_loc.transform_to(altaz_frame)
         sun_data = _process_sun_position(
+            sun_gcrs=sun,
             sun_altaz=sun_altaz,
             time=obs_time,
             datetime_str=datetime_str,
             location=location
         )
         moon_data = _process_moon_position(
+            moon_gcrs=moon,
             moon_altaz=moon_altaz,
             time=obs_time,
             datetime_str=datetime_str,
             location=location
         )
         venus_data = _process_venus_position(
+            venus_with_loc=venus_with_loc,
             venus_altaz=venus_altaz,
             sun=sun,
             venus_gcrs=venus_gcrs,
@@ -121,16 +124,20 @@ def calculate_batch_earth_observations(
             locale=locale,
         )
         frame = {
-            "datetime": f"{date_part}T{time_part}",
+            "datetime": f"{date_part}T{time_part}Z",
             "sun": {
                 "altitude": sun_data["altitude"],
                 "azimuth": sun_data["azimuth"],
-                "is_visible": sun_data["is_visible"]
+                "is_visible": sun_data["is_visible"],
+                "ra_degrees": sun_data["ra_degrees"],
+                "dec_degrees": sun_data["dec_degrees"]
             },
             "moon": {
                 "altitude": moon_data["altitude"],
                 "azimuth": moon_data["azimuth"],
-                "is_visible": moon_data["is_visible"]
+                "is_visible": moon_data["is_visible"],
+                "ra_degrees": moon_data["ra_degrees"],
+                "dec_degrees": moon_data["dec_degrees"]
             },
             "moon_phase": {
                 "illumination": phase_data["illumination"],
@@ -140,7 +147,9 @@ def calculate_batch_earth_observations(
             "venus": {
                 "altitude": venus_data["altitude"],
                 "azimuth": venus_data["azimuth"],
-                "is_visible": venus_data["is_visible"]
+                "is_visible": venus_data["is_visible"],
+                "ra_degrees": venus_data["ra_degrees"],
+                "dec_degrees": venus_data["dec_degrees"]
             },
             "venus_phase": {
                 "illumination": venus_data["illumination"],

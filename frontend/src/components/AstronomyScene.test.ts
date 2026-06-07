@@ -8,6 +8,7 @@ function withMoonPhase(frames: any[]): any[] {
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import AstronomyScene from './AstronomyScene.vue';
+import { resetFeatureFlags } from '../test-setup';
 
 // Mock Three.js modules to avoid WebGL context errors
 vi.mock('@/three/scene', () => ({
@@ -34,6 +35,8 @@ vi.mock('@/three/objects/Sun', () => ({
     addToScene = vi.fn();
     update = vi.fn();
     updatePosition = vi.fn(); // Added for test compatibility
+    updateLabelBillboard = vi.fn(); // Added for label support
+    setViewMode = vi.fn(); // Added for view mode support
   },
 }));
 
@@ -44,6 +47,8 @@ vi.mock('@/three/objects/Moon', () => ({
     update = vi.fn();
     updatePosition = vi.fn();
     updatePhase = vi.fn(); // Added for test compatibility
+    updateLabelBillboard = vi.fn(); // Added for label support
+    setViewMode = vi.fn(); // Added for view mode support
   },
 }));
 
@@ -54,6 +59,7 @@ vi.mock('@/three/objects/Venus', () => ({
     update = vi.fn();
     updatePosition = vi.fn();
     setViewMode = vi.fn();
+    updateLabelBillboard = vi.fn(); // Added for label support
   },
 }));
 
@@ -65,6 +71,7 @@ vi.mock('@/three/objects/Earth', () => ({
     getHemisphereGrid = () => ({ visible: true });
     addToScene = vi.fn();
     update = vi.fn();
+    setViewMode = vi.fn(); // Added for view mode support
   },
 }));
 
@@ -104,6 +111,7 @@ describe('AstronomyScene - Form Validation', () => {
   let wrapper: ReturnType<typeof mount>;
 
   beforeEach(() => {
+    resetFeatureFlags();
     // Reset mock state
     mockFetchBatchObservations = vi.fn();
     mockFetchBatchObservationsSSE = vi.fn();
@@ -312,6 +320,7 @@ describe('AstronomyScene - Data Loading', () => {
   let wrapper: ReturnType<typeof mount>;
 
   beforeEach(() => {
+    resetFeatureFlags();
     mockFetchBatchObservations = vi.fn();
     mockDismissSuccessToast = vi.fn();
     mockLoading.value = false;
@@ -341,29 +350,34 @@ describe('AstronomyScene - With Data Loaded', () => {
   let wrapper: ReturnType<typeof mount>;
 
   beforeEach(() => {
+    resetFeatureFlags();
     mockFetchBatchObservations = vi.fn();
     mockLoading.value = false;
     mockError.value = null;
     mockData.value = {
       frames: withMoonPhase([
         {
-          datetime: '2026-02-02T00:00:00',
-          sun: { altitude: 15.5, azimuth: 120.0, is_visible: true },
-          moon: { altitude: 45.2, azimuth: 230.5, is_visible: true },
+          datetime: '2026-02-02T00:00:00Z',
+          sun: { altitude: 15.5, azimuth: 120.0, is_visible: true, ra_degrees: 140.5, dec_degrees: 15.2 },
+          moon: { altitude: 45.2, azimuth: 230.5, is_visible: true, ra_degrees: 210.3, dec_degrees: -5.8 },
           moon_phase: { illumination: 0.75, phase_angle: 90.0, phase_name: 'Waxing Gibbous' },
+          venus: { altitude: 8.5, azimuth: 100.0, is_visible: true, ra_degrees: 45.6, dec_degrees: 10.2 },
+          venus_phase: { illumination: 0.95, phase_angle: 10.0 },
         },
         {
-          datetime: '2026-02-02T01:00:00',
-          sun: { altitude: 20.0, azimuth: 125.0, is_visible: true },
-          moon: { altitude: 40.0, azimuth: 235.0, is_visible: true },
+          datetime: '2026-02-02T01:00:00Z',
+          sun: { altitude: 20.0, azimuth: 125.0, is_visible: true, ra_degrees: 141.8, dec_degrees: 15.4 },
+          moon: { altitude: 40.0, azimuth: 235.0, is_visible: true, ra_degrees: 211.5, dec_degrees: -6.1 },
           moon_phase: { illumination: 0.76, phase_angle: 91.0, phase_name: 'Waxing Gibbous' },
+          venus: { altitude: 10.0, azimuth: 105.0, is_visible: true, ra_degrees: 46.8, dec_degrees: 10.5 },
+          venus_phase: { illumination: 0.94, phase_angle: 12.0 },
         },
       ]),
       metadata: {
         location: { latitude: 51.5, longitude: -0.1, elevation: 0 },
         frame_count: 2,
-        start_datetime: '2026-02-02T00:00:00',
-        end_datetime: '2026-02-02T01:00:00',
+        start_datetime: '2026-02-02T00:00:00Z',
+        end_datetime: '2026-02-02T01:00:00Z',
         time_span_hours: 1.0,
       },
     };
@@ -408,6 +422,7 @@ describe('AstronomyScene - Frame Interval Calculation', () => {
   let wrapper: ReturnType<typeof mount>;
 
   beforeEach(() => {
+    resetFeatureFlags();
     // Reset mock state
     mockFetchBatchObservations = vi.fn();
     mockDismissSuccessToast = vi.fn();

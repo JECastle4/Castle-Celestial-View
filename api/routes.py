@@ -52,7 +52,8 @@ async def stream_batch_earth_observations(
     longitude: float = Query(..., ge=-180.0, le=180.0),
     elevation: float = Query(0.0)
 ):
-    """Stream batch celestial observations including sun, moon, and Venus data via Server-Sent Events."""
+    """Stream batch celestial observations including sun, moon, and Venus
+    data via Server-Sent Events."""
     try:
         # Capture the locale now (ContextVar is not copied into the sync
         # streaming thread that StreamingResponse uses to iterate the generator)

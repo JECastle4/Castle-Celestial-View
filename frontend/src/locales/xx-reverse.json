@@ -41,6 +41,8 @@
     "loadData": "ataD daoL",
     "play": "yalP",
     "pause": "esuaP",
+    "previous": "suoiverP",
+    "next": "txeN",
     "restart": "tratseR",
     "restartTooltip": ")weiv tluafed ,1 emarf( noitacol tluafed eht ot aremac eht nruter dna noitamina eht tratseR",
     "restartAria": ")weiv tluafed ,1 emarf( noitacol tluafed eht ot aremac eht nruter dna noitamina eht tratseR",
@@ -80,6 +82,11 @@
     "loadedFrames": "semarf {count} dedaol yllufsseccuS"
   },
   "astronomy": {
+    "bodyNames": {
+      "sun": "nuS",
+      "moon": "nooM",
+      "venus": "suneV"
+    },
     "sunAltitude": "tlA nuS",
     "sunVisible": "elbisiV nuS",
     "sunAzimuth": "htumizA nuS",
@@ -87,7 +94,20 @@
     "moonVisible": "elbisiV nooM",
     "moonAzimuth": "htumizA nooM",
     "moonPhase": "esahP nooM",
+    "phase": "esahP",
+    "phaseAngle": "elgnA esahP",
     "illumination": "noitanimullI",
+    "visible": "elbisiV",
+    "venusData": "ataD suneV",
+    "nakedEyeVisible": "elbisiV eyE dekaN",
+    "celestialCoordinates": "setanidroC laitselEC",
+    "horizontalCoordinates": "setanidroC latnoziroH",
+    "altitude": "edutitlA",
+    "azimuth": "htumiZA",
+    "ra": "AR",
+    "rightAscension": "noisnecsA thgiR",
+    "dec": "ceD",
+    "declination": "noitanilceD",
     "time": "emiT",
     "frames": "semarF",
     "julianDate": "etaD nailuJ",
@@ -102,6 +122,13 @@
       "waningGibbous": "suobbiG gninaW",
       "lastQuarter": "retrauQ tsaL",
       "waningCrescent": "tnecserC gninaW"
+    },
+    "venusPhases": {
+      "new": "weN",
+      "crescent": "tnecserC",
+      "quarter": "retrauQ",
+      "gibbous": "suobbiG",
+      "full": "lluF"
     },
     "dayNames": {
       "sunday": "yadnuS",

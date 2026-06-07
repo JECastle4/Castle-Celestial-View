@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { Label3D } from './Label3D';
 
 /**
  * Venus object for the scene
@@ -7,33 +8,51 @@ export class Venus {
   public mesh: THREE.Mesh;
   private skyViewGeometry: THREE.SphereGeometry;
   private defaultGeometry: THREE.SphereGeometry;
+  private label: Label3D;
+  private labelOffset: number = 0.35; // Current label offset based on view mode
 
   constructor() {
-    // Default size for 3D view (slightly larger than moon, smaller than sun)
-    this.defaultGeometry = new THREE.SphereGeometry(0.3, 32, 32);
+    // Default size for 3D view (95% of Earth's radius, slightly smaller)
+    this.defaultGeometry = new THREE.SphereGeometry(0.275, 32, 32);
     // Sky view size (exaggerated for visibility)
     const domeRadius = 10;
     const venusAngularDiameterRad = 0.008; // ~0.45 degrees in radians
     let venusDiskRadius = domeRadius * Math.tan(venusAngularDiameterRad / 2) * 4; // exaggerate by 4x
     if (venusDiskRadius < 0.2) venusDiskRadius = 0.2;
     this.skyViewGeometry = new THREE.SphereGeometry(venusDiskRadius, 32, 32);
-    // Venus is brightest planet - pale yellow/white color
+    // Venus is brightest planet - white/pale yellow color
     const material = new THREE.MeshStandardMaterial({ 
-      color: 0xfffacd,  // light yellow
+      color: 0xffffff,  // white (as observed in night sky)
       roughness: 0.7, 
       metalness: 0.2,
-      emissive: 0xffff99,  // slight emissive glow for visibility
-      emissiveIntensity: 0.3
+      emissive: 0xcccccc,  // slight emissive glow for visibility
+      emissiveIntensity: 0.5
     });
     this.mesh = new THREE.Mesh(this.defaultGeometry, material);
     this.mesh.name = 'venus';
+    
+    // Create label
+    this.label = new Label3D('Venus', {
+      fontSize: 32,
+      fontColor: '#ffffff',
+      width: 128,
+      height: 64,
+    });
+    // Initialize label as hidden until first updatePosition sets it based on real data
+    this.label.setVisible(false);
   }
 
   setViewMode(mode: '3d' | 'sky') {
     if (mode === 'sky') {
       this.mesh.geometry = this.skyViewGeometry;
+      // Position label closer to venus in sky view (smaller sphere)
+      this.labelOffset = 0.3;
+      this.label.positionRelativeTo(this.mesh.position, this.labelOffset);
     } else {
       this.mesh.geometry = this.defaultGeometry;
+      // Position label farther in 3D view (larger sphere)
+      this.labelOffset = 0.35;
+      this.label.positionRelativeTo(this.mesh.position, this.labelOffset);
     }
   }
 
@@ -76,15 +95,29 @@ export class Venus {
       }
     }
     
+    // Update label position to follow mesh
+    this.label.positionRelativeTo(this.mesh.position, this.labelOffset);
+    
     // Update visibility
     this.mesh.visible = isVisible;
+    this.label.setVisible(isVisible);
+  }
+
+  /**
+   * Update label billboard orientation to face camera
+   */
+  public updateLabelBillboard(camera: THREE.Camera): void {
+    this.label.updateBillboard(camera);
   }
 
   public addToScene(scene: THREE.Scene): void {
     scene.add(this.mesh);
+    scene.add(this.label.getMesh());
   }
 
   public removeFromScene(scene: THREE.Scene): void {
     scene.remove(this.mesh);
+    scene.remove(this.label.getMesh());
+    this.label.dispose();
   }
 }

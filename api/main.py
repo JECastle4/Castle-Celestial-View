@@ -22,8 +22,10 @@ logger = logging.getLogger(__name__)
 iers.conf.auto_download = False
 iers.conf.auto_max_age = None
 
-# Note: API version is independent from the release version (pyproject.toml + frontend/package.json).
-# The API version reflects breaking changes to the API contract; many releases may have no API changes.
+# Note: API version is independent from the release version
+# (pyproject.toml + frontend/package.json).
+# The API version reflects breaking changes to the API contract;
+# many releases may have no API changes.
 app = FastAPI(
     title="Astronomy API",
     description=(

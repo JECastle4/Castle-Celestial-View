@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { Label3D } from './Label3D';
 
 /**
  * Sun object for the scene
@@ -8,6 +9,8 @@ export class Sun {
   private light: THREE.PointLight;
   private skyViewGeometry: THREE.SphereGeometry;
   private defaultGeometry: THREE.SphereGeometry;
+  private label: Label3D;
+  private labelOffset: number = 5; // Current label offset based on view mode
 
   constructor() {
     // Default size for 3D view
@@ -23,13 +26,29 @@ export class Sun {
     this.mesh.name = 'sun';
     this.light = new THREE.PointLight(0xffffdd, 2.0, 100);
     this.mesh.add(this.light);
+    
+    // Create label
+    this.label = new Label3D('Sun', {
+      fontSize: 32,
+      fontColor: '#ffdd44',
+      width: 128,
+      height: 64,
+    });
+    // Initialize label as hidden until first updatePosition sets it based on real data
+    this.label.setVisible(false);
   }
 
   setViewMode(mode: '3d' | 'sky') {
     if (mode === 'sky') {
       this.mesh.geometry = this.skyViewGeometry;
+      // Position label closer to sun in sky view (smaller sphere)
+      this.labelOffset = 0.3;
+      this.label.positionRelativeTo(this.mesh.position, this.labelOffset);
     } else {
       this.mesh.geometry = this.defaultGeometry;
+      // Position label farther in 3D view (larger sphere)
+      this.labelOffset = 5;
+      this.label.positionRelativeTo(this.mesh.position, this.labelOffset);
     }
   }
 
@@ -72,18 +91,33 @@ export class Sun {
       }
     }
     
+    // Update label position to follow mesh
+    this.label.positionRelativeTo(this.mesh.position, this.labelOffset);
+    
     // Update visibility
     this.mesh.visible = isVisible;
     this.light.visible = isVisible;
+    this.label.setVisible(isVisible);
+  }
+
+  /**
+   * Update label billboard orientation to face camera
+   */
+  public updateLabelBillboard(camera: THREE.Camera): void {
+    this.label.updateBillboard(camera);
   }
 
   public addToScene(scene: THREE.Scene): void {
     scene.add(this.mesh);
+    scene.add(this.label.getMesh());
   }
 
   public removeFromScene(scene: THREE.Scene): void {
     scene.remove(this.mesh);
+    scene.remove(this.label.getMesh());
+    this.label.dispose();
   }
+  
   // Public getter for test access
   public getLight(): THREE.PointLight {
     return this.light;

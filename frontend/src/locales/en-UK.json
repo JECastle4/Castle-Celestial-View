@@ -41,6 +41,8 @@
 		"loadData": "Load Data",
 		"play": "Play",
 		"pause": "Pause",
+		"previous": "Previous",
+		"next": "Next",
 		"restart": "Restart",
 		"restartTooltip": "Restart the animation and return the camera to the default location (frame 1, default view)",
 		"restartAria": "Restart the animation and return the camera to the default location (frame 1, default view)",
@@ -80,6 +82,11 @@
 		"loadedFrames": "Successfully loaded {count} frames"
 	},
 	"astronomy": {
+		"bodyNames": {
+			"sun": "Sun",
+			"moon": "Moon",
+			"venus": "Venus"
+		},
 		"sunAltitude": "Sun Alt",
 		"sunVisible": "Sun Visible",
 		"sunAzimuth": "Sun Azimuth",
@@ -87,7 +94,20 @@
 		"moonVisible": "Moon Visible",
 		"moonAzimuth": "Moon Azimuth",
 		"moonPhase": "Moon Phase",
+		"phase": "Phase",
+		"phaseAngle": "Phase Angle",
 		"illumination": "Illumination",
+		"visible": "Visible",
+		"venusData": "Venus Data",
+		"nakedEyeVisible": "Naked Eye Visible",
+		"celestialCoordinates": "Celestial Coordinates",
+		"horizontalCoordinates": "Horizontal Coordinates",
+		"altitude": "Altitude",
+		"azimuth": "Azimuth",
+		"ra": "RA",
+		"rightAscension": "Right Ascension",
+		"dec": "Dec",
+		"declination": "Declination",
 		"time": "Time",
 		"frames": "Frames",
 		"julianDate": "Julian Date",
@@ -102,6 +122,13 @@
 			"waningGibbous": "Waning Gibbous",
 			"lastQuarter": "Last Quarter",
 			"waningCrescent": "Waning Crescent"
+		},
+		"venusPhases": {
+			"new": "New",
+			"crescent": "Crescent",
+			"quarter": "Quarter",
+			"gibbous": "Gibbous",
+			"full": "Full"
 		},
 		"dayNames": {
 			"sunday": "Sunday",

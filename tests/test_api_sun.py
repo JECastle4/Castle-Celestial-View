@@ -99,7 +99,7 @@ class TestCalculateSunPosition:
             LocationModel(latitude=40.0, longitude=-75.0)
         )
         
-        assert result["input_datetime"] == "2026-02-01T14:30:45"
+        assert result["input_datetime"] == "2026-02-01T14:30:45Z"
     
     def test_azimuth_range(self):
         """Test that azimuth is always in valid range"""
@@ -198,6 +198,77 @@ class TestCalculateSunPosition:
             assert result["is_visible"] is True
         else:
             assert result["is_visible"] is False
+    
+    def test_ra_dec_returned(self):
+        """Test that RA/Dec coordinates are returned"""
+        result = calculate_sun_position(
+            ObservationDateTime(date="2026-02-01", time="12:00:00"),
+            LocationModel(latitude=40.7128, longitude=-74.0060)
+        )
+        
+        assert "ra_degrees" in result
+        assert "dec_degrees" in result
+        assert isinstance(result["ra_degrees"], float)
+        assert isinstance(result["dec_degrees"], float)
+    
+    def test_ra_dec_ranges(self):
+        """Test that RA/Dec are in valid ranges"""
+        result = calculate_sun_position(
+            ObservationDateTime(date="2026-02-01", time="12:00:00"),
+            LocationModel(latitude=40.7128, longitude=-74.0060)
+        )
+        
+        # RA should be 0-360 degrees
+        assert 0 <= result["ra_degrees"] <= 360
+        # Dec should be -90 to +90 degrees
+        assert -90 <= result["dec_degrees"] <= 90
+    
+    def test_ra_dec_geocentric_observer_independent(self):
+        """Test that Sun RA/Dec are geocentric and observer-independent
+        
+        The service returns geocentric RA/Dec from get_sun() in GCRS frame,
+        which are observer-independent coordinates. The Sun is distant enough
+        (~1 AU) that any theoretical parallax would be negligible.
+        
+        This test verifies that identical datetime values produce identical RA/Dec
+        regardless of observer location (NYC and London), confirming that
+        coordinates are truly geocentric and not affected by observer position.
+        """
+        result_nyc = calculate_sun_position(
+            ObservationDateTime(date="2026-02-01", time="12:00:00"),
+            LocationModel(latitude=40.7128, longitude=-74.0060)
+        )
+        
+        result_london = calculate_sun_position(
+            ObservationDateTime(date="2026-02-01", time="12:00:00"),
+            LocationModel(latitude=51.5074, longitude=-0.1278)
+        )
+        
+        # RA/Dec should be nearly identical (within ~0.1 degree)
+        # since Sun's parallax is negligible at 1 AU distance
+        assert abs(result_nyc["ra_degrees"] - result_london["ra_degrees"]) < 0.1
+        assert abs(result_nyc["dec_degrees"] - result_london["dec_degrees"]) < 0.1
+    
+    def test_ra_dec_at_solstices_equinoxes(self):
+        """Test RA/Dec at significant celestial dates"""
+        # Spring equinox - sun near 0° RA
+        result_equinox = calculate_sun_position(
+            ObservationDateTime(date="2026-03-20", time="12:00:00"),
+            LocationModel(latitude=0.0, longitude=0.0)
+        )
+        assert 0 <= result_equinox["ra_degrees"] <= 360
+        assert -90 <= result_equinox["dec_degrees"] <= 90
+        
+        # Summer solstice - sun at northernmost declination (~23.4°)
+        result_summer = calculate_sun_position(
+            ObservationDateTime(date="2026-06-20", time="12:00:00"),
+            LocationModel(latitude=0.0, longitude=0.0)
+        )
+        # Dec should be near +23.4 degrees (topocentric apparent coords may vary slightly)
+        # Check magnitude and enforce positive declination (not observer-dependent)
+        assert 15 < abs(result_summer["dec_degrees"]) < 26, f"Expected declination magnitude near ~23.4°, got {result_summer['dec_degrees']}"
+        assert result_summer["dec_degrees"] > 0, f"Expected positive declination at summer solstice, got {result_summer['dec_degrees']}"
+        assert 0 <= result_summer["ra_degrees"] <= 360
     
     def test_southern_hemisphere(self):
         """Test sun position in southern hemisphere"""

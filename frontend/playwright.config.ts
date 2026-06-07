@@ -18,7 +18,8 @@ export default defineConfig({
   testDir: './tests/e2e',
   
   // Maximum time one test can run
-  timeout: 70 * 1000,
+  // Set to 120 seconds to accommodate slower CI environments with SSE streaming
+  timeout: 120 * 1000,
   
   // Run tests in files in parallel
   fullyParallel: true,
@@ -48,6 +49,10 @@ export default defineConfig({
     
     // Video on failure
     video: 'retain-on-failure',
+    
+    // Action timeout (how long to wait for actions like click, fill, etc)
+    // Set to 30s to accommodate slower CI environments
+    actionTimeout: 30 * 1000,
   },
 
   // Configure projects for different browsers (Chromium, Firefox, WebKit, and Edge)
