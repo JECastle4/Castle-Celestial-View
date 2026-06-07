@@ -34,6 +34,8 @@ export class Sun {
       width: 128,
       height: 64,
     });
+    // Initialize label as hidden until first updatePosition sets it based on real data
+    this.label.setVisible(false);
   }
 
   setViewMode(mode: '3d' | 'sky') {

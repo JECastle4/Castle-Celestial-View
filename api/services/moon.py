@@ -72,7 +72,7 @@ def _process_moon_position(
     Internal function used by calculate_moon_position and batch operations.
 
     Args:
-        moon_gcrs: Moon position in geocentric GCRS frame (for accurate RA/Dec)
+        moon_gcrs: Moon position in topocentric GCRS frame (observer-dependent, includes parallax)
         moon_altaz: Moon position in AltAz frame (for altitude/azimuth)
         time: Astropy Time object
         datetime_str: Input datetime string

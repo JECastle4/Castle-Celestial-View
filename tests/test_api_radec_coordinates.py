@@ -133,6 +133,9 @@ class TestMoonRADec:
         
         # Parallax should cause measurable differences in RA/Dec
         ra_diff = abs(result_nyc["ra_degrees"] - result_london["ra_degrees"])
+        # Handle RA wraparound (normalize to shortest angular distance)
+        if ra_diff > 180:
+            ra_diff = 360 - ra_diff
         dec_diff = abs(result_nyc["dec_degrees"] - result_london["dec_degrees"])
         
         # Differences should be non-zero (showing observer-dependence)
@@ -213,6 +216,9 @@ class TestVenusRADec:
         
         # Parallax effects should be present but remain within typical bounds (~1 degree)
         ra_diff = abs(result_nyc["ra_degrees"] - result_london["ra_degrees"])
+        # Handle RA wraparound (normalize to shortest angular distance)
+        if ra_diff > 180:
+            ra_diff = 360 - ra_diff
         dec_diff = abs(result_nyc["dec_degrees"] - result_london["dec_degrees"])
         
         # Stay within typical Venus parallax bound

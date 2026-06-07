@@ -105,6 +105,8 @@ def _process_venus_position(
     direction from Venus. Illumination = (1 + cos(phase_angle)) / 2.
 
     Args:
+        venus_with_loc: Venus position in topocentric GCRS frame
+            (observer-dependent, includes parallax)
         venus_altaz: Venus position in AltAz frame
         sun: Sun position (GCRS coordinates)
         venus_gcrs: Venus position (GCRS coordinates)

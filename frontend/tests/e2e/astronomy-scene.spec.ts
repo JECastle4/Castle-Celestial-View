@@ -218,13 +218,22 @@ async function loadAstronomyData(page: Page) {
  */
 let persistentPage: Page;
 let persistentContext: BrowserContext;
+let projectConfig: any = null;
+
 const testWithPersistentPage = test.extend({
   page: async ({ browser }, use) => {
     if (!persistentContext) {
-      // Create context with project settings (baseURL and viewport) to match other tests
+      // Create context with project settings (baseURL and viewport) from configuration
+      // This prevents brittle hardcoding and allows configuration changes in playwright.config.ts
+      if (!projectConfig?.baseURL) {
+        console.warn('[testWithPersistentPage] projectConfig.baseURL not set; falling back to http://localhost:5173. Ensure beforeAll runs before the first test fixture.');
+      }
+      if (!projectConfig?.viewport) {
+        console.warn('[testWithPersistentPage] projectConfig.viewport not set; falling back to 1280x720.');
+      }
       persistentContext = await browser.newContext({
-        baseURL: 'http://localhost:5173',
-        viewport: { width: 1280, height: 720 },
+        baseURL: projectConfig?.baseURL || 'http://localhost:5173',
+        viewport: projectConfig?.viewport || { width: 1280, height: 720 },
       });
       persistentPage = await persistentContext.newPage();
     }
@@ -236,66 +245,45 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
   // Configure tests to run serially
   testWithPersistentPage.describe.configure({ mode: 'serial' });
 
-  testWithPersistentPage.beforeAll(async () => {
-    // No-op: page is created lazily on first use
+  testWithPersistentPage.beforeAll(async ({}, testInfo) => {
+    // Capture project configuration from testInfo to use in persistent context
+    projectConfig = testInfo.project.use;
   });
 
   testWithPersistentPage.afterAll(async () => {
     if (persistentPage || persistentContext) {
-      let closeCompleted = false;
-      
       try {
-        // Cancel any pending SSE connections by clicking cancel button if visible
+        // Abort any pending network requests to prevent SSE connections from hanging
         try {
           if (persistentPage) {
-            const cancelButton = persistentPage.locator('.cancel-btn');
-            const cancelPromise = cancelButton.isVisible({ timeout: 1000 }).catch(() => false);
-            const isCancelVisible = await Promise.race([
-              cancelPromise,
-              new Promise<boolean>((_, reject) => setTimeout(() => reject(new Error('cancel check timeout')), 2000))
-            ]).catch(() => false);
-            
-            if (isCancelVisible) {
-              const clickPromise = cancelButton.click().catch(() => {});
-              await Promise.race([
-                clickPromise,
-                new Promise((_, reject) => setTimeout(() => reject(new Error('cancel click timeout')), 2000))
-              ]).catch(() => {});
-              
-              // Wait a moment for the connection to close
-              await persistentPage.waitForTimeout(500);
-            }
+            await persistentPage.evaluate(() => {
+              // Abort all pending fetch/EventSource connections at the JS level
+              window.stop();
+            }).catch(() => {});
           }
         } catch (e) {
-          // Ignore errors while trying to cancel SSE
+          // Ignore errors when aborting requests
         }
-        
-        // Explicitly close the page first, then the context
-        // This ensures proper resource cleanup in the correct order
+
+        // Close page with force flag to bypass pending requests
         if (persistentPage) {
           try {
-            await persistentPage.close().catch(() => {});
+            await persistentPage.close({ runBeforeUnload: false }).catch(() => {});
           } catch (e) {
             // Ignore errors if page is already closed
           }
         }
         
-        // Close context with a timeout to prevent hanging on pending network requests
-        // The context should be closed after all pages are closed
-        const closePromise = persistentContext.close().then(() => {
-          closeCompleted = true;
-        });
-        
-        await Promise.race([
-          closePromise,
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Context close timeout')), 8000)
-          )
-        ]);
-      } catch (e: any) {
-        if (!e.message?.includes('Target page, context or browser has been closed')) {
-          console.warn('Error closing context:', e);
+        // Close context with aggressive timeout
+        if (persistentContext) {
+          const closePromise = persistentContext.close().catch(() => {});
+          await Promise.race([
+            closePromise,
+            new Promise((resolve) => setTimeout(resolve, 3000))
+          ]);
         }
+      } catch (e) {
+        // Silently ignore all cleanup errors to prevent test suite hanging
       } finally {
         persistentPage = null as any;
         persistentContext = null as any;
@@ -599,7 +587,6 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
     // Get current frame before restart
     const frameCounter = page.locator('.frame-counter');
     await expect(frameCounter).toBeVisible({ timeout: 10000 });
-    const frameBeforeRestart = await frameCounter.innerText();
     
     // Find and click Restart button
     const restartButton = page.locator('.restart-btn');
