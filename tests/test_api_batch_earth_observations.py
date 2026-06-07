@@ -48,10 +48,10 @@ def test_basic_batch_calculation():
     assert "sun" in first_frame
     assert "moon" in first_frame
     assert "moon_phase" in first_frame
-    assert first_frame["datetime"] == "2024-01-01T12:00:00"
+    assert first_frame["datetime"] == "2024-01-01T12:00:00Z"
     # Check last frame
     last_frame = result["frames"][-1]
-    assert last_frame["datetime"] == "2024-01-01T18:00:00"
+    assert last_frame["datetime"] == "2024-01-01T18:00:00Z"
     # Check sun position structure
     assert "altitude" in first_frame["sun"]
     assert "azimuth" in first_frame["sun"]
@@ -75,11 +75,11 @@ def test_basic_batch_calculation():
     assert "phase_angle" in first_frame["venus_phase"]
     assert "phase_name" in first_frame["venus_phase"]
     assert "naked_eye_visible" in first_frame["venus_phase"]
-    assert first_frame["datetime"] == "2024-01-01T12:00:00"
+    assert first_frame["datetime"] == "2024-01-01T12:00:00Z"
     # Check metadata
     assert result["metadata"]["frame_count"] == 7
-    assert result["metadata"]["start_datetime"] == "2024-01-01T12:00:00"
-    assert result["metadata"]["end_datetime"] == "2024-01-01T18:00:00"
+    assert result["metadata"]["start_datetime"] == "2024-01-01T12:00:00Z"
+    assert result["metadata"]["end_datetime"] == "2024-01-01T18:00:00Z"
     assert result["metadata"]["time_span_hours"] == 6.0
     assert result["metadata"]["location"]["latitude"] == 40.7128
     assert result["metadata"]["location"]["longitude"] == -74.0060
@@ -172,8 +172,8 @@ def test_default_time_values():
         else:
             frames.append(item)
     result = {"frames": frames, "metadata": metadata}
-    assert result["frames"][0]["datetime"] == "2024-01-01T00:00:00"
-    assert result["frames"][1]["datetime"] == "2024-01-01T23:59:59"
+    assert result["frames"][0]["datetime"] == "2024-01-01T00:00:00Z"
+    assert result["frames"][1]["datetime"] == "2024-01-01T23:59:59Z"
     assert abs(result["metadata"]["time_span_hours"] - 23.9997) < 0.001
 
 
@@ -216,9 +216,9 @@ def test_multi_day_span():
             frames.append(item)
     result = {"frames": frames, "metadata": metadata}
     assert len(result["frames"]) == 3
-    assert result["frames"][0]["datetime"] == "2024-01-01T12:00:00"
-    assert result["frames"][1]["datetime"] == "2024-01-02T12:00:00"
-    assert result["frames"][2]["datetime"] == "2024-01-03T12:00:00"
+    assert result["frames"][0]["datetime"] == "2024-01-01T12:00:00Z"
+    assert result["frames"][1]["datetime"] == "2024-01-02T12:00:00Z"
+    assert result["frames"][2]["datetime"] == "2024-01-03T12:00:00Z"
     assert result["metadata"]["time_span_hours"] == 48.0
 
 def test_north_pole():
@@ -403,8 +403,8 @@ def test_sse_batch_earth_observations_stream():
     # Validate metadata event structure
     metadata_data = json.loads(metadata_events[0].split("data: ", 1)[1])
     assert metadata_data["frame_count"] == 3
-    assert metadata_data["start_datetime"] == "2024-01-01T12:00:00"
-    assert metadata_data["end_datetime"] == "2024-01-01T18:00:00"
+    assert metadata_data["start_datetime"] == "2024-01-01T12:00:00Z"
+    assert metadata_data["end_datetime"] == "2024-01-01T18:00:00Z"
     assert metadata_data["location"]["latitude"] == 40.7128
     assert metadata_data["location"]["longitude"] == -74.0060
     assert metadata_data["location"]["elevation"] == 10.0

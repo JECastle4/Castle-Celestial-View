@@ -35,7 +35,7 @@ const props = defineProps<{
 }>();
 
 const formattedDateTime = computed(() => {
-  // Parse ISO datetime format: 2026-02-01T12:00:00
+  // Parse ISO datetime format: 2026-02-01T12:00:00Z (API always includes 'Z' for UTC)
   try {
     const date = new Date(props.datetime);
     return date.toLocaleString(undefined, {
@@ -44,7 +44,8 @@ const formattedDateTime = computed(() => {
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-      second: '2-digit'
+      second: '2-digit',
+      timeZone: 'UTC'
     });
   } catch {
     return props.datetime;

@@ -427,7 +427,7 @@ class TestVenusDateTimeHandling:
             LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0)
         )
 
-        assert result["input_datetime"] == "2026-06-01T12:00:00"
+        assert result["input_datetime"] == "2026-06-01T12:00:00Z"
 
     def test_leap_year_february_29(self):
         """Test Venus position on leap year February 29."""

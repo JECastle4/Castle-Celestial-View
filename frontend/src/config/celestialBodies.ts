@@ -6,6 +6,7 @@
 export interface CelestialBodyConfig {
   id: string;
   name: string;
+  labelKey: string;
   order: number;
   hasPhase: boolean;
   hasIllumination: boolean;
@@ -17,6 +18,7 @@ export const CELESTIAL_BODIES: CelestialBodyConfig[] = [
   {
     id: 'sun',
     name: 'Sun',
+    labelKey: 'astronomy.bodyNames.sun',
     order: 0,
     hasPhase: false,
     hasIllumination: false,
@@ -26,6 +28,7 @@ export const CELESTIAL_BODIES: CelestialBodyConfig[] = [
   {
     id: 'moon',
     name: 'Moon',
+    labelKey: 'astronomy.bodyNames.moon',
     order: 1,
     hasPhase: true,
     hasIllumination: true,
@@ -35,6 +38,7 @@ export const CELESTIAL_BODIES: CelestialBodyConfig[] = [
   {
     id: 'venus',
     name: 'Venus',
+    labelKey: 'astronomy.bodyNames.venus',
     order: 2,
     hasPhase: true,
     hasIllumination: true,

@@ -37,10 +37,10 @@ def calculate_moon_position(
         raise ValueError(t('validation.longitudeRange', value=location.longitude))
 
     # Combine date and time (ISO 8601 format)
-    datetime_str = f"{observation_time.date}T{observation_time.time}"
+    datetime_str = f"{observation_time.date}T{observation_time.time}Z"
 
     # Convert to astropy Time (assumes UTC)
-    time = Time(datetime_str, format="isot", scale="utc")
+    time = Time(datetime_str.rstrip('Z'), format="isot", scale="utc")
 
     # Create Earth location
     earth_location = EarthLocation(
@@ -85,7 +85,11 @@ def _process_moon_position(
     # Determine visibility (above horizon means altitude > 0)
     is_visible = bool(altitude > 0)
 
-    # Extract RA/Dec in ICRS frame (observer-independent celestial coordinates)
+    # Extract RA/Dec in ICRS frame
+    # Note: These are topocentric/apparent coordinates derived from the observer's AltAz frame.
+    # They are NOT observer-independent; parallax effects vary significantly with observer
+    # location, especially for the nearby Moon. For observer-independent geocentric RA/Dec,
+    # compute in GCRS frame instead.
     moon_icrs = moon_altaz.icrs
     ra_degrees = float(moon_icrs.ra.degree)
     dec_degrees = float(moon_icrs.dec.degree)

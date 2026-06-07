@@ -20,17 +20,17 @@
           <div 
             class="coordinate-item"
             tabindex="0"
-            :aria-label="`Right Ascension: ${formatRA(bodyData.ra_degrees)}`"
+            :aria-label="`${t('astronomy.rightAscension')}: ${formatRA(bodyData.ra_degrees)}`"
           >
-            <span class="label">RA:</span>
+            <span class="label">{{ t('astronomy.ra') }}:</span>
             <span class="value">{{ formatRA(bodyData.ra_degrees) }}</span>
           </div>
           <div 
             class="coordinate-item"
             tabindex="0"
-            :aria-label="`Declination: ${formatDec(bodyData.dec_degrees)}`"
+            :aria-label="`${t('astronomy.declination')}: ${formatDec(bodyData.dec_degrees)}`"
           >
-            <span class="label">Dec:</span>
+            <span class="label">{{ t('astronomy.dec') }}:</span>
             <span class="value">{{ formatDec(bodyData.dec_degrees) }}</span>
           </div>
         </div>
@@ -69,10 +69,10 @@
           <div 
             class="phase-name"
             tabindex="0"
-            :aria-label="`${t('astronomy.phase')}: ${moonPhaseData.phase_name}`"
+            :aria-label="`${t('astronomy.phase')}: ${translatePhaseName(moonPhaseData.phase_name)}`"
           >
             <span class="label">{{ t('astronomy.phase') }}:</span>
-            <span class="value">{{ moonPhaseData.phase_name }}</span>
+            <span class="value">{{ translatePhaseName(moonPhaseData.phase_name) }}</span>
           </div>
           <div 
             class="illumination"
@@ -95,7 +95,7 @@
 
       <!-- Venus-specific Data -->
       <div 
-        v-if="bodyId === 'venus' && venusPhasData" 
+        v-if="bodyId === 'venus' && venusPhaseData" 
         class="info-section venus-section"
       >
         <h2 class="section-title">{{ t('astronomy.venusData') }}</h2>
@@ -103,27 +103,27 @@
           <div 
             class="phase-name"
             tabindex="0"
-            :aria-label="`${t('astronomy.phase')}: ${venusPhasData.phase_name}`"
+            :aria-label="`${t('astronomy.phase')}: ${translateVenusPhaseName(venusPhaseData.phase_name)}`"
           >
             <span class="label">{{ t('astronomy.phase') }}:</span>
-            <span class="value">{{ venusPhasData.phase_name }}</span>
+            <span class="value">{{ translateVenusPhaseName(venusPhaseData.phase_name) }}</span>
           </div>
           <div 
             class="illumination"
             tabindex="0"
-            :aria-label="`${t('astronomy.illumination')}: ${formatPercentage(venusPhasData.illumination)}`"
+            :aria-label="`${t('astronomy.illumination')}: ${formatPercentage(venusPhaseData.illumination)}`"
           >
             <span class="label">{{ t('astronomy.illumination') }}:</span>
-            <span class="value">{{ formatPercentage(venusPhasData.illumination) }}</span>
+            <span class="value">{{ formatPercentage(venusPhaseData.illumination) }}</span>
           </div>
           <div 
             class="naked-eye"
             tabindex="0"
-            :aria-label="`${t('astronomy.nakedEyeVisible')}: ${t(venusPhasData.naked_eye_visible ? 'astronomy.yes' : 'astronomy.no')}`"
+            :aria-label="`${t('astronomy.nakedEyeVisible')}: ${t(venusPhaseData.naked_eye_visible ? 'astronomy.yes' : 'astronomy.no')}`"
           >
             <span class="label">{{ t('astronomy.nakedEyeVisible') }}:</span>
-            <span :class="['value', { yes: venusPhasData.naked_eye_visible, no: !venusPhasData.naked_eye_visible }]">
-              {{ venusPhasData.naked_eye_visible ? t('astronomy.yes') : t('astronomy.no') }}
+            <span :class="['value', { yes: venusPhaseData.naked_eye_visible, no: !venusPhaseData.naked_eye_visible }]">
+              {{ venusPhaseData.naked_eye_visible ? t('astronomy.yes') : t('astronomy.no') }}
             </span>
           </div>
         </div>
@@ -147,7 +147,7 @@ defineProps<{
   bodyId: string;
   bodyData?: CelestialPosition;
   moonPhaseData?: MoonPhaseData;
-  venusPhasData?: VenusPhaseData;
+  venusPhaseData?: VenusPhaseData;
 }>();
 
 const formatRA = (raDegrees: number): string => {
@@ -175,6 +175,37 @@ const formatAngle = (angle: number): string => {
 
 const formatPercentage = (value: number): string => {
   return `${(value * 100).toFixed(1)}%`;
+};
+
+// Map English phase names from API to i18n keys
+const phaseNameMap: Record<string, string> = {
+  'New Moon': 'astronomy.phaseNames.newMoon',
+  'Waxing Crescent': 'astronomy.phaseNames.waxingCrescent',
+  'First Quarter': 'astronomy.phaseNames.firstQuarter',
+  'Waxing Gibbous': 'astronomy.phaseNames.waxingGibbous',
+  'Full Moon': 'astronomy.phaseNames.fullMoon',
+  'Waning Gibbous': 'astronomy.phaseNames.waningGibbous',
+  'Last Quarter': 'astronomy.phaseNames.lastQuarter',
+  'Waning Crescent': 'astronomy.phaseNames.waningCrescent',
+};
+
+// Map Venus phase names from API to i18n keys
+const venusPhaseNameMap: Record<string, string> = {
+  'New': 'astronomy.venusPhases.new',
+  'Crescent': 'astronomy.venusPhases.crescent',
+  'Quarter': 'astronomy.venusPhases.quarter',
+  'Gibbous': 'astronomy.venusPhases.gibbous',
+  'Full': 'astronomy.venusPhases.full',
+};
+
+const translatePhaseName = (phaseName: string): string => {
+  const key = phaseNameMap[phaseName];
+  return key ? t(key) : phaseName;
+};
+
+const translateVenusPhaseName = (phaseName: string): string => {
+  const key = venusPhaseNameMap[phaseName];
+  return key ? t(key) : phaseName;
 };
 </script>
 

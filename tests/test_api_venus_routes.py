@@ -591,7 +591,7 @@ class TestVenusPositionEdgeCases:
         )
 
         assert response.status_code == 200
-        assert response.json()["input_datetime"] == "2026-06-01T00:00:00"
+        assert response.json()["input_datetime"] == "2026-06-01T00:00:00Z"
 
     def test_venus_end_of_day(self):
         """Test Venus position at end of day."""
@@ -607,7 +607,7 @@ class TestVenusPositionEdgeCases:
         )
 
         assert response.status_code == 200
-        assert response.json()["input_datetime"] == "2026-06-01T23:59:59"
+        assert response.json()["input_datetime"] == "2026-06-01T23:59:59Z"
 
     def test_venus_leap_year_february_29(self):
         """Test Venus position on leap year February 29."""

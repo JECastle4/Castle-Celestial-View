@@ -38,10 +38,10 @@ def calculate_sun_position(
         raise ValueError(t('validation.longitudeRange', value=location.longitude))
 
     # Combine date and time (ISO 8601 format)
-    datetime_str = f"{observation_time.date}T{observation_time.time}"
+    datetime_str = f"{observation_time.date}T{observation_time.time}Z"
 
     # Convert to astropy Time
-    obs_time = Time(datetime_str, format='isot', scale='utc')
+    obs_time = Time(datetime_str.rstrip('Z'), format='isot', scale='utc')
 
     # Create Earth location
     earth_location = EarthLocation(
@@ -86,7 +86,10 @@ def _process_sun_position(
     # Convert to Python bool to avoid numpy bool type
     is_visible = bool(altitude > 0)
 
-    # Extract RA/Dec in ICRS frame (observer-independent celestial coordinates)
+    # Extract RA/Dec in ICRS frame
+    # Note: These are topocentric/apparent coordinates derived from the observer's AltAz frame.
+    # They are NOT observer-independent; parallax effects vary with observer location and distance.
+    # For observer-independent geocentric RA/Dec, compute in GCRS frame instead.
     sun_icrs = sun_altaz.icrs
     ra_degrees = float(sun_icrs.ra.degree)
     dec_degrees = float(sun_icrs.dec.degree)

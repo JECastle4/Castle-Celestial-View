@@ -16,7 +16,7 @@ class TestCalculateDayOfWeek:
         assert result["day_of_week"] == 0
         assert result["day_name"] == "Sunday"
         assert "julian_date" in result
-        assert result["input_datetime"] == "2026-02-01T00:00:00"
+        assert result["input_datetime"] == "2026-02-01T00:00:00Z"
     
     def test_known_date_wednesday(self):
         """Test a known Wednesday date"""
@@ -25,7 +25,7 @@ class TestCalculateDayOfWeek:
         
         assert result["day_of_week"] == 3
         assert result["day_name"] == "Wednesday"
-        assert result["input_datetime"] == "2026-01-07T12:30:00"
+        assert result["input_datetime"] == "2026-01-07T12:30:00Z"
     
     def test_known_date_saturday(self):
         """Test a known Saturday date"""
@@ -39,13 +39,13 @@ class TestCalculateDayOfWeek:
         """Test that time defaults to midnight"""
         result = calculate_day_of_week("2026-02-01")
         
-        assert result["input_datetime"] == "2026-02-01T00:00:00"
+        assert result["input_datetime"] == "2026-02-01T00:00:00Z"
     
     def test_custom_time(self):
         """Test with custom time"""
         result = calculate_day_of_week("2026-02-01", "15:45:30")
         
-        assert result["input_datetime"] == "2026-02-01T15:45:30"
+        assert result["input_datetime"] == "2026-02-01T15:45:30Z"
         # Day of week should be same regardless of time
         assert result["day_of_week"] == 0
     

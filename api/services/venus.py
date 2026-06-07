@@ -56,10 +56,10 @@ def calculate_venus_position(
         raise ValueError(i18n.get('validation.longitudeRange', value=location.longitude))
 
     # Combine date and time (ISO 8601 format)
-    datetime_str = f"{observation_time.date}T{observation_time.time}"
+    datetime_str = f"{observation_time.date}T{observation_time.time}Z"
 
     # Convert to astropy Time
-    obs_time = Time(datetime_str, format='isot', scale='utc')
+    obs_time = Time(datetime_str.rstrip('Z'), format='isot', scale='utc')
 
     # Create Earth location
     earth_location = EarthLocation(
@@ -194,7 +194,10 @@ def _process_venus_position(
     # Get localized phase name
     phase_name = i18n.get(f"venusPhases.{phase_key}")
 
-    # Extract RA/Dec in ICRS frame (observer-independent celestial coordinates)
+    # Extract RA/Dec in ICRS frame
+    # Note: These are topocentric/apparent coordinates derived from the observer's AltAz frame.
+    # They are NOT observer-independent; parallax effects vary with observer location and distance.
+    # For observer-independent geocentric RA/Dec, compute in GCRS frame instead.
     venus_icrs = venus_altaz.icrs
     ra_degrees = float(venus_icrs.ra.degree)
     dec_degrees = float(venus_icrs.dec.degree)

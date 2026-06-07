@@ -195,7 +195,7 @@
             :bodyId="selectedBodyId"
             :bodyData="selectedBodyId === 'sun' ? currentFrame.sun : selectedBodyId === 'moon' ? currentFrame.moon : currentFrame.venus"
             :moonPhaseData="selectedBodyId === 'moon' ? currentFrame.moon_phase : undefined"
-            :venusPhasData="selectedBodyId === 'venus' ? currentFrame.venus_phase : undefined"
+            :venusPhaseData="selectedBodyId === 'venus' ? currentFrame.venus_phase : undefined"
           />
         </div>
       </div>

@@ -17,11 +17,11 @@
           @click="selectBody(body.id)"
           :class="{ active: selectedBodyId === body.id }"
           class="body-tab"
-          :aria-label="body.name"
-          :title="body.name"
+          :aria-label="t(body.labelKey)"
+          :title="t(body.labelKey)"
         >
           <i :class="`fa ${body.icon}`" aria-hidden="true"></i>
-          <span class="body-name">{{ body.name }}</span>
+          <span class="body-name">{{ t(body.labelKey) }}</span>
         </button>
       </div>
       

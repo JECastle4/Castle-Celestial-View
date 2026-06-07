@@ -25,11 +25,11 @@ def calculate_day_of_week(date_str: str, time_str: str = "00:00:00") -> dict:
     Raises:
         ValueError: If date/time format is invalid
     """
-    # Combine date and time (ISO 8601 format)
-    datetime_str = f"{date_str}T{time_str}"
+    # Combine date and time (ISO 8601 format with UTC indicator)
+    datetime_str = f"{date_str}T{time_str}Z"
 
     # Convert to Julian Date using astropy
-    t_obj = Time(datetime_str, format='isot', scale='utc')
+    t_obj = Time(datetime_str.rstrip('Z'), format='isot', scale='utc')
     jd = t_obj.jd
 
     # Calculate day of week

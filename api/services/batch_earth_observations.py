@@ -58,10 +58,10 @@ def calculate_batch_earth_observations(
     if not -180 <= location.longitude <= 180:
         raise ValueError(_t('validation.longitudeRange', value=location.longitude))
     # Create start and end times
-    start_datetime_str = f"{start_date}T{start_time}"
-    end_datetime_str = f"{end_date}T{end_time}"
-    start_t = Time(start_datetime_str, format="isot", scale="utc")
-    end_t = Time(end_datetime_str, format="isot", scale="utc")
+    start_datetime_str = f"{start_date}T{start_time}Z"
+    end_datetime_str = f"{end_date}T{end_time}Z"
+    start_t = Time(start_datetime_str.rstrip('Z'), format="isot", scale="utc")
+    end_t = Time(end_datetime_str.rstrip('Z'), format="isot", scale="utc")
     # Validate time order
     if end_t <= start_t:
         raise ValueError(_t('validation.endTimeAfterStart'))
@@ -81,7 +81,7 @@ def calculate_batch_earth_observations(
         iso_parts = obs_time.iso.split()
         date_part = iso_parts[0]
         time_part = iso_parts[1].split('.')[0]
-        datetime_str = f"{date_part}T{time_part}"
+        datetime_str = f"{date_part}T{time_part}Z"
         altaz_frame = AltAz(obstime=obs_time, location=earth_location, pressure=0.0)
         sun = get_sun(obs_time)
         moon = get_body("moon", obs_time, earth_location)
@@ -121,7 +121,7 @@ def calculate_batch_earth_observations(
             locale=locale,
         )
         frame = {
-            "datetime": f"{date_part}T{time_part}",
+            "datetime": f"{date_part}T{time_part}Z",
             "sun": {
                 "altitude": sun_data["altitude"],
                 "azimuth": sun_data["azimuth"],
