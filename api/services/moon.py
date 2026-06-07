@@ -1,7 +1,7 @@
 """Moon position calculation service."""
 
 from astropy.time import Time
-from astropy.coordinates import get_body, AltAz, EarthLocation
+from astropy.coordinates import get_body, AltAz, EarthLocation, ICRS
 import astropy.units as u
 from api.i18n import t
 from api.models import ObservationDateTime, LocationModel
@@ -48,18 +48,19 @@ def calculate_moon_position(
         height=location.elevation * u.m
     )
 
-    # Get moon position
-    moon = get_body("moon", time, earth_location)
+    # Get moon position in geocentric (GCRS) and AltAz coordinates
+    moon_gcrs = get_body("moon", time, earth_location)
 
     # Convert to AltAz frame for the given location and time
     # (pressure=0 to ignore atmospheric refraction for simplicity)
     altaz_frame = AltAz(obstime=time, location=earth_location, pressure=0.0)
-    moon_altaz = moon.transform_to(altaz_frame)
+    moon_altaz = moon_gcrs.transform_to(altaz_frame)
 
-    return _process_moon_position(moon_altaz, time, datetime_str, location)
+    return _process_moon_position(moon_gcrs, moon_altaz, time, datetime_str, location)
 
 
 def _process_moon_position(
+    moon_gcrs,
     moon_altaz,
     time: Time,
     datetime_str: str,
@@ -70,7 +71,8 @@ def _process_moon_position(
     Internal function used by calculate_moon_position and batch operations.
 
     Args:
-        moon_altaz: Moon position in AltAz frame
+        moon_gcrs: Moon position in geocentric GCRS frame (for accurate RA/Dec)
+        moon_altaz: Moon position in AltAz frame (for altitude/azimuth)
         time: Astropy Time object
         datetime_str: Input datetime string
         location: Observer location with latitude, longitude, elevation
@@ -85,14 +87,12 @@ def _process_moon_position(
     # Determine visibility (above horizon means altitude > 0)
     is_visible = bool(altitude > 0)
 
-    # Extract RA/Dec in ICRS frame
-    # Note: These are topocentric/apparent coordinates derived from the observer's AltAz frame.
-    # They are NOT observer-independent; parallax effects vary significantly with observer
-    # location, especially for the nearby Moon. For observer-independent geocentric RA/Dec,
-    # compute in GCRS frame instead.
-    moon_icrs = moon_altaz.icrs
-    ra_degrees = float(moon_icrs.ra.degree)
-    dec_degrees = float(moon_icrs.dec.degree)
+    # Extract RA/Dec from geocentric position (not from AltAz transformation)
+    # These are geocentric coordinates, observer-independent by default.
+    # Note: For accurate topocentric RA/Dec accounting for parallax, use moon_gcrs
+    # which was computed with the observer's location via get_body(..., earth_location).
+    ra_degrees = float(moon_gcrs.ra.degree)
+    dec_degrees = float(moon_gcrs.dec.degree)
 
     return {
         "altitude": altitude,

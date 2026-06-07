@@ -1,7 +1,7 @@
 """
 Sun position calculation services
 """
-from astropy.coordinates import get_sun, AltAz, EarthLocation
+from astropy.coordinates import get_sun, AltAz, EarthLocation, ICRS
 from astropy.time import Time
 import astropy.units as u
 from api.i18n import t
@@ -53,13 +53,15 @@ def calculate_sun_position(
     # Create AltAz frame (pressure=0 to ignore atmospheric refraction for simplicity)
     altaz_frame = AltAz(obstime=obs_time, location=earth_location, pressure=0.0)
 
-    # Get sun position and transform to AltAz coordinates
-    sun_altaz = get_sun(obs_time).transform_to(altaz_frame)
+    # Get sun position in geocentric (GCRS) and AltAz coordinates
+    sun_gcrs = get_sun(obs_time)
+    sun_altaz = sun_gcrs.transform_to(altaz_frame)
 
-    return _process_sun_position(sun_altaz, obs_time, datetime_str, location)
+    return _process_sun_position(sun_gcrs, sun_altaz, obs_time, datetime_str, location)
 
 
 def _process_sun_position(
+    sun_gcrs,
     sun_altaz,
     time: Time,
     datetime_str: str,
@@ -70,7 +72,8 @@ def _process_sun_position(
     Internal function used by calculate_sun_position and batch operations.
 
     Args:
-        sun_altaz: Sun position in AltAz frame
+        sun_gcrs: Sun position in geocentric GCRS frame (for accurate RA/Dec)
+        sun_altaz: Sun position in AltAz frame (for altitude/azimuth)
         time: Astropy Time object
         datetime_str: Input datetime string
         location: Observer location with latitude, longitude, elevation
@@ -78,7 +81,7 @@ def _process_sun_position(
     Returns:
         Dictionary with sun position data
     """
-    # Extract altitude and azimuth
+    # Extract altitude and azimuth from AltAz frame
     altitude = sun_altaz.alt.degree
     azimuth = sun_altaz.az.degree
 
@@ -86,13 +89,11 @@ def _process_sun_position(
     # Convert to Python bool to avoid numpy bool type
     is_visible = bool(altitude > 0)
 
-    # Extract RA/Dec in ICRS frame
-    # Note: These are topocentric/apparent coordinates derived from the observer's AltAz frame.
-    # They are NOT observer-independent; parallax effects vary with observer location and distance.
-    # For observer-independent geocentric RA/Dec, compute in GCRS frame instead.
-    sun_icrs = sun_altaz.icrs
-    ra_degrees = float(sun_icrs.ra.degree)
-    dec_degrees = float(sun_icrs.dec.degree)
+    # Extract RA/Dec from geocentric position (not from AltAz transformation)
+    # These are geocentric coordinates, observer-independent.
+    # For topocentric coordinates accounting for parallax, use sun_gcrs with observer location.
+    ra_degrees = float(sun_gcrs.ra.degree)
+    dec_degrees = float(sun_gcrs.dec.degree)
 
     return {
         "altitude": float(altitude),

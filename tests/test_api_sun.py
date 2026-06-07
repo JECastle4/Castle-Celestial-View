@@ -265,8 +265,10 @@ class TestCalculateSunPosition:
             ObservationDateTime(date="2026-06-20", time="12:00:00"),
             LocationModel(latitude=0.0, longitude=0.0)
         )
-        # Dec should be near +23.4 degrees (allow range for solstice timing)
-        assert -25 < result_summer["dec_degrees"] < 25
+        # Dec should be near +23.4 degrees (topocentric apparent coords may vary slightly)
+        # Check magnitude and enforce positive declination (not observer-dependent)
+        assert 15 < abs(result_summer["dec_degrees"]) < 26, f"Expected declination magnitude near ~23.4°, got {result_summer['dec_degrees']}"
+        assert result_summer["dec_degrees"] > 0, f"Expected positive declination at summer solstice, got {result_summer['dec_degrees']}"
         assert 0 <= result_summer["ra_degrees"] <= 360
     
     def test_southern_hemisphere(self):

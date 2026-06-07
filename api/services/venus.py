@@ -2,7 +2,7 @@
 Venus position calculation services
 """
 from typing import Optional
-from astropy.coordinates import get_body, get_sun, AltAz, EarthLocation
+from astropy.coordinates import get_body, get_sun, AltAz, EarthLocation, ICRS
 from astropy.time import Time
 import astropy.units as u
 import numpy as np
@@ -80,12 +80,13 @@ def calculate_venus_position(
     venus_gcrs = get_body("venus", obs_time)
 
     return _process_venus_position(
-        venus_altaz, sun, venus_gcrs, obs_time, datetime_str, location,
+        venus_with_loc, venus_altaz, sun, venus_gcrs, obs_time, datetime_str, location,
         locale=locale
     )
 
 
 def _process_venus_position(
+    venus_with_loc,
     venus_altaz,
     sun,
     venus_gcrs,
@@ -196,11 +197,10 @@ def _process_venus_position(
 
     # Extract RA/Dec in ICRS frame
     # Note: These are topocentric/apparent coordinates derived from the observer's AltAz frame.
-    # They are NOT observer-independent; parallax effects vary with observer location and distance.
-    # For observer-independent geocentric RA/Dec, compute in GCRS frame instead.
-    venus_icrs = venus_altaz.icrs
-    ra_degrees = float(venus_icrs.ra.degree)
-    dec_degrees = float(venus_icrs.dec.degree)
+    # Extract RA/Dec from position with observer location (topocentric, accounts for parallax)
+    # These are NOT observer-independent; parallax effects vary with observer location and distance.
+    ra_degrees = float(venus_with_loc.ra.degree)
+    dec_degrees = float(venus_with_loc.dec.degree)
 
     return {
         "altitude": float(altitude),

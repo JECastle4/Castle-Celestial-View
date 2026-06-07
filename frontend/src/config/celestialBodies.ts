@@ -51,6 +51,7 @@ export const getBodyConfig = (bodyId: string): CelestialBodyConfig | undefined =
   return CELESTIAL_BODIES.find(body => body.id === bodyId);
 };
 
+// Alias for backward compatibility - delegates to getBodyConfig
 export const getBodyById = (bodyId: string): CelestialBodyConfig | undefined => {
-  return CELESTIAL_BODIES.find(body => body.id === bodyId);
+  return getBodyConfig(bodyId);
 };

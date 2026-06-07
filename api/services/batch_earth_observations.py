@@ -92,18 +92,21 @@ def calculate_batch_earth_observations(
         moon_altaz = moon.transform_to(altaz_frame)
         venus_altaz = venus_with_loc.transform_to(altaz_frame)
         sun_data = _process_sun_position(
+            sun_gcrs=sun,
             sun_altaz=sun_altaz,
             time=obs_time,
             datetime_str=datetime_str,
             location=location
         )
         moon_data = _process_moon_position(
+            moon_gcrs=moon,
             moon_altaz=moon_altaz,
             time=obs_time,
             datetime_str=datetime_str,
             location=location
         )
         venus_data = _process_venus_position(
+            venus_with_loc=venus_with_loc,
             venus_altaz=venus_altaz,
             sun=sun,
             venus_gcrs=venus_gcrs,

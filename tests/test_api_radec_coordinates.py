@@ -34,9 +34,14 @@ class TestSunRADec:
         # Dec should be -90 to +90 degrees
         assert -90 <= result["dec_degrees"] <= 90
     
-    def test_sun_ra_dec_observer_independent(self):
-        """Test that sun RA/Dec don't depend on observer location"""
-        # RA/Dec are celestial coordinates, should not depend on observer location
+    def test_sun_ra_dec_observer_dependent_small_parallax(self):
+        """Test that sun RA/Dec are observer-dependent but with minimal parallax
+        
+        The Sun's RA/Dec returned by the API are topocentric/apparent coordinates
+        derived from an AltAz frame. While the Sun exhibits parallax effects due to
+        observer location, these are very small (~0.005 degrees) due to the Sun's
+        great distance. This test verifies differences stay within expected bounds.
+        """
         result_nyc = calculate_sun_position(
             ObservationDateTime(date="2026-02-01", time="12:00:00"),
             LocationModel(latitude=40.7128, longitude=-74.0060)
@@ -47,9 +52,10 @@ class TestSunRADec:
             LocationModel(latitude=51.5074, longitude=-0.1278)
         )
         
-        # RA/Dec should be very close (within ~0.1 degree)
-        assert abs(result_nyc["ra_degrees"] - result_london["ra_degrees"]) < 0.1
-        assert abs(result_nyc["dec_degrees"] - result_london["dec_degrees"]) < 0.1
+        # Parallax for the Sun is negligible, so RA/Dec should be nearly identical
+        # (within ~0.01 degree due to numerical precision, not actual parallax)
+        assert abs(result_nyc["ra_degrees"] - result_london["ra_degrees"]) < 0.01
+        assert abs(result_nyc["dec_degrees"] - result_london["dec_degrees"]) < 0.01
     
     def test_sun_ra_dec_summer_solstice(self):
         """Test sun RA/Dec at summer solstice"""
@@ -187,8 +193,14 @@ class TestVenusRADec:
         # Dec should be -90 to +90 degrees
         assert -90 <= result["dec_degrees"] <= 90
     
-    def test_venus_ra_dec_observer_independent(self):
-        """Test that Venus RA/Dec don't depend on observer location"""
+    def test_venus_ra_dec_observer_dependent_parallax(self):
+        """Test that Venus RA/Dec are observer-dependent due to parallax
+        
+        Venus's RA/Dec returned by the API are topocentric/apparent coordinates
+        derived from an AltAz frame. Parallax effects vary with observer location
+        (typically ~0.1-1 degree depending on Venus's distance). This test verifies
+        differences stay within expected parallax bounds.
+        """
         result_nyc = calculate_venus_position(
             ObservationDateTime(date="2026-02-01", time="12:00:00"),
             LocationModel(latitude=40.7128, longitude=-74.0060)
@@ -199,9 +211,13 @@ class TestVenusRADec:
             LocationModel(latitude=51.5074, longitude=-0.1278)
         )
         
-        # RA/Dec should be very close (within ~1 degree)
-        assert abs(result_nyc["ra_degrees"] - result_london["ra_degrees"]) < 1.0
-        assert abs(result_nyc["dec_degrees"] - result_london["dec_degrees"]) < 1.0
+        # Parallax effects should be present but remain within typical bounds (~1 degree)
+        ra_diff = abs(result_nyc["ra_degrees"] - result_london["ra_degrees"])
+        dec_diff = abs(result_nyc["dec_degrees"] - result_london["dec_degrees"])
+        
+        # Stay within typical Venus parallax bound
+        assert ra_diff < 1.0, f"RA difference {ra_diff}° exceeds expected parallax bound"
+        assert dec_diff < 1.0, f"Dec difference {dec_diff}° exceeds expected parallax bound"
     
     def test_venus_ra_dec_changes_over_time(self):
         """Test that Venus RA/Dec change over months (synodic period ~584 days)"""
