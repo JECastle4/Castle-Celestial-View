@@ -97,6 +97,7 @@
 		"phase": "Phase",
 		"phaseAngle": "Phase Angle",
 		"illumination": "Illumination",
+		"visible": "Visible",
 		"venusData": "Venus Data",
 		"nakedEyeVisible": "Naked Eye Visible",
 		"celestialCoordinates": "Celestial Coordinates",

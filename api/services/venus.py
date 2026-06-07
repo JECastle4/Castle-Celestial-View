@@ -2,7 +2,7 @@
 Venus position calculation services
 """
 from typing import Optional
-from astropy.coordinates import get_body, get_sun, AltAz, EarthLocation, ICRS
+from astropy.coordinates import get_body, get_sun, AltAz, EarthLocation
 from astropy.time import Time
 import astropy.units as u
 import numpy as np
@@ -195,10 +195,10 @@ def _process_venus_position(
     # Get localized phase name
     phase_name = i18n.get(f"venusPhases.{phase_key}")
 
-    # Extract RA/Dec in ICRS frame
-    # Note: These are topocentric/apparent coordinates derived from the observer's AltAz frame.
-    # Extract RA/Dec from position with observer location (topocentric, accounts for parallax)
-    # These are NOT observer-independent; parallax effects vary with observer location and distance.
+    # Extract RA/Dec in GCRS frame (geocentric, with observer parallax)
+    # Venus coordinates from get_body(..., earth_location) are topocentric
+    # (account for parallax based on observer location and distance to Venus)
+    # GCRS is the standard geocentric celestial reference frame used by astropy
     ra_degrees = float(venus_with_loc.ra.degree)
     dec_degrees = float(venus_with_loc.dec.degree)
 

@@ -79,7 +79,7 @@ vi.mock('@/composables/useAstronomyData', () => ({
 
 function makeFrame() {
   return {
-    datetime: '2026-01-01T00:00:00',
+    datetime: '2026-01-01T00:00:00Z',
     sun: { altitude: 10, azimuth: 180, is_visible: true, ra_degrees: 0, dec_degrees: 0 },
     moon: { altitude: 5, azimuth: 90, is_visible: true, ra_degrees: 0, dec_degrees: 0 },
     moon_phase: { phase_name: 'Full Moon', illumination: 1.0, phase_angle: 0 },

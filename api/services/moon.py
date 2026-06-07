@@ -1,7 +1,7 @@
 """Moon position calculation service."""
 
 from astropy.time import Time
-from astropy.coordinates import get_body, AltAz, EarthLocation, ICRS
+from astropy.coordinates import get_body, AltAz, EarthLocation
 import astropy.units as u
 from api.i18n import t
 from api.models import ObservationDateTime, LocationModel
@@ -87,10 +87,10 @@ def _process_moon_position(
     # Determine visibility (above horizon means altitude > 0)
     is_visible = bool(altitude > 0)
 
-    # Extract RA/Dec from geocentric position (not from AltAz transformation)
-    # These are geocentric coordinates, observer-independent by default.
-    # Note: For accurate topocentric RA/Dec accounting for parallax, use moon_gcrs
-    # which was computed with the observer's location via get_body(..., earth_location).
+    # Extract RA/Dec in GCRS frame (geocentric, observer-independent)
+    # GCRS is the standard geocentric celestial reference frame used by astropy's get_body()
+    # Note: For topocentric RA/Dec accounting for parallax, moon_gcrs was computed
+    # with the observer's location via get_body(..., earth_location).
     ra_degrees = float(moon_gcrs.ra.degree)
     dec_degrees = float(moon_gcrs.dec.degree)
 

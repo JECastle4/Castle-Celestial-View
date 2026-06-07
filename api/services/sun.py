@@ -1,7 +1,7 @@
 """
 Sun position calculation services
 """
-from astropy.coordinates import get_sun, AltAz, EarthLocation, ICRS
+from astropy.coordinates import get_sun, AltAz, EarthLocation
 from astropy.time import Time
 import astropy.units as u
 from api.i18n import t
@@ -89,9 +89,9 @@ def _process_sun_position(
     # Convert to Python bool to avoid numpy bool type
     is_visible = bool(altitude > 0)
 
-    # Extract RA/Dec from geocentric position (not from AltAz transformation)
-    # These are geocentric coordinates, observer-independent.
-    # For topocentric coordinates accounting for parallax, use sun_gcrs with observer location.
+    # Extract RA/Dec in GCRS frame (geocentric, observer-independent)
+    # GCRS is the standard geocentric celestial reference frame used by astropy's get_sun()
+    # Note: These are geocentric coordinates independent of observer location
     ra_degrees = float(sun_gcrs.ra.degree)
     dec_degrees = float(sun_gcrs.dec.degree)
 

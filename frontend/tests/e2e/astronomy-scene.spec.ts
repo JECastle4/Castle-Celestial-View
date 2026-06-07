@@ -1,4 +1,4 @@
-import { test, expect, Page, Browser } from '@playwright/test';
+import { test, expect, Page, Browser, BrowserContext } from '@playwright/test';
 
 /**
  * E2E tests for Astronomy Scene component
@@ -214,12 +214,19 @@ async function loadAstronomyData(page: Page) {
 /**
  * Custom test with persistent page across serial tests
  * This ensures all tests in the suite share the same page instance
+ * Uses a persistent BrowserContext with project baseURL and viewport settings
  */
 let persistentPage: Page;
+let persistentContext: BrowserContext;
 const testWithPersistentPage = test.extend({
   page: async ({ browser }, use) => {
-    if (!persistentPage) {
-      persistentPage = await browser.newPage();
+    if (!persistentContext) {
+      // Create context with project settings (baseURL and viewport) to match other tests
+      persistentContext = await browser.newContext({
+        baseURL: 'http://localhost:5173',
+        viewport: { width: 1280, height: 720 },
+      });
+      persistentPage = await persistentContext.newPage();
     }
     await use(persistentPage);
   },
@@ -234,69 +241,64 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
   });
 
   testWithPersistentPage.afterAll(async () => {
-    if (persistentPage) {
+    if (persistentPage || persistentContext) {
       let closeCompleted = false;
       
       try {
         // Cancel any pending SSE connections by clicking cancel button if visible
         try {
-          const cancelButton = persistentPage.locator('.cancel-btn');
-          const cancelPromise = cancelButton.isVisible({ timeout: 1000 }).catch(() => false);
-          const isCancelVisible = await Promise.race([
-            cancelPromise,
-            new Promise<boolean>((_, reject) => setTimeout(() => reject(new Error('cancel check timeout')), 2000))
-          ]).catch(() => false);
-          
-          if (isCancelVisible) {
-            const clickPromise = cancelButton.click().catch(() => {});
-            await Promise.race([
-              clickPromise,
-              new Promise((_, reject) => setTimeout(() => reject(new Error('cancel click timeout')), 2000))
-            ]).catch(() => {});
+          if (persistentPage) {
+            const cancelButton = persistentPage.locator('.cancel-btn');
+            const cancelPromise = cancelButton.isVisible({ timeout: 1000 }).catch(() => false);
+            const isCancelVisible = await Promise.race([
+              cancelPromise,
+              new Promise<boolean>((_, reject) => setTimeout(() => reject(new Error('cancel check timeout')), 2000))
+            ]).catch(() => false);
             
-            // Wait a moment for the connection to close
-            await persistentPage.waitForTimeout(500);
+            if (isCancelVisible) {
+              const clickPromise = cancelButton.click().catch(() => {});
+              await Promise.race([
+                clickPromise,
+                new Promise((_, reject) => setTimeout(() => reject(new Error('cancel click timeout')), 2000))
+              ]).catch(() => {});
+              
+              // Wait a moment for the connection to close
+              await persistentPage.waitForTimeout(500);
+            }
           }
         } catch (e) {
           // Ignore errors while trying to cancel SSE
         }
         
-        // Close with a timeout to prevent hanging on pending network requests
-        // Use a callback to detect when close completes
-        const closePromise = persistentPage.close().then(() => {
+        // Explicitly close the page first, then the context
+        // This ensures proper resource cleanup in the correct order
+        if (persistentPage) {
+          try {
+            await persistentPage.close().catch(() => {});
+          } catch (e) {
+            // Ignore errors if page is already closed
+          }
+        }
+        
+        // Close context with a timeout to prevent hanging on pending network requests
+        // The context should be closed after all pages are closed
+        const closePromise = persistentContext.close().then(() => {
           closeCompleted = true;
         });
         
         await Promise.race([
           closePromise,
           new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Page close timeout')), 8000)
+            setTimeout(() => reject(new Error('Context close timeout')), 8000)
           )
         ]);
       } catch (e: any) {
-        if (e.message === 'Page close timeout' || !closeCompleted) {
-          console.warn('Page close timed out, forcing context close');
-          try {
-            // Force close the context if normal close times out
-            const ctx = persistentPage.context();
-            const ctxClosePromise = ctx.close().then(() => {
-              closeCompleted = true;
-            });
-            
-            await Promise.race([
-              ctxClosePromise,
-              new Promise((_, reject) => setTimeout(() => reject(new Error('context close timeout')), 5000))
-            ]);
-          } catch (ctxE: any) {
-            console.warn('Context close also timed out');
-            // Context close also failed, but we'll exit anyway
-            closeCompleted = true;
-          }
-        } else if (!e.message?.includes('Target page, context or browser has been closed')) {
-          console.warn('Error closing page:', e);
+        if (!e.message?.includes('Target page, context or browser has been closed')) {
+          console.warn('Error closing context:', e);
         }
       } finally {
         persistentPage = null as any;
+        persistentContext = null as any;
       }
     }
   });

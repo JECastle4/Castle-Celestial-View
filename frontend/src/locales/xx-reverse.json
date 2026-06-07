@@ -97,6 +97,7 @@
     "phase": "esahP",
     "phaseAngle": "elgnA esahP",
     "illumination": "noitanimullI",
+    "visible": "elbisiV",
     "venusData": "ataD suneV",
     "nakedEyeVisible": "elbisiV eyE dekaN",
     "celestialCoordinates": "setanidroC laitselEC",

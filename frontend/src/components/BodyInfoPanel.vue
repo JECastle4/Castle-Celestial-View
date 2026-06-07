@@ -6,7 +6,7 @@
         <div 
           :class="['visibility-badge', { visible: bodyData.is_visible, hidden: !bodyData.is_visible }]"
           tabindex="0"
-          :aria-label="`Visible: ${t(bodyData.is_visible ? 'astronomy.yes' : 'astronomy.no')}`"
+          :aria-label="`${t('astronomy.visible')}: ${t(bodyData.is_visible ? 'astronomy.yes' : 'astronomy.no')}`"
         >
           <i :class="`fa ${bodyData.is_visible ? 'fa-eye' : 'fa-eye-slash'}`" aria-hidden="true"></i>
           {{ t(bodyData.is_visible ? 'astronomy.yes' : 'astronomy.no') }}
