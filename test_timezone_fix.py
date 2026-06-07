@@ -12,7 +12,7 @@ def test_datetime_formats():
     result = calculate_day_of_week("2026-02-01", "12:00:00")
     print("Day of Week Result:")
     print(f"  input_datetime: {result['input_datetime']}")
-    assert result['input_datetime'].endswith('Z'), "datetime should end with 'Z'"
+    assert result['input_datetime'].endswith('Z'), "datetime should end with 'Z'"  # nosec
     print("  ✓ Passes: ends with Z")
 
     # Test 2: Check sun position service returns datetime with Z suffix  
@@ -21,7 +21,7 @@ def test_datetime_formats():
     sun_result = calculate_sun_position(obs_time, location)
     print("\nSun Position Result:")
     print(f"  input_datetime: {sun_result['input_datetime']}")
-    assert sun_result['input_datetime'].endswith('Z'), "datetime should end with 'Z'"
+    assert sun_result['input_datetime'].endswith('Z'), "datetime should end with 'Z'"  # nosec
     print("  ✓ Passes: ends with Z")
 
     print("\n✓ All datetime formatting tests passed!")
