@@ -223,10 +223,18 @@ class TestCalculateSunPosition:
         # Dec should be -90 to +90 degrees
         assert -90 <= result["dec_degrees"] <= 90
     
-    def test_ra_dec_observer_independent(self):
-        """Test that RA/Dec are same regardless of observer location"""
-        # RA/Dec are celestial coordinates, should not depend on observer location
-        # (only time matters)
+    def test_ra_dec_observer_dependent_but_parallax_negligible(self):
+        """Test that Sun RA/Dec differences due to parallax are negligible
+        
+        The service returns topocentric/apparent RA/Dec derived from an AltAz frame,
+        so technically they ARE observer-dependent. However, the Sun is distant enough
+        (~1 AU) that parallax effects are negligible (~0.01 degrees).
+        
+        This test verifies that differences between distant observer locations (NYC and
+        London) remain very small, confirming that solar parallax is too small to matter
+        for practical applications. If the implementation switches to geocentric coordinates
+        or if the Sun's distance changes significantly, this threshold should be revisited.
+        """
         result_nyc = calculate_sun_position(
             ObservationDateTime(date="2026-02-01", time="12:00:00"),
             LocationModel(latitude=40.7128, longitude=-74.0060)
@@ -237,8 +245,8 @@ class TestCalculateSunPosition:
             LocationModel(latitude=51.5074, longitude=-0.1278)
         )
         
-        # RA/Dec should be very close (within ~1 degree due to slight time variations)
-        # since we're using the same absolute time
+        # RA/Dec should be nearly identical (within ~0.1 degree)
+        # since Sun's parallax is negligible at 1 AU distance
         assert abs(result_nyc["ra_degrees"] - result_london["ra_degrees"]) < 0.1
         assert abs(result_nyc["dec_degrees"] - result_london["dec_degrees"]) < 0.1
     

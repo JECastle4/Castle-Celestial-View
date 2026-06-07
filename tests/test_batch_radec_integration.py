@@ -19,8 +19,8 @@ class TestBatchEarthObservationsRADec:
         
         frames = list(calculate_batch_earth_observations(time_range, location))
         
-        # First element is metadata, rest are frames
-        # But frames are yielded before metadata, so let's get just the frame dicts
+        # Frames are yielded first, metadata is yielded last
+        # Filter to get just the frame dicts (which have "datetime" field)
         frame_list = [f for f in frames if isinstance(f, dict) and "datetime" in f]
         
         assert len(frame_list) >= 2
