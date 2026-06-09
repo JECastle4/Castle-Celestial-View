@@ -139,7 +139,7 @@ jobs:
     
     - name: Upload coverage reports
       id: codecov_backend
-      uses: codecov/codecov-action@v6
+      uses: codecov/codecov-action@v7
       if: always()
       with:
         file: ./coverage.xml
@@ -269,7 +269,7 @@ jobs:
     
     - name: Upload coverage reports
       id: codecov_frontend
-      uses: codecov/codecov-action@v6
+      uses: codecov/codecov-action@v7
       if: always()
       with:
         files: ./frontend/coverage/coverage-final.json
