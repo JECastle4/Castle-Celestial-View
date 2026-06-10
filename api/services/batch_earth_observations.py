@@ -9,6 +9,7 @@ from api.models import TimeRange, LocationModel
 from .sun import _process_sun_position
 from .moon import _process_moon_position
 from .venus import _process_venus_position
+from .mercury import _process_mercury_position
 from .moon_phase import _process_moon_phase
 
 
@@ -86,11 +87,14 @@ def calculate_batch_earth_observations(
         sun = get_sun(obs_time)
         moon = get_body("moon", obs_time, earth_location)
         venus_with_loc = get_body("venus", obs_time, earth_location)
-        # Get Venus at geocenter for geocentric separation/phase calculations (no location)
+        mercury_with_loc = get_body("mercury", obs_time, earth_location)
+        # Get Venus and Mercury at geocenter for geocentric separation/phase calculations (no location)
         venus_gcrs = get_body("venus", obs_time)
+        mercury_gcrs = get_body("mercury", obs_time)
         sun_altaz = sun.transform_to(altaz_frame)
         moon_altaz = moon.transform_to(altaz_frame)
         venus_altaz = venus_with_loc.transform_to(altaz_frame)
+        mercury_altaz = mercury_with_loc.transform_to(altaz_frame)
         sun_data = _process_sun_position(
             sun_gcrs=sun,
             sun_altaz=sun_altaz,
@@ -110,6 +114,16 @@ def calculate_batch_earth_observations(
             venus_altaz=venus_altaz,
             sun=sun,
             venus_gcrs=venus_gcrs,
+            time=obs_time,
+            datetime_str=datetime_str,
+            location=location,
+            locale=locale
+        )
+        mercury_data = _process_mercury_position(
+            mercury_with_loc=mercury_with_loc,
+            mercury_altaz=mercury_altaz,
+            sun=sun,
+            mercury_gcrs=mercury_gcrs,
             time=obs_time,
             datetime_str=datetime_str,
             location=location,
@@ -156,6 +170,19 @@ def calculate_batch_earth_observations(
                 "phase_angle": venus_data["phase_angle"],
                 "phase_name": venus_data["phase_name"],
                 "naked_eye_visible": venus_data["naked_eye_visible"]
+            },
+            "mercury": {
+                "altitude": mercury_data["altitude"],
+                "azimuth": mercury_data["azimuth"],
+                "is_visible": mercury_data["is_visible"],
+                "ra_degrees": mercury_data["ra_degrees"],
+                "dec_degrees": mercury_data["dec_degrees"]
+            },
+            "mercury_phase": {
+                "illumination": mercury_data["illumination"],
+                "phase_angle": mercury_data["phase_angle"],
+                "phase_name": mercury_data["phase_name"],
+                "naked_eye_visible": mercury_data["naked_eye_visible"]
             }
         }
         yield frame
