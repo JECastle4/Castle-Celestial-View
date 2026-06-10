@@ -7,7 +7,14 @@
   "app": {
     "title": "weiV laitseleC eltsaC",
     "copyright": ".esneciL TIM eht rednu desneciL .eltsaC nhoJ 6202 ©",
-    "about": "tuobA"
+    "about": "tuobA",
+    "modes": {
+      "ariaLabel": "sedom weiV",
+      "solarSystem": "metsyS raloS",
+      "eclipses": "sespilcE",
+      "transits": "stisnarT",
+      "comingSoon": "noos gnimoC"
+    }
   },
   "about": {
     "title": "weiV laitseleC eltsaC tuobA",
@@ -85,7 +92,8 @@
     "bodyNames": {
       "sun": "nuS",
       "moon": "nooM",
-      "venus": "suneV"
+      "venus": "suneV",
+      "mercury": "yrucreM"
     },
     "sunAltitude": "tlA nuS",
     "sunVisible": "elbisiV nuS",
@@ -99,6 +107,7 @@
     "illumination": "noitanimullI",
     "visible": "elbisiV",
     "venusData": "ataD suneV",
+    "mercuryData": "ataD yrucreM",
     "nakedEyeVisible": "elbisiV eyE dekaN",
     "celestialCoordinates": "setanidroC laitselEC",
     "horizontalCoordinates": "setanidroC latnoziroH",
@@ -124,6 +133,13 @@
       "waningCrescent": "tnecserC gninaW"
     },
     "venusPhases": {
+      "new": "weN",
+      "crescent": "tnecserC",
+      "quarter": "retrauQ",
+      "gibbous": "suobbiG",
+      "full": "lluF"
+    },
+    "mercuryPhases": {
       "new": "weN",
       "crescent": "tnecserC",
       "quarter": "retrauQ",

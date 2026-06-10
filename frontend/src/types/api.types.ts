@@ -26,6 +26,13 @@ export interface VenusPhaseData {
   naked_eye_visible: boolean;
 }
 
+export interface MercuryPhaseData {
+  illumination: number;
+  phase_angle: number;
+  phase_name: string;
+  naked_eye_visible: boolean;
+}
+
 export interface ObservationFrame {
   datetime: string;
   sun: CelestialPosition;
@@ -33,6 +40,8 @@ export interface ObservationFrame {
   moon_phase: MoonPhaseData;
   venus?: CelestialPosition;
   venus_phase?: VenusPhaseData;
+  mercury?: CelestialPosition;
+  mercury_phase?: MercuryPhaseData;
 }
 
 export interface LocationModel {

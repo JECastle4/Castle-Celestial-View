@@ -63,6 +63,17 @@ vi.mock('@/three/objects/Venus', () => ({
   },
 }));
 
+vi.mock('@/three/objects/Mercury', () => ({
+  Mercury: class MockMercury {
+    mesh = { visible: true };
+    addToScene = vi.fn();
+    update = vi.fn();
+    updatePosition = vi.fn();
+    setViewMode = vi.fn();
+    updateLabelBillboard = vi.fn();
+  },
+}));
+
 vi.mock('@/three/objects/Earth', () => ({
   Earth: class MockEarth {
     mesh = { visible: true };

@@ -1,5 +1,10 @@
 <template>
   <div class="astronomy-scene">
+    <AppHeader
+      :hasData="hasData"
+      :selectedBody="selectedBodyId"
+      @update:selectedBody="selectedBodyId = $event"
+    />
     <div class="scene-layout">
       <div class="map-and-date-container">
         <div class="map-container">
@@ -16,8 +21,6 @@
         </div>
       </div>
       <div class="controls-panel">
-      <h1 class="page-heading">{{ t('app.title') }}</h1>
-      
       <div v-if="loading" class="loading">
         <div class="progress-bar-container">
           <div class="progress-bar" :style="{ width: (sseProgress * 100).toFixed(1) + '%' }"></div>
@@ -186,16 +189,12 @@
             :location="params"
           />
           
-          <CelestialBodyCarousel
-            :selectedBody="selectedBodyId"
-            @update:selectedBody="(bodyId) => selectedBodyId = bodyId"
-          />
-          
           <BodyInfoPanel
             :bodyId="selectedBodyId"
-            :bodyData="selectedBodyId === 'sun' ? currentFrame.sun : selectedBodyId === 'moon' ? currentFrame.moon : currentFrame.venus"
+            :bodyData="selectedBodyId === 'sun' ? currentFrame.sun : selectedBodyId === 'moon' ? currentFrame.moon : selectedBodyId === 'mercury' ? currentFrame.mercury : currentFrame.venus"
             :moonPhaseData="selectedBodyId === 'moon' ? currentFrame.moon_phase : undefined"
             :venusPhaseData="selectedBodyId === 'venus' ? currentFrame.venus_phase : undefined"
+            :mercuryPhaseData="selectedBodyId === 'mercury' ? currentFrame.mercury_phase : undefined"
           />
         </div>
       </div>
@@ -281,7 +280,7 @@
   color: #fff;
   padding: 24px 18px 18px 18px;
   border-radius: 0 0 0 8px;
-  height: 100vh;
+  height: 100%;
   overflow-y: auto;
   font-size: 1em;
 }
@@ -297,10 +296,11 @@ import { SceneManager } from '@/three/scene';
 import { Sun } from '@/three/objects/Sun';
 import { Moon } from '@/three/objects/Moon';
 import { Venus } from '@/three/objects/Venus';
+import { Mercury } from '@/three/objects/Mercury';
 import { Earth } from '@/three/objects/Earth';
 import { FEATURE_FLAGS } from '@/config/features';
 import type { ObservationFrame } from '@/types/api.types';
-import CelestialBodyCarousel from './CelestialBodyCarousel.vue';
+import AppHeader from './Header.vue';
 import BodyInfoPanel from './BodyInfoPanel.vue';
 import PanelHeader from './PanelHeader.vue';
 
@@ -343,6 +343,7 @@ let sceneManager: SceneManager | null = null;
 let sun: Sun | null = null;
 let moon: Moon | null = null;
 let venus: Venus | null = null;
+let mercury: Mercury | null = null;
 let earth: Earth | null = null;
 
 const isAnimating = ref(false);
@@ -421,7 +422,7 @@ const isFormValid = computed(() => {
 
 const initializeObjects = () => {
   if (!canvasRef.value) return;
-  if (!earth || !sun || !moon || (FEATURE_FLAGS.VENUS_ENABLED && !venus) || !sceneManager) {
+  if (!earth || !sun || !moon || (FEATURE_FLAGS.VENUS_ENABLED && !venus) || (FEATURE_FLAGS.MERCURY_ENABLED && !mercury) || !sceneManager) {
     sceneManager = new SceneManager(canvasRef.value);
     earth = new Earth();
     sun = new Sun();
@@ -429,11 +430,17 @@ const initializeObjects = () => {
     if (FEATURE_FLAGS.VENUS_ENABLED) {
       venus = new Venus();
     }
+    if (FEATURE_FLAGS.MERCURY_ENABLED) {
+      mercury = new Mercury();
+    }
     earth.addToScene(sceneManager.scene);
     sun.addToScene(sceneManager.scene);
     moon.addToScene(sceneManager.scene);
     if (venus) {
       venus.addToScene(sceneManager.scene);
+    }
+    if (mercury) {
+      mercury.addToScene(sceneManager.scene);
     }
     // Hide objects until data is loaded
     if (earth && earth.mesh && earth.getGridHelper() && earth.getAxesHelper() && earth.getHemisphereGrid()) {
@@ -451,6 +458,9 @@ const initializeObjects = () => {
     }
     if (FEATURE_FLAGS.VENUS_ENABLED && venus && venus.mesh) {
       venus.mesh.visible = false;
+    }
+    if (FEATURE_FLAGS.MERCURY_ENABLED && mercury && mercury.mesh) {
+      mercury.mesh.visible = false;
     }
     sceneManager.startAnimation(updateAnimation);
   }
@@ -508,7 +518,7 @@ async function loadData() {
         }
       }
     }
-    if (!sun || !moon || !earth || (FEATURE_FLAGS.VENUS_ENABLED && !venus) || !sceneManager) {
+    if (!sun || !moon || !earth || (FEATURE_FLAGS.VENUS_ENABLED && !venus) || (FEATURE_FLAGS.MERCURY_ENABLED && !mercury) || !sceneManager) {
       initializeObjects();
     }
     currentIndex.value = 0;
@@ -532,6 +542,9 @@ async function loadData() {
       }
       if (venus && frame.venus) {
         venus.mesh.visible = frame.venus.is_visible;
+      }
+      if (mercury && frame.mercury) {
+        mercury.mesh.visible = frame.mercury.is_visible;
       }
     }
   }
@@ -632,6 +645,15 @@ function updatePositions() {
     );
   }
 
+  if (FEATURE_FLAGS.MERCURY_ENABLED && frame.mercury && mercury) {
+    mercury.updatePosition(
+      frame.mercury.azimuth,
+      frame.mercury.altitude,
+      frame.mercury.is_visible,
+      viewMode.value
+    );
+  }
+
   moon.updatePhase(frame.moon_phase.illumination * 100);
   
   // Update label billboard orientations to face camera
@@ -640,6 +662,9 @@ function updatePositions() {
     moon.updateLabelBillboard(sceneManager.camera);
     if (FEATURE_FLAGS.VENUS_ENABLED && venus) {
       venus.updateLabelBillboard(sceneManager.camera);
+    }
+    if (FEATURE_FLAGS.MERCURY_ENABLED && mercury) {
+      mercury.updateLabelBillboard(sceneManager.camera);
     }
   }
 }
@@ -654,6 +679,9 @@ function setViewMode(mode: '3D' | 'SKY') {
     moon.setViewMode(mode.toLowerCase() as 'sky' | '3d');
     if (venus) {
       venus.setViewMode(mode.toLowerCase() as 'sky' | '3d');
+    }
+    if (mercury) {
+      mercury.setViewMode(mode.toLowerCase() as 'sky' | '3d');
     }
     updatePositions();
   }
@@ -717,6 +745,8 @@ function clearData() {
   }
   sun = null;
   moon = null;
+  venus = null;
+  mercury = null;
   earth = null;
 }
 
@@ -927,13 +957,6 @@ button:disabled {
   width: 100%;
   display: flex;
   justify-content: flex-start;
-}
-
-.page-heading {
-  margin: 0 0 12px 0;
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: #ffffff;
 }
 
 .date-range-panel {
