@@ -16,6 +16,15 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  optimizeDeps: {
+    exclude: [
+      'vue',
+      '@vue/runtime-dom',
+      '@vue/runtime-core',
+      '@vue/reactivity',
+      '@vue/shared',
+    ],
+  },
   server: {
     port: 5173,
     proxy: {
@@ -40,9 +49,6 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          if (id.includes('node_modules/vue')) {
-            return 'vendor';
-          }
           if (id.includes('node_modules/three')) {
             return 'three';
           }

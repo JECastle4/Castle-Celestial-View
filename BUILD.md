@@ -6,7 +6,7 @@ This document describes how to build production artifacts for the API (Python wh
 
 ## Prerequisites
 
-- Python 3.9+ with a virtual environment activated
+- Python 3.14+ with a virtual environment activated
 - Node.js with `npm`
 - Build tools installed: `pip install build` (for the API)
 
