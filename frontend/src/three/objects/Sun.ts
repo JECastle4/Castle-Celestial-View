@@ -66,7 +66,8 @@ export class Sun {
 
     if (viewMode === '3D') {
       // 3D orbital view: position around Earth center
-      const distance = 15;
+      // Distance scaled with square root compression: √389.2 ≈ 19.7 (Sun-Earth AU scaled)
+      const distance = 19.7;
       this.mesh.position.x = distance * Math.cos(altitudeRad) * Math.sin(azimuthRad);
       this.mesh.position.y = distance * Math.sin(altitudeRad);
       this.mesh.position.z = -distance * Math.cos(altitudeRad) * Math.cos(azimuthRad); // restore original sign for test compatibility

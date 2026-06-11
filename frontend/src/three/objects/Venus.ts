@@ -70,7 +70,8 @@ export class Venus {
 
     if (viewMode === '3D') {
       // 3D orbital view: position around Earth center
-      const distance = 11;
+      // Distance scaled with square root compression: √281.3 ≈ 16.8 (Sun-Venus AU scaled)
+      const distance = 16.8;
       this.mesh.position.x = distance * Math.cos(altitudeRad) * Math.sin(azimuthRad);
       this.mesh.position.y = distance * Math.sin(altitudeRad);
       this.mesh.position.z = -distance * Math.cos(altitudeRad) * Math.cos(azimuthRad);

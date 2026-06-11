@@ -57,7 +57,8 @@ export class Mercury {
     const altitudeRad = THREE.MathUtils.degToRad(altitude);
 
     if (viewMode === '3D') {
-      const distance = 10;
+      // Distance scaled with square root compression: √150.6 ≈ 12.3 (Sun-Mercury AU scaled)
+      const distance = 12.3;
       this.mesh.position.x = distance * Math.cos(altitudeRad) * Math.sin(azimuthRad);
       this.mesh.position.y = distance * Math.sin(altitudeRad);
       this.mesh.position.z = -distance * Math.cos(altitudeRad) * Math.cos(azimuthRad);

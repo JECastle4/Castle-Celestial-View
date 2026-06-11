@@ -61,7 +61,8 @@ export class Moon {
 
     if (viewMode === '3D') {
       // 3D orbital view: position around Earth center
-      const distance = 8;
+      // Distance scaled with Earth-Moon = 1 unit (384,400 km reference)
+      const distance = 1;
       this.mesh.position.x = distance * Math.cos(altitudeRad) * Math.sin(azimuthRad);
       this.mesh.position.y = distance * Math.sin(altitudeRad);
       this.mesh.position.z = -distance * Math.cos(altitudeRad) * Math.cos(azimuthRad); // restore original sign for test compatibility

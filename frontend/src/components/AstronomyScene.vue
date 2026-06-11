@@ -149,6 +149,7 @@
             {{ t('buttons.play') }}
           </template>
           <template v-else>
+            <i class="fa fa-pause" aria-hidden="true" style="margin-right: 0.5em;"></i>
             {{ t('buttons.pause') }}
           </template>
         </button>
@@ -351,7 +352,7 @@ const animationSpeed = ref(1.0);
 const currentIndex = ref(0);
 const viewMode = ref<'3D' | 'SKY'>('3D');
 const lastTime = ref(0);
-const frameIntervalMs = ref(1000); // Time between frames in milliseconds
+const BASE_FRAME_PERIOD_MS = 1000; // Base frame period at speed 1.0 = 1 frame/sec
 
 function calculateDaysInRange() {
   const start = new Date(params.value.start_date);
@@ -522,7 +523,6 @@ async function loadData() {
       initializeObjects();
     }
     currentIndex.value = 0;
-    calculateFrameInterval();
     updatePositions();
     // Set visibility for first frame from API data
     const frame = currentFrame.value;
@@ -558,45 +558,7 @@ watch([loading, sseFrames, sseExpectedFrameCount], ([loadingVal, framesVal, expe
   }
 });
 
-// Calculate the time interval between frames based on actual datetime values
-// Fixes #11: Animation now respects the actual time intervals in the data
-// rather than using a fixed frame rate
-function calculateFrameInterval() {
-  if (!data.value || data.value.frames.length < 2) {
-    frameIntervalMs.value = 1000; // Default to 1 second if we can't calculate
-    return;
-  }
-  
-  // Parse the first two frame datetimes to calculate the real-time interval
-  const firstFrame = new Date(data.value.frames[0].datetime);
-  const secondFrame = new Date(data.value.frames[1].datetime);
-  
-  // Validate that the dates are valid
-  if (!isFinite(firstFrame.getTime()) || !isFinite(secondFrame.getTime())) {
-    frameIntervalMs.value = 1000; // Fall back to default if dates are invalid
-    return;
-  }
-  
-  // Calculate the time difference in milliseconds
-  const realTimeDiffMs = secondFrame.getTime() - firstFrame.getTime();
-  
-  // Validate that the time difference is positive
-  if (realTimeDiffMs <= 0) {
-    console.warn('Frame timestamps are not in chronological order or are identical. Using default interval.');
-    frameIntervalMs.value = 1000; // Fall back to default if frames are out of order
-    return;
-  }
-  
-  // Scale to a reasonable animation speed (e.g., 1 real hour = 1 second of animation)
-  // This gives us a base speed that makes sense for visualization
-  const MILLISECONDS_PER_SECOND = 1000;
-  const MILLISECONDS_PER_HOUR = 60 * 60 * 1000;
-  const scaleFactor = MILLISECONDS_PER_SECOND / MILLISECONDS_PER_HOUR;
-  frameIntervalMs.value = realTimeDiffMs * scaleFactor;
-  
-  // Ensure a minimum interval to prevent too-fast animations
-  frameIntervalMs.value = Math.max(frameIntervalMs.value, 50);
-}
+
 
 // Update celestial object positions
 function updatePositions() {
@@ -694,9 +656,9 @@ function updateAnimation() {
   const now = Date.now();
   const delta = now - lastTime.value;
   
-  // Use calculated frame interval scaled by animation speed
-  // Higher speed = shorter interval = faster animation
-  const interval = frameIntervalMs.value / animationSpeed.value;
+  // Frame interval based on animation speed (frames per second)
+  // Speed 1.0 = 1 FPS, Speed 5.0 = 5 FPS
+  const interval = BASE_FRAME_PERIOD_MS / animationSpeed.value;
   
   if (delta > interval) {
     lastTime.value = now;

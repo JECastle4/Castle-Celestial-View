@@ -43,7 +43,7 @@ export const CELESTIAL_BODIES: CelestialBodyConfig[] = [
     hasPhase: true,
     hasIllumination: true,
     hasNakedEyeVisibility: true,
-    icon: 'fa-star'
+    icon: 'fa-circle'
   },
   {
     id: 'mercury',
@@ -53,7 +53,7 @@ export const CELESTIAL_BODIES: CelestialBodyConfig[] = [
     hasPhase: true,
     hasIllumination: true,
     hasNakedEyeVisibility: true,
-    icon: 'fa-star'
+    icon: 'fa-circle'
   }
 ];
 
