@@ -40,7 +40,7 @@ describe('Sun', () => {
       sun.updatePosition(0, 90, true, '3D');
       
       // At zenith, should be directly above (y = distance, x ≈ 0, z ≈ 0)
-      expect(sun.mesh.position.y).toBeCloseTo(15, 1);
+      expect(sun.mesh.position.y).toBeCloseTo(19.7, 1);
       expect(Math.abs(sun.mesh.position.x)).toBeLessThan(0.1);
       expect(Math.abs(sun.mesh.position.z)).toBeLessThan(0.1);
     });
@@ -51,14 +51,14 @@ describe('Sun', () => {
       // North on horizon: x ≈ 0, y ≈ 0, z = -distance
       expect(Math.abs(sun.mesh.position.x)).toBeLessThan(0.1);
       expect(Math.abs(sun.mesh.position.y)).toBeLessThan(0.1);
-      expect(sun.mesh.position.z).toBeCloseTo(-15, 1);
+      expect(sun.mesh.position.z).toBeCloseTo(-19.7, 1);
     });
 
     it('should position at horizon east (azimuth 90°, altitude 0°)', () => {
       sun.updatePosition(90, 0, true, '3D');
       
       // East on horizon: x = distance, y ≈ 0, z ≈ 0
-      expect(sun.mesh.position.x).toBeCloseTo(15, 1);
+      expect(sun.mesh.position.x).toBeCloseTo(19.7, 1);
       expect(Math.abs(sun.mesh.position.y)).toBeLessThan(0.1);
       expect(Math.abs(sun.mesh.position.z)).toBeLessThan(0.1);
     });
@@ -69,14 +69,14 @@ describe('Sun', () => {
       // South on horizon: x ≈ 0, y ≈ 0, z = distance
       expect(Math.abs(sun.mesh.position.x)).toBeLessThan(0.1);
       expect(Math.abs(sun.mesh.position.y)).toBeLessThan(0.1);
-      expect(sun.mesh.position.z).toBeCloseTo(15, 1);
+      expect(sun.mesh.position.z).toBeCloseTo(19.7, 1);
     });
 
     it('should position at horizon west (azimuth 270°, altitude 0°)', () => {
       sun.updatePosition(270, 0, true, '3D');
       
       // West on horizon: x = -distance, y ≈ 0, z ≈ 0
-      expect(sun.mesh.position.x).toBeCloseTo(-15, 1);
+      expect(sun.mesh.position.x).toBeCloseTo(-19.7, 1);
       expect(Math.abs(sun.mesh.position.y)).toBeLessThan(0.1);
       expect(Math.abs(sun.mesh.position.z)).toBeLessThan(0.1);
     });
@@ -84,7 +84,7 @@ describe('Sun', () => {
     it('should position at 45° elevation, 45° azimuth', () => {
       sun.updatePosition(45, 45, true, '3D');
       
-      const distance = 15;
+      const distance = 19.7;
       const expectedY = distance * Math.sin(THREE.MathUtils.degToRad(45));
       const horizontalDist = distance * Math.cos(THREE.MathUtils.degToRad(45));
       

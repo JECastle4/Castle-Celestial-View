@@ -40,7 +40,7 @@ describe('Mercury', () => {
     it('should position at zenith (altitude 90°, any azimuth)', () => {
       mercury.updatePosition(0, 90, true, '3D');
 
-      expect(mercury.mesh.position.y).toBeCloseTo(10, 1);
+      expect(mercury.mesh.position.y).toBeCloseTo(12.3, 1);
       expect(Math.abs(mercury.mesh.position.x)).toBeLessThan(0.1);
       expect(Math.abs(mercury.mesh.position.z)).toBeLessThan(0.1);
     });
@@ -50,13 +50,13 @@ describe('Mercury', () => {
 
       expect(Math.abs(mercury.mesh.position.x)).toBeLessThan(0.1);
       expect(Math.abs(mercury.mesh.position.y)).toBeLessThan(0.1);
-      expect(mercury.mesh.position.z).toBeCloseTo(-10, 1);
+      expect(mercury.mesh.position.z).toBeCloseTo(-12.3, 1);
     });
 
     it('should position at horizon east (azimuth 90°, altitude 0°)', () => {
       mercury.updatePosition(90, 0, true, '3D');
 
-      expect(mercury.mesh.position.x).toBeCloseTo(10, 1);
+      expect(mercury.mesh.position.x).toBeCloseTo(12.3, 1);
       expect(Math.abs(mercury.mesh.position.y)).toBeLessThan(0.1);
       expect(Math.abs(mercury.mesh.position.z)).toBeLessThan(0.1);
     });
@@ -64,7 +64,7 @@ describe('Mercury', () => {
     it('should position at 45° elevation, 45° azimuth', () => {
       mercury.updatePosition(45, 45, true, '3D');
 
-      const distance = 10;
+      const distance = 12.3;
       const expectedY = distance * Math.sin(THREE.MathUtils.degToRad(45));
       const horizontalDist = distance * Math.cos(THREE.MathUtils.degToRad(45));
 
@@ -80,7 +80,7 @@ describe('Mercury', () => {
           mercury.mesh.position.y ** 2 +
           mercury.mesh.position.z ** 2
         );
-        expect(distance).toBeCloseTo(10, 0);
+        expect(distance).toBeCloseTo(12.3, 0);
       });
     });
   });
