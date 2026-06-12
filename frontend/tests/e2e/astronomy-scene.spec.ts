@@ -464,7 +464,8 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
    */
   testWithPersistentPage('5. Click Sun tab directly', { timeout: 90000 }, async ({ page }) => {
     // Stabilize page before proceeding
-    await stabilizePage(page, 8000, true);
+    // Use 15s timeout to accommodate slower CI rendering (Linux headless)
+    await stabilizePage(page, 15000, true);
     
     // Verify page state is still good
     const animationControls = page.locator('.animation-controls');
