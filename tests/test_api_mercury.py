@@ -429,6 +429,9 @@ class TestMercuryEphemerisAccuracy:
         d_dec = dec2_r - dec1_r
         a = (math.sin(d_dec / 2) ** 2
              + math.cos(dec1_r) * math.cos(dec2_r) * math.sin(d_ra / 2) ** 2)
+        # Clamp a to [0, 1] to handle floating-point rounding errors that could
+        # make a slightly < 0 or > 1, which would cause asin(sqrt(a)) to fail
+        a = max(0.0, min(1.0, a))
         return math.degrees(2 * math.asin(math.sqrt(a))) * 3600.0
 
     @pytest.mark.parametrize(
