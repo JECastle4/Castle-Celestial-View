@@ -72,7 +72,7 @@ describe('Mercury', () => {
       expect(mercury.mesh.position.x).toBeCloseTo(horizontalDist * Math.sin(THREE.MathUtils.degToRad(45)), 1);
     });
 
-    it('should place all cardinal directions at orbit distance 10', () => {
+    it('should place all cardinal directions at orbit distance 12.3', () => {
       [0, 90, 180, 270].forEach(azimuth => {
         mercury.updatePosition(azimuth, 30, true, '3D');
         const distance = Math.sqrt(

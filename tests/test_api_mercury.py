@@ -2,7 +2,7 @@
 Tests for Mercury position calculation services and API endpoints
 """
 import pytest
-from api.models import ObservationDateTime, LocationModel, MercuryPositionRequest
+from api.models import ObservationDateTime, LocationModel
 from api.services.mercury import calculate_mercury_position
 
 
@@ -415,11 +415,16 @@ class TestMercuryEphemerisAccuracy:
     )
     def test_mercury_absolute_position_within_25_arcseconds_of_horizons(self, datetime_utc):
         """
-        Sanity check: astropy's Mercury position (apparent GCRS) should be within
+        Ephemeris baseline validation: astropy's Mercury position (apparent GCRS) should be within
         25 arcseconds of JPL Horizons astrometric ICRF at each test epoch.
 
+        NOTE: This test validates astropy's bundled ephemeris (DE441) behavior directly,
+        not the application's calculate_mercury_position(). Failures here indicate
+        astropy/ephemeris data changes, not regressions in our code. Failures may occur
+        across astropy/ephemeris updates without code changes.
+
         The expected offset is ~20-22" due to stellar aberration (not GR drift).
-        A separation above 25" indicates a serious implementation error.
+        A separation above 25" indicates a serious ephemeris compatibility issue.
         """
         from astropy.coordinates import get_body
         from astropy.time import Time
