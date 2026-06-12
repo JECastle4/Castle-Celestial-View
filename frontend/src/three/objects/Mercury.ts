@@ -4,7 +4,7 @@ import { Label3D } from './Label3D';
 /**
  * Mercury object for the scene.
  * Radius 0.115 scene units (2440 / 6371 × Earth's 0.3).
- * 3D orbit distance 10 — between Moon (8) and Venus (11).
+ * 3D orbit distance 12.3 — between Moon (8) and Venus (16.8).
  */
 export class Mercury {
   public mesh: THREE.Mesh;

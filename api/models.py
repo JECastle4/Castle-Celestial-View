@@ -538,6 +538,14 @@ class VenusPhaseData(BaseModel):
     naked_eye_visible: bool = Field(..., description="Whether Venus is observable to naked eye")
 
 
+class MercuryPhaseData(BaseModel):
+    """Mercury phase information"""
+    illumination: float = Field(..., ge=0.0, le=1.0, description="Illumination fraction")
+    phase_angle: float = Field(..., ge=0.0, lt=360.0, description="Phase angle in degrees")
+    phase_name: str = Field(..., description="Name of the Mercury phase")
+    naked_eye_visible: bool = Field(..., description="Whether Mercury is observable to naked eye")
+
+
 class ObservationFrame(BaseModel):
     """Single frame of observations"""
     datetime: str = Field(..., description="ISO datetime of the frame")
@@ -546,6 +554,8 @@ class ObservationFrame(BaseModel):
     moon_phase: MoonPhaseData = Field(..., description="Moon phase information")
     venus: CelestialPosition = Field(..., description="Venus position")
     venus_phase: VenusPhaseData = Field(..., description="Venus phase information")
+    mercury: CelestialPosition = Field(..., description="Mercury position")
+    mercury_phase: MercuryPhaseData = Field(..., description="Mercury phase information")
 
 
 class BatchMetadata(BaseModel):
