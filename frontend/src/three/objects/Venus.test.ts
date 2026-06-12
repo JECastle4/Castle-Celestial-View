@@ -47,7 +47,7 @@ describe('Venus', () => {
       venus.updatePosition(0, 90, true, '3D');
       
       // At zenith, should be directly above (y = distance, x ≈ 0, z ≈ 0)
-      expect(venus.mesh.position.y).toBeCloseTo(11, 1);
+      expect(venus.mesh.position.y).toBeCloseTo(16.8, 1);
       expect(Math.abs(venus.mesh.position.x)).toBeLessThan(0.1);
       expect(Math.abs(venus.mesh.position.z)).toBeLessThan(0.1);
     });
@@ -58,14 +58,14 @@ describe('Venus', () => {
       // North on horizon: x ≈ 0, y ≈ 0, z = -distance
       expect(Math.abs(venus.mesh.position.x)).toBeLessThan(0.1);
       expect(Math.abs(venus.mesh.position.y)).toBeLessThan(0.1);
-      expect(venus.mesh.position.z).toBeCloseTo(-11, 1);
+      expect(venus.mesh.position.z).toBeCloseTo(-16.8, 1);
     });
 
     it('should position at horizon east (azimuth 90°, altitude 0°)', () => {
       venus.updatePosition(90, 0, true, '3D');
       
       // East on horizon: x = distance, y ≈ 0, z ≈ 0
-      expect(venus.mesh.position.x).toBeCloseTo(11, 1);
+      expect(venus.mesh.position.x).toBeCloseTo(16.8, 1);
       expect(Math.abs(venus.mesh.position.y)).toBeLessThan(0.1);
       expect(Math.abs(venus.mesh.position.z)).toBeLessThan(0.1);
     });
@@ -73,7 +73,7 @@ describe('Venus', () => {
     it('should position at 45° elevation, 45° azimuth', () => {
       venus.updatePosition(45, 45, true, '3D');
       
-      const distance = 11;
+      const distance = 16.8;
       const expectedY = distance * Math.sin(THREE.MathUtils.degToRad(45));
       const horizontalDist = distance * Math.cos(THREE.MathUtils.degToRad(45));
       
@@ -205,7 +205,7 @@ describe('Venus', () => {
           venus.mesh.position.y ** 2 +
           venus.mesh.position.z ** 2
         );
-        expect(distance).toBeCloseTo(11, 0);
+        expect(distance).toBeCloseTo(16.8, 0);
       });
     });
 

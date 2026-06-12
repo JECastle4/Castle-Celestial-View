@@ -1,5 +1,10 @@
 <template>
   <div class="astronomy-scene">
+    <AppHeader
+      :hasData="hasData"
+      :selectedBody="selectedBodyId"
+      @update:selectedBody="selectedBodyId = $event"
+    />
     <div class="scene-layout">
       <div class="map-and-date-container">
         <div class="map-container">
@@ -16,8 +21,6 @@
         </div>
       </div>
       <div class="controls-panel">
-      <h1 class="page-heading">{{ t('app.title') }}</h1>
-      
       <div v-if="loading" class="loading">
         <div class="progress-bar-container">
           <div class="progress-bar" :style="{ width: (sseProgress * 100).toFixed(1) + '%' }"></div>
@@ -146,6 +149,7 @@
             {{ t('buttons.play') }}
           </template>
           <template v-else>
+            <i class="fa fa-pause" aria-hidden="true" style="margin-right: 0.5em;"></i>
             {{ t('buttons.pause') }}
           </template>
         </button>
@@ -186,16 +190,12 @@
             :location="params"
           />
           
-          <CelestialBodyCarousel
-            :selectedBody="selectedBodyId"
-            @update:selectedBody="(bodyId) => selectedBodyId = bodyId"
-          />
-          
           <BodyInfoPanel
             :bodyId="selectedBodyId"
-            :bodyData="selectedBodyId === 'sun' ? currentFrame.sun : selectedBodyId === 'moon' ? currentFrame.moon : currentFrame.venus"
+            :bodyData="selectedBodyId === 'sun' ? currentFrame.sun : selectedBodyId === 'moon' ? currentFrame.moon : selectedBodyId === 'mercury' ? currentFrame.mercury : currentFrame.venus"
             :moonPhaseData="selectedBodyId === 'moon' ? currentFrame.moon_phase : undefined"
             :venusPhaseData="selectedBodyId === 'venus' ? currentFrame.venus_phase : undefined"
+            :mercuryPhaseData="selectedBodyId === 'mercury' ? currentFrame.mercury_phase : undefined"
           />
         </div>
       </div>
@@ -281,7 +281,7 @@
   color: #fff;
   padding: 24px 18px 18px 18px;
   border-radius: 0 0 0 8px;
-  height: 100vh;
+  height: 100%;
   overflow-y: auto;
   font-size: 1em;
 }
@@ -297,10 +297,11 @@ import { SceneManager } from '@/three/scene';
 import { Sun } from '@/three/objects/Sun';
 import { Moon } from '@/three/objects/Moon';
 import { Venus } from '@/three/objects/Venus';
+import { Mercury } from '@/three/objects/Mercury';
 import { Earth } from '@/three/objects/Earth';
 import { FEATURE_FLAGS } from '@/config/features';
 import type { ObservationFrame } from '@/types/api.types';
-import CelestialBodyCarousel from './CelestialBodyCarousel.vue';
+import AppHeader from './Header.vue';
 import BodyInfoPanel from './BodyInfoPanel.vue';
 import PanelHeader from './PanelHeader.vue';
 
@@ -343,6 +344,7 @@ let sceneManager: SceneManager | null = null;
 let sun: Sun | null = null;
 let moon: Moon | null = null;
 let venus: Venus | null = null;
+let mercury: Mercury | null = null;
 let earth: Earth | null = null;
 
 const isAnimating = ref(false);
@@ -350,7 +352,7 @@ const animationSpeed = ref(1.0);
 const currentIndex = ref(0);
 const viewMode = ref<'3D' | 'SKY'>('3D');
 const lastTime = ref(0);
-const frameIntervalMs = ref(1000); // Time between frames in milliseconds
+const BASE_FRAME_PERIOD_MS = 1000; // Base frame period at speed 1.0 = 1 frame/sec
 
 function calculateDaysInRange() {
   const start = new Date(params.value.start_date);
@@ -421,7 +423,7 @@ const isFormValid = computed(() => {
 
 const initializeObjects = () => {
   if (!canvasRef.value) return;
-  if (!earth || !sun || !moon || (FEATURE_FLAGS.VENUS_ENABLED && !venus) || !sceneManager) {
+  if (!earth || !sun || !moon || (FEATURE_FLAGS.VENUS_ENABLED && !venus) || (FEATURE_FLAGS.MERCURY_ENABLED && !mercury) || !sceneManager) {
     sceneManager = new SceneManager(canvasRef.value);
     earth = new Earth();
     sun = new Sun();
@@ -429,11 +431,17 @@ const initializeObjects = () => {
     if (FEATURE_FLAGS.VENUS_ENABLED) {
       venus = new Venus();
     }
+    if (FEATURE_FLAGS.MERCURY_ENABLED) {
+      mercury = new Mercury();
+    }
     earth.addToScene(sceneManager.scene);
     sun.addToScene(sceneManager.scene);
     moon.addToScene(sceneManager.scene);
     if (venus) {
       venus.addToScene(sceneManager.scene);
+    }
+    if (mercury) {
+      mercury.addToScene(sceneManager.scene);
     }
     // Hide objects until data is loaded
     if (earth && earth.mesh && earth.getGridHelper() && earth.getAxesHelper() && earth.getHemisphereGrid()) {
@@ -451,6 +459,9 @@ const initializeObjects = () => {
     }
     if (FEATURE_FLAGS.VENUS_ENABLED && venus && venus.mesh) {
       venus.mesh.visible = false;
+    }
+    if (FEATURE_FLAGS.MERCURY_ENABLED && mercury && mercury.mesh) {
+      mercury.mesh.visible = false;
     }
     sceneManager.startAnimation(updateAnimation);
   }
@@ -508,11 +519,10 @@ async function loadData() {
         }
       }
     }
-    if (!sun || !moon || !earth || (FEATURE_FLAGS.VENUS_ENABLED && !venus) || !sceneManager) {
+    if (!sun || !moon || !earth || (FEATURE_FLAGS.VENUS_ENABLED && !venus) || (FEATURE_FLAGS.MERCURY_ENABLED && !mercury) || !sceneManager) {
       initializeObjects();
     }
     currentIndex.value = 0;
-    calculateFrameInterval();
     updatePositions();
     // Set visibility for first frame from API data
     const frame = currentFrame.value;
@@ -533,6 +543,9 @@ async function loadData() {
       if (venus && frame.venus) {
         venus.mesh.visible = frame.venus.is_visible;
       }
+      if (mercury && frame.mercury) {
+        mercury.mesh.visible = frame.mercury.is_visible;
+      }
     }
   }
 }
@@ -545,45 +558,7 @@ watch([loading, sseFrames, sseExpectedFrameCount], ([loadingVal, framesVal, expe
   }
 });
 
-// Calculate the time interval between frames based on actual datetime values
-// Fixes #11: Animation now respects the actual time intervals in the data
-// rather than using a fixed frame rate
-function calculateFrameInterval() {
-  if (!data.value || data.value.frames.length < 2) {
-    frameIntervalMs.value = 1000; // Default to 1 second if we can't calculate
-    return;
-  }
-  
-  // Parse the first two frame datetimes to calculate the real-time interval
-  const firstFrame = new Date(data.value.frames[0].datetime);
-  const secondFrame = new Date(data.value.frames[1].datetime);
-  
-  // Validate that the dates are valid
-  if (!isFinite(firstFrame.getTime()) || !isFinite(secondFrame.getTime())) {
-    frameIntervalMs.value = 1000; // Fall back to default if dates are invalid
-    return;
-  }
-  
-  // Calculate the time difference in milliseconds
-  const realTimeDiffMs = secondFrame.getTime() - firstFrame.getTime();
-  
-  // Validate that the time difference is positive
-  if (realTimeDiffMs <= 0) {
-    console.warn('Frame timestamps are not in chronological order or are identical. Using default interval.');
-    frameIntervalMs.value = 1000; // Fall back to default if frames are out of order
-    return;
-  }
-  
-  // Scale to a reasonable animation speed (e.g., 1 real hour = 1 second of animation)
-  // This gives us a base speed that makes sense for visualization
-  const MILLISECONDS_PER_SECOND = 1000;
-  const MILLISECONDS_PER_HOUR = 60 * 60 * 1000;
-  const scaleFactor = MILLISECONDS_PER_SECOND / MILLISECONDS_PER_HOUR;
-  frameIntervalMs.value = realTimeDiffMs * scaleFactor;
-  
-  // Ensure a minimum interval to prevent too-fast animations
-  frameIntervalMs.value = Math.max(frameIntervalMs.value, 50);
-}
+
 
 // Update celestial object positions
 function updatePositions() {
@@ -632,6 +607,15 @@ function updatePositions() {
     );
   }
 
+  if (FEATURE_FLAGS.MERCURY_ENABLED && frame.mercury && mercury) {
+    mercury.updatePosition(
+      frame.mercury.azimuth,
+      frame.mercury.altitude,
+      frame.mercury.is_visible,
+      viewMode.value
+    );
+  }
+
   moon.updatePhase(frame.moon_phase.illumination * 100);
   
   // Update label billboard orientations to face camera
@@ -640,6 +624,9 @@ function updatePositions() {
     moon.updateLabelBillboard(sceneManager.camera);
     if (FEATURE_FLAGS.VENUS_ENABLED && venus) {
       venus.updateLabelBillboard(sceneManager.camera);
+    }
+    if (FEATURE_FLAGS.MERCURY_ENABLED && mercury) {
+      mercury.updateLabelBillboard(sceneManager.camera);
     }
   }
 }
@@ -655,6 +642,9 @@ function setViewMode(mode: '3D' | 'SKY') {
     if (venus) {
       venus.setViewMode(mode.toLowerCase() as 'sky' | '3d');
     }
+    if (mercury) {
+      mercury.setViewMode(mode.toLowerCase() as 'sky' | '3d');
+    }
     updatePositions();
   }
 }
@@ -666,9 +656,25 @@ function updateAnimation() {
   const now = Date.now();
   const delta = now - lastTime.value;
   
-  // Use calculated frame interval scaled by animation speed
-  // Higher speed = shorter interval = faster animation
-  const interval = frameIntervalMs.value / animationSpeed.value;
+  // Frame interval based on fixed BASE_FRAME_PERIOD_MS and animation speed
+  // Speed 1.0 = 1 FPS (1 frame per second), Speed 5.0 = 5 FPS (5 frames per second)
+  //
+  // NOTE: This uses a FIXED frame period (BASE_FRAME_PERIOD_MS) that does NOT
+  // reflect the actual time spacing between frames in the data. For example:
+  //   - Backend returns frames for every 30 minutes over 24 hours
+  //   - With this fixed interval, each frame displays for 1 second (at speed 1.0)
+  //   - Animation playback speed does NOT reflect the 30-minute data intervals
+  //
+  // DESIGN TRADE-OFF: Previously, calculateFrameInterval() derived the interval
+  // from actual frame.datetime spacing to make animation reflect data time steps.
+  // This was removed for simplicity—animation speed is now decoupled from data
+  // intervals and controlled by the user via the speed slider.
+  //
+  // FUTURE ENHANCEMENT: If frame intervals vary significantly, consider:
+  //   - Calculating average interval from first/last frame timestamps
+  //   - Allowing users to choose "scaled" (data-driven) vs "constant" playback mode
+  //   - Adjusting speed dynamically if backend changes frame intervals
+  const interval = BASE_FRAME_PERIOD_MS / animationSpeed.value;
   
   if (delta > interval) {
     lastTime.value = now;
@@ -717,6 +723,8 @@ function clearData() {
   }
   sun = null;
   moon = null;
+  venus = null;
+  mercury = null;
   earth = null;
 }
 
@@ -927,13 +935,6 @@ button:disabled {
   width: 100%;
   display: flex;
   justify-content: flex-start;
-}
-
-.page-heading {
-  margin: 0 0 12px 0;
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: #ffffff;
 }
 
 .date-range-panel {

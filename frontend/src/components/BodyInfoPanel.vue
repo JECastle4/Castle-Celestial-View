@@ -128,6 +128,42 @@
           </div>
         </div>
       </div>
+
+      <!-- Mercury-specific Data -->
+      <div
+        v-if="bodyId === 'mercury' && mercuryPhaseData"
+        class="info-section mercury-section"
+      >
+        <h2 class="section-title">{{ t('astronomy.mercuryData') }}</h2>
+        <div class="mercury-info">
+          <div
+            class="phase-name"
+            tabindex="0"
+            :aria-label="`${t('astronomy.phase')}: ${translateMercuryPhaseName(mercuryPhaseData.phase_name)}`"
+          >
+            <span class="label">{{ t('astronomy.phase') }}:</span>
+            <span class="value">{{ translateMercuryPhaseName(mercuryPhaseData.phase_name) }}</span>
+          </div>
+          <div
+            class="illumination"
+            tabindex="0"
+            :aria-label="`${t('astronomy.illumination')}: ${formatPercentage(mercuryPhaseData.illumination)}`"
+          >
+            <span class="label">{{ t('astronomy.illumination') }}:</span>
+            <span class="value">{{ formatPercentage(mercuryPhaseData.illumination) }}</span>
+          </div>
+          <div
+            class="naked-eye"
+            tabindex="0"
+            :aria-label="`${t('astronomy.nakedEyeVisible')}: ${t(mercuryPhaseData.naked_eye_visible ? 'astronomy.yes' : 'astronomy.no')}`"
+          >
+            <span class="label">{{ t('astronomy.nakedEyeVisible') }}:</span>
+            <span :class="['value', { yes: mercuryPhaseData.naked_eye_visible, no: !mercuryPhaseData.naked_eye_visible }]">
+              {{ mercuryPhaseData.naked_eye_visible ? t('astronomy.yes') : t('astronomy.no') }}
+            </span>
+          </div>
+        </div>
+      </div>
     </template>
     <template v-else>
       <div class="no-data">
@@ -139,7 +175,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
-import type { CelestialPosition, MoonPhaseData, VenusPhaseData } from '@/types/api.types';
+import type { CelestialPosition, MoonPhaseData, VenusPhaseData, MercuryPhaseData } from '@/types/api.types';
 
 const { t } = useI18n();
 
@@ -148,6 +184,7 @@ defineProps<{
   bodyData?: CelestialPosition;
   moonPhaseData?: MoonPhaseData;
   venusPhaseData?: VenusPhaseData;
+  mercuryPhaseData?: MercuryPhaseData;
 }>();
 
 const formatRA = (raDegrees: number): string => {
@@ -205,6 +242,20 @@ const translatePhaseName = (phaseName: string): string => {
 
 const translateVenusPhaseName = (phaseName: string): string => {
   const key = venusPhaseNameMap[phaseName];
+  return key ? t(key) : phaseName;
+};
+
+// Map Mercury phase names from API to i18n keys
+const mercuryPhaseNameMap: Record<string, string> = {
+  'New': 'astronomy.mercuryPhases.new',
+  'Crescent': 'astronomy.mercuryPhases.crescent',
+  'Quarter': 'astronomy.mercuryPhases.quarter',
+  'Gibbous': 'astronomy.mercuryPhases.gibbous',
+  'Full': 'astronomy.mercuryPhases.full',
+};
+
+const translateMercuryPhaseName = (phaseName: string): string => {
+  const key = mercuryPhaseNameMap[phaseName];
   return key ? t(key) : phaseName;
 };
 </script>

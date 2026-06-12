@@ -1,0 +1,222 @@
+"""
+Mercury position calculation services
+"""
+from typing import Optional
+from astropy.coordinates import get_body, get_sun, AltAz, EarthLocation
+from astropy.time import Time
+import astropy.units as u
+import numpy as np
+from api.i18n import get_i18n
+from api.models import ObservationDateTime, LocationModel
+
+
+def calculate_mercury_position(
+    observation_time: ObservationDateTime,
+    location: LocationModel,
+    locale: Optional[str] = None
+) -> dict:
+    """
+    Calculate Mercury's position and phase at a given time and location.
+
+    Args:
+        observation_time: Date and time of observation
+        location: Observer location (latitude, longitude, elevation)
+        locale: Language locale code (e.g., 'en', 'en-US'); defaults to 'en'
+
+    Returns:
+        Dictionary containing:
+            - altitude: Mercury's altitude in degrees (negative = below horizon)
+            - azimuth: Mercury's azimuth in degrees (0=North, 90=East, 180=South, 270=West)
+            - is_visible: Boolean indicating if Mercury is above horizon
+            - illumination: Fraction of Mercury's disk illuminated by the Sun (0.0 to 1.0),
+              computed using Mercury-centric phase angle (IAU standard for inferior planets).
+              Ranges from ~0% at inferior conjunction (closest to Earth) to ~100% at
+              superior conjunction (behind the Sun).
+            - phase_angle: Mercury's phase angle in ecliptic longitude (0 to 360 degrees),
+              used to determine waxing vs waning
+            - phase_name: Textual name of the phase based on illumination:
+              New (0-10%), Crescent (10-35%), Quarter (35-50%),
+              Gibbous (50-90%), Full (90%+)
+            - sun_separation: Angular separation between Mercury and Sun in degrees (elongation)
+            - naked_eye_visible: Boolean indicating if Mercury is observable to naked eye
+              (requires altitude > 0° AND sun_separation > 14.5°; Mercury's minimum elongation)
+            - julian_date: The JD for this calculation
+            - input_datetime: The processed input string
+            - location: Dictionary with lat, lon, elevation
+
+    Raises:
+        ValueError: If date/time format is invalid or coordinates out of range
+    """
+    i18n = get_i18n(locale)
+
+    # Validate coordinates
+    if not -90 <= location.latitude <= 90:
+        raise ValueError(i18n.get('validation.latitudeRange', value=location.latitude))
+    if not -180 <= location.longitude <= 180:
+        raise ValueError(i18n.get('validation.longitudeRange', value=location.longitude))
+
+    # Combine date and time (ISO 8601 format)
+    datetime_str = f"{observation_time.date}T{observation_time.time}Z"
+
+    # Convert to astropy Time
+    obs_time = Time(datetime_str.rstrip('Z'), format='isot', scale='utc')
+
+    # Create Earth location
+    earth_location = EarthLocation(
+        lat=location.latitude * u.deg,
+        lon=location.longitude * u.deg,
+        height=location.elevation * u.m
+    )
+
+    # Create AltAz frame (pressure=0 to ignore atmospheric refraction for simplicity)
+    altaz_frame = AltAz(obstime=obs_time, location=earth_location, pressure=0.0)
+
+    # Get Mercury position and transform to AltAz coordinates
+    mercury_with_loc = get_body("mercury", obs_time, earth_location)
+    mercury_altaz = mercury_with_loc.transform_to(altaz_frame)
+
+    # Get Sun and Mercury at geocenter for geocentric separation/phase calculations
+    sun = get_sun(obs_time)
+    mercury_gcrs = get_body("mercury", obs_time)
+
+    return _process_mercury_position(
+        mercury_with_loc, mercury_altaz, sun, mercury_gcrs, obs_time, datetime_str, location,
+        locale=locale
+    )
+
+
+def _process_mercury_position(
+    mercury_with_loc,
+    mercury_altaz,
+    sun,
+    mercury_gcrs,
+    time: Time,
+    datetime_str: str,
+    location: LocationModel,
+    locale: Optional[str] = None
+) -> dict:
+    """
+    Process Mercury position data into response format.
+    Internal function used by calculate_mercury_position and batch operations.
+
+    Illumination Calculation:
+    Uses Mercury-centric phase angle (IAU standard for inferior planets).
+    Phase angle is computed from 3D vectors: Sun direction from Mercury and Earth
+    direction from Mercury. Illumination = (1 + cos(phase_angle)) / 2.
+
+    Args:
+        mercury_with_loc: Mercury position in topocentric GCRS frame
+            (observer-dependent, includes parallax)
+        mercury_altaz: Mercury position in AltAz frame
+        sun: Sun position (GCRS coordinates)
+        mercury_gcrs: Mercury position (GCRS coordinates)
+        time: Astropy Time object
+        datetime_str: Input datetime string
+        location: Observer location with latitude, longitude, elevation
+        locale: Language locale code for phase names (defaults to 'en')
+
+    Returns:
+        Dictionary with Mercury position data
+    """
+    i18n = get_i18n(locale)
+
+    # Extract altitude and azimuth
+    altitude = mercury_altaz.alt.degree
+    azimuth = mercury_altaz.az.degree
+
+    # Mercury is visible if altitude is positive (above horizon)
+    # Convert to Python bool to avoid numpy bool type
+    is_visible = bool(altitude > 0)
+
+    # Calculate Mercury phase using Mercury-centric geometry (IAU standard for inferior planets)
+    # For an inferior planet, the phase angle must be computed from the planet's perspective
+    # using 3D vectors, not from Earth's perspective using angular separation.
+    # Get Cartesian positions (GCRS frame: Earth at origin)
+    mercury_pos = mercury_gcrs.cartesian.xyz  # Vector from Earth to Mercury
+    sun_pos = sun.cartesian.xyz  # Vector from Earth to Sun
+
+    # Vectors from Mercury's perspective
+    vec_mercury_to_sun = sun_pos - mercury_pos  # Sun direction from Mercury
+    vec_mercury_to_earth = -mercury_pos  # Earth direction from Mercury
+
+    # Compute angle between the two vectors
+    dot_prod = np.dot(vec_mercury_to_sun, vec_mercury_to_earth)
+    mag_sun = np.linalg.norm(vec_mercury_to_sun)
+    mag_earth = np.linalg.norm(vec_mercury_to_earth)
+
+    cos_phase_angle = dot_prod / (mag_sun * mag_earth)
+    # Clamp to avoid numerical errors in arccos
+    cos_phase_angle = np.clip(cos_phase_angle, -1.0, 1.0)
+
+    # Illumination for an inferior planet: (1 + cos(phase_angle)) / 2
+    illumination = float((1.0 + cos_phase_angle) / 2.0)
+
+    # Compute elongation (angular separation between Mercury and Sun from Earth)
+    # This is still useful for determining naked-eye visibility
+    elongation = sun.separation(mercury_gcrs)
+    sun_separation = float(elongation.deg)
+
+    # Naked-eye visibility requires both altitude > 0° AND sufficient separation from Sun
+    # Mercury has a maximum elongation of ~28°, and becomes visible when elongation > 14.5°
+    # This is significantly larger than Venus (~10°) due to Mercury's closer orbit to the Sun
+    min_elongation_for_visibility = 14.5  # degrees
+    naked_eye_visible = bool(altitude > 0 and sun_separation > min_elongation_for_visibility)
+
+    # Phase angle from ecliptic longitudes
+    # 0-180° = waxing (new → full), 180-360° = waning (full → new)
+    sun_lon = sun.geocentrictrueecliptic.lon.deg
+    mercury_lon = mercury_gcrs.geocentrictrueecliptic.lon.deg
+    phase_angle = float((mercury_lon - sun_lon) % 360)
+
+    # Determine phase name based on illumination and waxing/waning
+    illum_pct = illumination * 100
+
+    if phase_angle < 180:  # Waxing (new → full)
+        if illum_pct < 10:
+            phase_key = "new"
+        elif illum_pct < 35:
+            phase_key = "crescent"
+        elif illum_pct < 50:
+            phase_key = "quarter"
+        elif illum_pct < 90:
+            phase_key = "gibbous"
+        else:  # 90%+
+            phase_key = "full"
+    else:  # Waning (full → new)
+        if illum_pct > 90:
+            phase_key = "full"
+        elif illum_pct > 50:
+            phase_key = "gibbous"
+        elif illum_pct > 35:
+            phase_key = "quarter"
+        elif illum_pct > 10:
+            phase_key = "crescent"
+        else:  # <10%
+            phase_key = "new"
+
+    # Get localized phase name
+    phase_name = i18n.get(f"mercuryPhases.{phase_key}")
+
+    # Extract RA/Dec in GCRS frame (topocentric/apparent, observer-dependent)
+    ra_degrees = float(mercury_with_loc.ra.degree)
+    dec_degrees = float(mercury_with_loc.dec.degree)
+
+    return {
+        "altitude": float(altitude),
+        "azimuth": float(azimuth),
+        "is_visible": is_visible,
+        "illumination": illumination,
+        "phase_angle": float(phase_angle),
+        "phase_name": phase_name,
+        "sun_separation": sun_separation,
+        "naked_eye_visible": naked_eye_visible,
+        "ra_degrees": ra_degrees,
+        "dec_degrees": dec_degrees,
+        "julian_date": float(time.jd),
+        "input_datetime": datetime_str,
+        "location": {
+            "latitude": location.latitude,
+            "longitude": location.longitude,
+            "elevation": location.elevation
+        }
+    }

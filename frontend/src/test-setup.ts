@@ -7,6 +7,7 @@ export const testFeatureFlags = {
   SUN_ENABLED: true,
   MOON_ENABLED: true,
   VENUS_ENABLED: false,  // Disabled by default to avoid creating/updating Venus Three.js objects and keep test fixtures minimal
+  MERCURY_ENABLED: false, // Disabled by default for the same reason
 }
 
 vi.mock('@/config/features', () => ({
@@ -24,6 +25,7 @@ export function resetFeatureFlags(): void {
     SUN_ENABLED: true,
     MOON_ENABLED: true,
     VENUS_ENABLED: false,
+    MERCURY_ENABLED: false,
   });
 }
 

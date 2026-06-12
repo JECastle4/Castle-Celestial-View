@@ -3,8 +3,8 @@ import { CELESTIAL_BODIES, getBodyConfig, getBodyById } from './celestialBodies'
 
 describe('celestialBodies', () => {
   describe('CELESTIAL_BODIES array', () => {
-    it('should have 3 celestial bodies', () => {
-      expect(CELESTIAL_BODIES).toHaveLength(3);
+    it('should have 4 celestial bodies', () => {
+      expect(CELESTIAL_BODIES).toHaveLength(4);
     });
 
     it('should have sun as first body', () => {
@@ -23,6 +23,13 @@ describe('celestialBodies', () => {
       expect(CELESTIAL_BODIES[2].id).toBe('venus');
       expect(CELESTIAL_BODIES[2].order).toBe(2);
       expect(CELESTIAL_BODIES[2].hasPhase).toBe(true);
+    });
+
+    it('should have mercury as fourth body', () => {
+      expect(CELESTIAL_BODIES[3].id).toBe('mercury');
+      expect(CELESTIAL_BODIES[3].order).toBe(3);
+      expect(CELESTIAL_BODIES[3].hasPhase).toBe(true);
+      expect(CELESTIAL_BODIES[3].hasNakedEyeVisibility).toBe(true);
     });
   });
 
@@ -49,6 +56,15 @@ describe('celestialBodies', () => {
       expect(config).toBeDefined();
       expect(config?.id).toBe('venus');
       expect(config?.name).toBe('Venus');
+      expect(config?.hasPhase).toBe(true);
+      expect(config?.hasNakedEyeVisibility).toBe(true);
+    });
+
+    it('should return mercury config when given "mercury"', () => {
+      const config = getBodyConfig('mercury');
+      expect(config).toBeDefined();
+      expect(config?.id).toBe('mercury');
+      expect(config?.name).toBe('Mercury');
       expect(config?.hasPhase).toBe(true);
       expect(config?.hasNakedEyeVisibility).toBe(true);
     });

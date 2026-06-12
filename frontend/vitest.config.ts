@@ -33,7 +33,6 @@ export default defineConfig({
         'src/components/BaseMap.vue', // Complex map interaction, needs E2E tests
         'src/components/DateRangePicker.vue', // Event tests, needs E2E tests
         'src/components/BodyInfoPanel.vue', // Presentation component with conditional rendering - better covered by E2E tests
-        'src/components/CelestialBodyCarousel.vue', // Carousel interaction - better covered by E2E tests
         'src/components/PanelHeader.vue', // UI header - simple presentation
         'tests/e2e/**/*.ts', // Exclude Playwright E2E tests from Vitest
       ],

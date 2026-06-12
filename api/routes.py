@@ -14,6 +14,8 @@ from api.models import (
     MoonPositionResponse,
     VenusPositionRequest,
     VenusPositionResponse,
+    MercuryPositionRequest,
+    MercuryPositionResponse,
     MoonPhaseRequest,
     MoonPhaseResponse,
     BatchEarthObservationsRequest,
@@ -26,6 +28,7 @@ from api.services.dates import calculate_day_of_week
 from api.services.sun import calculate_sun_position
 from api.services.moon import calculate_moon_position
 from api.services.venus import calculate_venus_position
+from api.services.mercury import calculate_mercury_position
 from api.services.moon_phase import calculate_moon_phase
 from api.services.batch_earth_observations import calculate_batch_earth_observations
 
@@ -290,6 +293,77 @@ async def get_venus_position(request: VenusPositionRequest):
         raise HTTPException(
             status_code=500,
             detail=f"Error calculating Venus position: {str(e)}"
+        ) from e
+
+
+@router.post("/mercury-position", response_model=MercuryPositionResponse)
+async def get_mercury_position(request: MercuryPositionRequest):
+    """
+    Calculate Mercury's position and phase at a given time and location.
+
+    Returns altitude (angle above horizon), azimuth (compass direction), visibility status,
+    sun separation (elongation), and phase information (illumination, phase angle, phase name).
+
+    Mercury visibility has two dimensions:
+    - **Geometric visibility** (is_visible): Mercury is above the horizon
+    - **Observable visibility** (naked_eye_visible): Mercury is above horizon AND sufficiently
+      separated from the Sun (typically >14.5° elongation due to Mercury's close orbit)
+
+    Phase Calculation:
+    Mercury illumination is computed using Mercury-centric phase angle
+    (IAU standard for inferior planets). Illumination ranges from ~0% at inferior
+    conjunction (closest to Earth) to ~100% at superior
+    conjunction (behind the Sun). Phases are classified by illumination:
+    - New: 0-10%, Crescent: 10-35%, Quarter: 35-50%, Gibbous: 50-90%, Full: 90%+
+
+    Note: Mercury phase requires a telescope to observe. The "phase angle" field (ecliptic
+    longitude difference) is distinct from illumination and indicates waxing/waning direction.
+    Mercury is more difficult to observe than Venus due to its closer proximity to the Sun.
+
+    - **date**: Date in ISO format (YYYY-MM-DD)
+    - **time**: Time in HH:MM:SS format
+    - **latitude**: Latitude in degrees (-90 to 90)
+    - **longitude**: Longitude in degrees (-180 to 180)
+    - **elevation**: Elevation above sea level in meters (optional)
+
+    Returns:
+    - **altitude**: Mercury's altitude in degrees (negative = below horizon)
+    - **azimuth**: Mercury's azimuth in degrees (0=North, 90=East)
+    - **is_visible**: True if Mercury is above horizon (altitude > 0°)
+    - **sun_separation**: Angular separation between Mercury and Sun in degrees (elongation)
+    - **naked_eye_visible**: True if Mercury is both above horizon AND far enough from Sun
+    - **illumination**: Fraction of Mercury illuminated (0.0 to 1.0),
+      computed from Mercury-centric phase angle
+    - **phase_angle**: Mercury's phase angle in ecliptic longitude (0 to 360
+      degrees), for waxing/waning
+    - **phase_name**: Textual phase name (New, Crescent, Quarter, Gibbous, Full)
+    - **julian_date**: JD for this calculation
+    - **input_datetime**: The processed input
+    - **location**: The location used for calculation
+    """
+    try:
+        observation_time = ObservationDateTime(date=request.date, time=request.time)
+        location = LocationModel(
+            latitude=request.latitude,
+            longitude=request.longitude,
+            elevation=request.elevation
+        )
+        result = calculate_mercury_position(
+            observation_time,
+            location,
+            locale=get_i18n().locale,
+        )
+        return MercuryPositionResponse(**result)
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid input: {str(e)}"
+        ) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error calculating Mercury position: {str(e)}"
         ) from e
 
 

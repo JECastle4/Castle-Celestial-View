@@ -2,7 +2,14 @@
   "app": {
     "title": "Castle Celestial View",
     "copyright": "© 2026 John Castle. Licensed under the MIT License.",
-    "about": "About"
+    "about": "About",
+    "modes": {
+      "ariaLabel": "View modes",
+      "solarSystem": "Solar System",
+      "eclipses": "Eclipses",
+      "transits": "Transits",
+      "comingSoon": "Coming soon"
+    }
   },
   "about": {
     "title": "About Castle Celestial View",
@@ -80,7 +87,8 @@
     "bodyNames": {
       "sun": "Sun",
       "moon": "Moon",
-      "venus": "Venus"
+      "venus": "Venus",
+      "mercury": "Mercury"
     },
     "sunAltitude": "Sun Alt",
     "sunVisible": "Sun Visible",
@@ -94,6 +102,7 @@
     "illumination": "Illumination",
     "visible": "Visible",
     "venusData": "Venus Data",
+    "mercuryData": "Mercury Data",
     "nakedEyeVisible": "Naked Eye Visible",
     "celestialCoordinates": "Celestial Coordinates",
     "horizontalCoordinates": "Horizontal Coordinates",
@@ -119,6 +128,13 @@
       "waningCrescent": "Waning Crescent"
     },
     "venusPhases": {
+      "new": "New",
+      "crescent": "Crescent",
+      "quarter": "Quarter",
+      "gibbous": "Gibbous",
+      "full": "Full"
+    },
+    "mercuryPhases": {
       "new": "New",
       "crescent": "Crescent",
       "quarter": "Quarter",

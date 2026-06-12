@@ -25,6 +25,13 @@
     "gibbous": "suobbiG",
     "full": "lluF"
   },
+  "mercuryPhases": {
+    "new": "weN",
+    "crescent": "tnecserC",
+    "quarter": "retrauQ",
+    "gibbous": "suobbiG",
+    "full": "lluF"
+  },
   "validation": {
     "latitudeRange": "{value} tog ,seerged 09 dna 09- neewteb eb tsum edutitaL",
     "longitudeRange": "{value} tog ,seerged 081 dna 081- neewteb eb tsum edutignoL",
