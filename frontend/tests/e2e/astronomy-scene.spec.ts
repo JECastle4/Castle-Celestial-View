@@ -337,8 +337,8 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
     const celestialPanel = page.locator('.celestial-panel');
     await expect(celestialPanel).toBeVisible({ timeout: 10000 });
     
-    // Click Moon tab (2nd tab in the carousel: Sun, Moon, Venus, Mercury)
-    const moonTab = page.locator('.body-tabs .body-tab:nth-child(2)');
+    // Click Moon tab by icon (accessible, resilient to reordering)
+    const moonTab = page.locator('.body-tab').filter({ has: page.locator('i.fa-moon') });
     await expect(moonTab).toBeVisible();
     await moonTab.click();
     
@@ -380,8 +380,8 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
     const celestialPanel = page.locator('.celestial-panel');
     await expect(celestialPanel).toBeVisible({ timeout: 10000 });
     
-    // Click Venus tab (3rd tab in the carousel: Sun, Moon, Venus, Mercury)
-    const venusTab = page.locator('.body-tabs .body-tab:nth-child(3)');
+    // Click Venus tab by aria-label (accessible, resilient to reordering)
+    const venusTab = page.locator('button[aria-label*="Venus"]');
     await expect(venusTab).toBeVisible();
     await venusTab.click();
     
@@ -423,8 +423,8 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
     const celestialPanel = page.locator('.celestial-panel');
     await expect(celestialPanel).toBeVisible({ timeout: 10000 });
     
-    // Click Mercury tab (4th tab in the carousel: Sun, Moon, Venus, Mercury)
-    const mercuryTab = page.locator('.body-tabs .body-tab:nth-child(4)');
+    // Click Mercury tab by aria-label (accessible, resilient to reordering)
+    const mercuryTab = page.locator('button[aria-label*="Mercury"]');
     await expect(mercuryTab).toBeVisible();
     await mercuryTab.click();
     

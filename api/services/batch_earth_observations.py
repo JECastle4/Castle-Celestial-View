@@ -19,11 +19,12 @@ def calculate_batch_earth_observations(
     locale: Optional[str] = None,
 ):
     """
-    Calculate batch observations of sun, moon, and Venus positions from Earth.
+    Calculate batch observations of sun, moon, Venus, and Mercury positions from Earth.
 
     This function generates multiple frames of celestial observations between
     a start and end time. Each frame contains sun position, moon position,
-    moon phase, and Venus position with phase information for that specific moment.
+    moon phase, Venus position with phase information, Mercury position, and
+    Mercury phase data for that specific moment.
 
     Args:
         time_range: TimeRange object containing:
@@ -32,7 +33,7 @@ def calculate_batch_earth_observations(
             - frame_count: Number of frames to generate (must be >= 2)
         location: LocationModel with observer position (latitude, longitude, elevation)
         locale: BCP 47 locale tag (e.g. 'en', 'xx-reverse') used to translate
-            validation error messages and moon/Venus phase names in each frame.
+            validation error messages and moon/Venus/Mercury phase names in each frame.
             Defaults to English when None.
 
     Yields:

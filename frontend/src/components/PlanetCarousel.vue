@@ -60,12 +60,16 @@ function select(bodyId: string) {
 }
 
 function next() {
-  const idx = CELESTIAL_BODIES.findIndex(b => b.id === currentId.value);
+  let idx = CELESTIAL_BODIES.findIndex(b => b.id === currentId.value);
+  // Safe fallback: if currentId not found (idx < 0), default to first body
+  if (idx < 0) idx = 0;
   select(CELESTIAL_BODIES[(idx + 1) % CELESTIAL_BODIES.length].id);
 }
 
 function prev() {
-  const idx = CELESTIAL_BODIES.findIndex(b => b.id === currentId.value);
+  let idx = CELESTIAL_BODIES.findIndex(b => b.id === currentId.value);
+  // Safe fallback: if currentId not found (idx < 0), default to first body
+  if (idx < 0) idx = 0;
   select(CELESTIAL_BODIES[(idx - 1 + CELESTIAL_BODIES.length) % CELESTIAL_BODIES.length].id);
 }
 </script>

@@ -328,10 +328,21 @@ class TestMercuryRoutes:
             assert 0.0 <= data["illumination"] <= 1.0
 
 
+@pytest.mark.ephemeris_validation
 class TestMercuryEphemerisAccuracy:
     """
     Cross-validation of Mercury's computed position against JPL Horizons DE441
     to confirm relativistic (GR) corrections are being applied.
+
+    NOTE: This test class validates astropy's bundled ephemeris (DE441) behavior
+    directly, NOT the application's calculate_mercury_position() implementation.
+    Since astropy is not version-pinned in pyproject.toml, failures may occur due to
+    astropy/ephemeris updates WITHOUT ANY CODE CHANGES. This makes these tests brittle
+    for routine CI validation.
+
+    RECOMMENDATION: Skip in routine CI with `pytest -m "not ephemeris_validation"`.
+    Run explicitly for periodic ephemeris/astropy compatibility checks with
+    `pytest -m ephemeris_validation`.
 
     GR Background
     -------------

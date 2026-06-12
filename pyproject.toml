@@ -51,6 +51,9 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --cov=. --cov-report=term-missing --cov-report=html"
+markers = [
+    "ephemeris_validation: tests that validate astropy's bundled ephemeris against JPL Horizons (brittle; skip in routine CI)",
+]
 
 [tool.coverage.run]
 source = ["."]
