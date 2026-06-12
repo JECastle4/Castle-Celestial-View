@@ -69,6 +69,13 @@ describe('PlanetCarousel', () => {
       await nextBtn.trigger('click');
       expect(wrapper.emitted('update:selectedBody')![0]).toEqual([CELESTIAL_BODIES[0].id]);
     });
+
+    it('falls back to first body when currentId is not found', async () => {
+      const wrapper = mount(PlanetCarousel, { props: { selectedBody: 'invalid-body' } });
+      const [, nextBtn] = wrapper.findAll('.nav-btn');
+      await nextBtn.trigger('click');
+      expect(wrapper.emitted('update:selectedBody')![0]).toEqual([CELESTIAL_BODIES[1].id]);
+    });
   });
 
   describe('prev button', () => {
@@ -81,6 +88,14 @@ describe('PlanetCarousel', () => {
 
     it('wraps from the first body to the last', async () => {
       const wrapper = mount(PlanetCarousel, { props: { selectedBody: 'sun' } });
+      const [prevBtn] = wrapper.findAll('.nav-btn');
+      await prevBtn.trigger('click');
+      const lastBody = CELESTIAL_BODIES[CELESTIAL_BODIES.length - 1];
+      expect(wrapper.emitted('update:selectedBody')![0]).toEqual([lastBody.id]);
+    });
+
+    it('falls back to first body when currentId is not found', async () => {
+      const wrapper = mount(PlanetCarousel, { props: { selectedBody: 'invalid-body' } });
       const [prevBtn] = wrapper.findAll('.nav-btn');
       await prevBtn.trigger('click');
       const lastBody = CELESTIAL_BODIES[CELESTIAL_BODIES.length - 1];
