@@ -263,7 +263,7 @@ class TestMercuryRoutes:
         data = response.json()
         assert data["location"]["elevation"] == 0.0
 
-    def test_mercury_position_endpoint_default_time(self, client):
+    def test_mercury_position_endpoint_missing_time_fails_validation(self, client):
         """Test /api/v1/mercury-position endpoint requires explicit time"""
         response = client.post(
             "/api/v1/mercury-position",
@@ -408,6 +408,17 @@ class TestMercuryEphemerisAccuracy:
         "2010-01-01T12:00:00": {"ra_deg": 289.59622, "dec_deg": -20.40631},
         "2026-01-01T12:00:00": {"ra_deg": 268.96622, "dec_deg": -24.05733},
     }
+
+    @pytest.fixture(autouse=True)
+    def _setup_ephemeris(self):
+        """Ensure DE441 ephemeris is used for all tests in this class."""
+        from astropy.coordinates import solar_system_ephemeris
+        original_ephemeris = solar_system_ephemeris.get()
+        try:
+            solar_system_ephemeris.set('de441')
+            yield
+        finally:
+            solar_system_ephemeris.set(original_ephemeris)
 
     def _angular_separation_arcsec(self, ra1, dec1, ra2, dec2):
         """Angular separation in arcseconds via the haversine formula."""

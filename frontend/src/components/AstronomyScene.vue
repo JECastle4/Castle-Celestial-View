@@ -656,8 +656,24 @@ function updateAnimation() {
   const now = Date.now();
   const delta = now - lastTime.value;
   
-  // Frame interval based on animation speed (frames per second)
-  // Speed 1.0 = 1 FPS, Speed 5.0 = 5 FPS
+  // Frame interval based on fixed BASE_FRAME_PERIOD_MS and animation speed
+  // Speed 1.0 = 1 FPS (1 frame per second), Speed 5.0 = 5 FPS (5 frames per second)
+  //
+  // NOTE: This uses a FIXED frame period (BASE_FRAME_PERIOD_MS) that does NOT
+  // reflect the actual time spacing between frames in the data. For example:
+  //   - Backend returns frames for every 30 minutes over 24 hours
+  //   - With this fixed interval, each frame displays for 1 second (at speed 1.0)
+  //   - Animation playback speed does NOT reflect the 30-minute data intervals
+  //
+  // DESIGN TRADE-OFF: Previously, calculateFrameInterval() derived the interval
+  // from actual frame.datetime spacing to make animation reflect data time steps.
+  // This was removed for simplicity—animation speed is now decoupled from data
+  // intervals and controlled by the user via the speed slider.
+  //
+  // FUTURE ENHANCEMENT: If frame intervals vary significantly, consider:
+  //   - Calculating average interval from first/last frame timestamps
+  //   - Allowing users to choose "scaled" (data-driven) vs "constant" playback mode
+  //   - Adjusting speed dynamically if backend changes frame intervals
   const interval = BASE_FRAME_PERIOD_MS / animationSpeed.value;
   
   if (delta > interval) {

@@ -159,7 +159,7 @@ describe('Mercury', () => {
 
   describe('sky view disk radius', () => {
     it('should always use minimum disk radius (angular diameter too small)', () => {
-      const geometry = mercury['skyViewGeometry'];
+      const geometry = (mercury as any)['skyViewGeometry'];
       expect((geometry as THREE.SphereGeometry).parameters.radius).toBe(0.2);
     });
   });
