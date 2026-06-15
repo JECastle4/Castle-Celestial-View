@@ -14,4 +14,4 @@ python-dotenv>=1.2.2
 # Security: CVE-2026-25645 fixed in 2.33.0
 requests>=2.33.0
 idna>=3.18
-starlette>=1.0.1
+starlette>=1.3.1
