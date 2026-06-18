@@ -3,8 +3,8 @@ import { CELESTIAL_BODIES, getBodyConfig, getBodyById } from './celestialBodies'
 
 describe('celestialBodies', () => {
   describe('CELESTIAL_BODIES array', () => {
-    it('should have 4 celestial bodies', () => {
-      expect(CELESTIAL_BODIES).toHaveLength(4);
+    it('should have 5 celestial bodies', () => {
+      expect(CELESTIAL_BODIES).toHaveLength(5);
     });
 
     it('should have sun as first body', () => {

@@ -88,7 +88,8 @@
       "sun": "Sun",
       "moon": "Moon",
       "venus": "Venus",
-      "mercury": "Mercury"
+      "mercury": "Mercury",
+      "mars": "Mars"
     },
     "sunAltitude": "Sun Alt",
     "sunVisible": "Sun Visible",
@@ -103,6 +104,7 @@
     "visible": "Visible",
     "venusData": "Venus Data",
     "mercuryData": "Mercury Data",
+    "marsData": "Mars Data",
     "nakedEyeVisible": "Naked Eye Visible",
     "celestialCoordinates": "Celestial Coordinates",
     "horizontalCoordinates": "Horizontal Coordinates",
@@ -138,6 +140,11 @@
       "new": "New",
       "crescent": "Crescent",
       "quarter": "Quarter",
+      "gibbous": "Gibbous",
+      "full": "Full"
+    },
+    "marsPhases": {
+      "crescent": "Crescent",
       "gibbous": "Gibbous",
       "full": "Full"
     },
