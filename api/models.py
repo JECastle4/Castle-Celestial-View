@@ -359,6 +359,83 @@ class MercuryPositionResponse(BaseModel):
     )
 
 
+class MarsPositionRequest(BaseModel):
+    """Request model for Mars position calculation"""
+    date: str = Field(
+        ...,
+        description="Date in ISO format (YYYY-MM-DD)",
+        examples=["2026-02-01"]
+    )
+    time: str = Field(
+        ...,
+        description="Time in HH:MM:SS format",
+        examples=["12:30:45"]
+    )
+    latitude: float = Field(
+        ...,
+        ge=-90,
+        le=90,
+        description="Latitude in degrees (-90 to 90, negative=South)",
+        examples=[40.7128]
+    )
+    longitude: float = Field(
+        ...,
+        ge=-180,
+        le=180,
+        description="Longitude in degrees (-180 to 180, negative=West)",
+        examples=[-74.0060]
+    )
+    elevation: float = Field(
+        default=0.0,
+        description="Elevation above sea level in meters",
+        examples=[10.0]
+    )
+
+
+class MarsPositionResponse(BaseModel):
+    """Response model for Mars position calculation"""
+    altitude: float = Field(
+        ...,
+        description="Mars's altitude in degrees (negative = below horizon)"
+    )
+    azimuth: float = Field(
+        ...,
+        description="Mars's azimuth in degrees (0=North, 90=East, 180=South, 270=West)"
+    )
+    is_visible: bool = Field(
+        ...,
+        description="Whether Mars is above the horizon (altitude > 0°)"
+    )
+    illumination: float = Field(
+        ...,
+        description="Fraction of Mars illuminated (0.0 to 1.0)"
+    )
+    phase_angle: float = Field(
+        ...,
+        description="Mars's phase angle in ecliptic longitude (0 to 360 degrees)"
+    )
+    phase_name: str = Field(
+        ...,
+        description="Textual name of Mars's phase (Full, Gibbous, Crescent)"
+    )
+    retrograde_status: str = Field(
+        ...,
+        description="Mars's retrograde motion status (prograde or retrograde)"
+    )
+    julian_date: float = Field(
+        ...,
+        description="Julian Date (JD) for this calculation"
+    )
+    input_datetime: str = Field(
+        ...,
+        description="The input date and time that was processed"
+    )
+    location: LocationModel = Field(
+        ...,
+        description="The location used for the calculation"
+    )
+
+
 class MoonPhaseRequest(BaseModel):
     """Request model for moon phase calculation"""
     date: str = Field(
@@ -546,6 +623,14 @@ class MercuryPhaseData(BaseModel):
     naked_eye_visible: bool = Field(..., description="Whether Mercury is observable to naked eye")
 
 
+class MarsPhaseData(BaseModel):
+    """Mars phase information"""
+    illumination: float = Field(..., ge=0.0, le=1.0, description="Illumination fraction")
+    phase_angle: float = Field(..., ge=0.0, lt=360.0, description="Phase angle in degrees")
+    phase_name: str = Field(..., description="Name of the Mars phase (Full, Gibbous, Crescent)")
+    retrograde_status: str = Field(..., description="Retrograde motion status (prograde or retrograde)")
+
+
 class ObservationFrame(BaseModel):
     """Single frame of observations"""
     datetime: str = Field(..., description="ISO datetime of the frame")
@@ -556,6 +641,8 @@ class ObservationFrame(BaseModel):
     venus_phase: VenusPhaseData = Field(..., description="Venus phase information")
     mercury: CelestialPosition = Field(..., description="Mercury position")
     mercury_phase: MercuryPhaseData = Field(..., description="Mercury phase information")
+    mars: CelestialPosition = Field(..., description="Mars position")
+    mars_phase: MarsPhaseData = Field(..., description="Mars phase information")
 
 
 class BatchMetadata(BaseModel):

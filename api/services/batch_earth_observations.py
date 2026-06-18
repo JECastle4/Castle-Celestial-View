@@ -10,6 +10,7 @@ from .sun import _process_sun_position
 from .moon import _process_moon_position
 from .venus import _process_venus_position
 from .mercury import _process_mercury_position
+from .mars import _process_mars_position
 from .moon_phase import _process_moon_phase
 
 
@@ -19,12 +20,12 @@ def calculate_batch_earth_observations(
     locale: Optional[str] = None,
 ):
     """
-    Calculate batch observations of sun, moon, Venus, and Mercury positions from Earth.
+    Calculate batch observations of sun, moon, Venus, Mercury, and Mars positions from Earth.
 
     This function generates multiple frames of celestial observations between
     a start and end time. Each frame contains sun position, moon position,
-    moon phase, Venus position with phase information, Mercury position, and
-    Mercury phase data for that specific moment.
+    moon phase, Venus position with phase information, Mercury position with phase,
+    and Mars position with phase data for that specific moment.
 
     Args:
         time_range: TimeRange object containing:
@@ -33,7 +34,7 @@ def calculate_batch_earth_observations(
             - frame_count: Number of frames to generate (must be >= 2)
         location: LocationModel with observer position (latitude, longitude, elevation)
         locale: BCP 47 locale tag (e.g. 'en', 'xx-reverse') used to translate
-            validation error messages and moon/Venus/Mercury phase names in each frame.
+            validation error messages and moon/Venus/Mercury/Mars phase names in each frame.
             Defaults to English when None.
 
     Yields:
@@ -89,13 +90,16 @@ def calculate_batch_earth_observations(
         moon = get_body("moon", obs_time, earth_location)
         venus_with_loc = get_body("venus", obs_time, earth_location)
         mercury_with_loc = get_body("mercury", obs_time, earth_location)
-        # Get Venus and Mercury at geocenter for geocentric separation/phase calculations (no location)
+        mars_with_loc = get_body("mars", obs_time, earth_location)
+        # Get Venus, Mercury, and Mars at geocenter for geocentric separation/phase calculations (no location)
         venus_gcrs = get_body("venus", obs_time)
         mercury_gcrs = get_body("mercury", obs_time)
+        mars_gcrs = get_body("mars", obs_time)
         sun_altaz = sun.transform_to(altaz_frame)
         moon_altaz = moon.transform_to(altaz_frame)
         venus_altaz = venus_with_loc.transform_to(altaz_frame)
         mercury_altaz = mercury_with_loc.transform_to(altaz_frame)
+        mars_altaz = mars_with_loc.transform_to(altaz_frame)
         sun_data = _process_sun_position(
             sun_gcrs=sun,
             sun_altaz=sun_altaz,
@@ -125,6 +129,16 @@ def calculate_batch_earth_observations(
             mercury_altaz=mercury_altaz,
             sun=sun,
             mercury_gcrs=mercury_gcrs,
+            time=obs_time,
+            datetime_str=datetime_str,
+            location=location,
+            locale=locale
+        )
+        mars_data = _process_mars_position(
+            mars_with_loc=mars_with_loc,
+            mars_altaz=mars_altaz,
+            sun=sun,
+            mars_gcrs=mars_gcrs,
             time=obs_time,
             datetime_str=datetime_str,
             location=location,
@@ -184,6 +198,19 @@ def calculate_batch_earth_observations(
                 "phase_angle": mercury_data["phase_angle"],
                 "phase_name": mercury_data["phase_name"],
                 "naked_eye_visible": mercury_data["naked_eye_visible"]
+            },
+            "mars": {
+                "altitude": mars_data["altitude"],
+                "azimuth": mars_data["azimuth"],
+                "is_visible": mars_data["is_visible"],
+                "ra_degrees": mars_data["ra_degrees"],
+                "dec_degrees": mars_data["dec_degrees"]
+            },
+            "mars_phase": {
+                "illumination": mars_data["illumination"],
+                "phase_angle": mars_data["phase_angle"],
+                "phase_name": mars_data["phase_name"],
+                "retrograde_status": mars_data["retrograde_status"]
             }
         }
         yield frame
