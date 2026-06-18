@@ -325,14 +325,116 @@ async function isIn3DSceneMode(page: Page): Promise<boolean> {
   }
 }
 
+// Helper to capture console messages from the page
+let pageConsoleMessages: string[] = [];
+
+async function setupPageConsoleCapture(page: Page) {
+  pageConsoleMessages = [];
+  
+  page.on('console', (msg) => {
+    const logEntry = `[${msg.type()}] ${msg.text()}`;
+    pageConsoleMessages.push(logEntry);
+    if (msg.type() === 'error' || msg.type() === 'warning') {
+      console.log(`[PageConsole] ${logEntry}`);
+    }
+  });
+}
+
+async function getPageDiagnostics(page: Page, testName: string) {
+  const diagnostics: any = {
+    testName,
+    timestamp: new Date().toISOString(),
+    pageUrl: page.url(),
+    pageClosed: page.isClosed(),
+    consoleErrors: pageConsoleMessages.filter(m => m.includes('[error]')),
+    consoleWarnings: pageConsoleMessages.filter(m => m.includes('[warning]')),
+  };
+  
+  // Check page state
+  try {
+    const pageState = await page.evaluate(() => {
+      return {
+        documentReady: document.readyState,
+        bodyHTML: document.body ? document.body.innerHTML.substring(0, 200) : 'No body',
+        vueApp: !!(window as any).__VUE_APP_INSTANCE__,
+      };
+    }).catch(() => ({ error: 'Could not evaluate' }));
+    
+    diagnostics.pageState = pageState;
+  } catch (e) {
+    diagnostics.pageStateError = String(e);
+  }
+  
+  return diagnostics;
+}
+  try {
+    // Check if page is closed
+    if (page.isClosed()) {
+      return false;
+    }
+    
+    // Try to get the current URL - if this fails, page might be in a bad state
+    const url = page.url();
+    
+    // If URL is about:blank, page might have been reset
+    if (url === 'about:blank') {
+      console.warn('[PageHealth] Page is at about:blank - context may have been reset');
+      return false;
+    }
+    
+    return true;
+  } catch (e) {
+    console.error('[PageHealth] Error checking page health:', e);
+    return false;
+  }
+}
+
 // Helper to verify we're in 3D scene mode before a zoom test - throws if not
 async function verifySceneLoadedForZoomTest(page: Page, testName: string) {
+  // First, check if page is still healthy
+  const pageHealthy = await isPageHealthy(page);
+  if (!pageHealthy) {
+    const isClosed = page.isClosed();
+    const pageUrl = page.url();
+    console.error(`[${testName}] Page health check failed!`);
+    console.error(`  Page closed: ${isClosed}`);
+    console.error(`  Page URL: ${pageUrl}`);
+    console.error(`  This suggests the persistent context was reset between tests.`);
+    
+    // Try to capture what's on the page for debugging
+    try {
+      const bodyHTML = await page.content().catch(() => 'Could not get HTML');
+      console.error(`  Page HTML length: ${bodyHTML.length}`);
+    } catch (e) {
+      console.error(`  Could not get page content: ${e}`);
+    }
+    
+    throw new Error(
+      `[${testName}] Page context lost! Page is closed or at about:blank.\n` +
+      `  This indicates a persistent page fixture issue.`
+    );
+  }
+  
   const inScene = await isIn3DSceneMode(page);
   if (!inScene) {
     const inputFormVisible = await page.locator('.input-form').isVisible().catch(() => false);
     const pageUrl = page.url();
     const currentControls = await page.locator('.animation-controls').count();
     const currentCanvas = await page.locator('canvas').count();
+    
+    // Get more diagnostic info
+    const pageTitle = await page.title().catch(() => 'N/A');
+    const bodyClass = await page.getAttribute('body', 'class').catch(() => 'N/A');
+    const diagnostics = await getPageDiagnostics(page, testName);
+    
+    console.error(`[${testName}] Scene not loaded - Page diagnostics:`);
+    console.error(`  URL: ${pageUrl}`);
+    console.error(`  Title: ${pageTitle}`);
+    console.error(`  Body class: ${bodyClass}`);
+    console.error(`  Input form visible: ${inputFormVisible}`);
+    console.error(`  Animation controls found: ${currentControls}`);
+    console.error(`  Canvas elements found: ${currentCanvas}`);
+    console.error(`  Full diagnostics:`, diagnostics);
     
     throw new Error(
       `[${testName}] Scene not loaded! Page appears to be in home/input state.\n` +
@@ -348,6 +450,7 @@ async function verifySceneLoadedForZoomTest(page: Page, testName: string) {
 // Helper to click Recentre button - BLOCKING, verifies reset actually happened
 async function clickRecentre(page: Page) {
   console.log('[Recentre] Attempting to reset camera...');
+  console.log(`[Recentre] Page URL before click: ${page.url()}, closed: ${page.isClosed()}`);
   
   const recentreBtn = page.locator('.recentre-btn').first();
   const isVisible = await recentreBtn.isVisible({ timeout: 2000 }).catch(() => false);
@@ -359,6 +462,7 @@ async function clickRecentre(page: Page) {
   // Click the button
   await recentreBtn.click({ timeout: 2000 });
   console.log('[Recentre] Button clicked, waiting for animation to settle...');
+  console.log(`[Recentre] Page URL after click: ${page.url()}, closed: ${page.isClosed()}`);
   
   // Wait for camera animation to complete (longer for CI)
   await page.waitForTimeout(2000);
@@ -380,7 +484,7 @@ async function clickRecentre(page: Page) {
     throw new Error('[Recentre] Not in 3D scene mode after recentre');
   }
   
-  console.log('[Recentre] ✅ Camera reset and scene verified');
+  console.log(`[Recentre] ✅ Camera reset and scene verified. Page URL: ${page.url()}`);
 }
 
 // ==================== TESTS ====================
@@ -396,6 +500,34 @@ let projectConfig: any = null;
  */
 const testWithPersistentPage = test.extend({
   page: async ({ browser }, use) => {
+    // Check if persistent context/page is still valid
+    let contextStillValid = false;
+    if (persistentContext && persistentPage) {
+      try {
+        // Check if page is closed (more reliable than checking context)
+        const pageClosed = persistentPage.isClosed();
+        const url = persistentPage.url();
+        contextStillValid = !pageClosed && url !== 'about:blank';
+        console.log(`[fixture] Persistent page exists, valid: ${contextStillValid}, closed: ${pageClosed}, URL: ${url}`);
+      } catch (e) {
+        console.error('[fixture] Error checking persistent context/page:', e);
+        contextStillValid = false;
+      }
+    }
+    
+    // If not valid, reset and create new
+    if (!contextStillValid) {
+      if (persistentContext) {
+        try {
+          await persistentContext.close().catch(() => {});
+        } catch (e) {
+          console.error('[fixture] Error closing old context:', e);
+        }
+      }
+      persistentContext = null;
+      persistentPage = null;
+    }
+    
     if (!persistentContext) {
       // Create context with project settings (baseURL and viewport) from configuration
       // This prevents brittle hardcoding and allows configuration changes in playwright.config.ts
@@ -405,11 +537,30 @@ const testWithPersistentPage = test.extend({
       if (!projectConfig?.viewport) {
         console.warn('[testWithPersistentPage] projectConfig.viewport not set; falling back to 1280x720.');
       }
+      console.log('[fixture] Creating new persistent context and page');
       persistentContext = await browser.newContext({
         baseURL: projectConfig?.baseURL || 'http://localhost:5173',
         viewport: projectConfig?.viewport || { width: 1280, height: 720 },
       });
       persistentPage = await persistentContext.newPage();
+      
+      // Set up console message capture for diagnostics
+      await setupPageConsoleCapture(persistentPage);
+      
+      // Add error/crash listeners to help diagnose issues
+      persistentPage.on('error', (err) => {
+        console.error('[PageError] Uncaught exception on page:', err);
+      });
+      
+      persistentPage.on('crash', () => {
+        console.error('[PageCrash] Page has crashed!');
+      });
+      
+      persistentContext.on('close', () => {
+        console.warn('[ContextClose] Browser context is closing');
+      });
+      
+      console.log('[fixture] New persistent page created with error listeners');
     }
     await use(persistentPage);
   },
@@ -495,6 +646,8 @@ testWithPersistentPage.describe('Zoom Buttons with All Bodies Visible', () => {
   testWithPersistentPage('Zoom to Sun', async ({ page: testPage }) => {
     const page = testPage || persistentPage;
     
+    console.log(`[Zoom to Sun] Starting test, page URL: ${page.url()}, page closed: ${page.isClosed()}`);
+    
     // Verify scene is loaded from previous test
     await verifySceneLoadedForZoomTest(page, 'Zoom to Sun');
     
@@ -524,6 +677,8 @@ testWithPersistentPage.describe('Zoom Buttons with All Bodies Visible', () => {
   testWithPersistentPage('Zoom to Mercury', async ({ page: testPage }) => {
     const page = testPage || persistentPage;
     
+    console.log(`[Zoom to Mercury] Starting test, page URL: ${page.url()}, page closed: ${page.isClosed()}`);
+    
     // Verify scene is loaded from previous test
     await verifySceneLoadedForZoomTest(page, 'Zoom to Mercury');
     
@@ -545,6 +700,8 @@ testWithPersistentPage.describe('Zoom Buttons with All Bodies Visible', () => {
 
   testWithPersistentPage('Zoom to Venus', async ({ page: testPage }) => {
     const page = testPage || persistentPage;
+    
+    console.log(`[Zoom to Venus] Starting test, page URL: ${page.url()}, page closed: ${page.isClosed()}`);
     
     // Verify scene is loaded from previous test
     await verifySceneLoadedForZoomTest(page, 'Zoom to Venus');
@@ -568,6 +725,8 @@ testWithPersistentPage.describe('Zoom Buttons with All Bodies Visible', () => {
   testWithPersistentPage('Zoom to Moon', async ({ page: testPage }) => {
     const page = testPage || persistentPage;
     
+    console.log(`[Zoom to Moon] Starting test, page URL: ${page.url()}, page closed: ${page.isClosed()}`);
+    
     // Verify scene is loaded from previous test
     await verifySceneLoadedForZoomTest(page, 'Zoom to Moon');
     
@@ -590,6 +749,8 @@ testWithPersistentPage.describe('Zoom Buttons with All Bodies Visible', () => {
   testWithPersistentPage('Zoom to Mars', async ({ page: testPage }) => {
     const page = testPage || persistentPage;
     
+    console.log(`[Zoom to Mars] Starting test, page URL: ${page.url()}, page closed: ${page.isClosed()}`);
+    
     // Verify scene is loaded from previous test
     await verifySceneLoadedForZoomTest(page, 'Zoom to Mars');
     
@@ -611,6 +772,8 @@ testWithPersistentPage.describe('Zoom Buttons with All Bodies Visible', () => {
 
   testWithPersistentPage('Zoom buttons work with repeated clicks', async ({ page: testPage }) => {
     const page = testPage || persistentPage;
+    
+    console.log(`[Zoom buttons repeated] Starting test, page URL: ${page.url()}, page closed: ${page.isClosed()}`);
     
     // Verify scene is loaded from previous test
     await verifySceneLoadedForZoomTest(page, 'Zoom buttons work with repeated clicks');
