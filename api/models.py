@@ -627,8 +627,12 @@ class MarsPhaseData(BaseModel):
     """Mars phase information"""
     illumination: float = Field(..., ge=0.0, le=1.0, description="Illumination fraction")
     phase_angle: float = Field(..., ge=0.0, lt=360.0, description="Phase angle in degrees")
-    phase_name: str = Field(..., description="Name of the Mars phase (Full, Gibbous, Crescent)")
-    retrograde_status: str = Field(..., description="Retrograde motion status (prograde or retrograde)")
+    phase_name: str = Field(
+        ..., description="Name of the Mars phase (Full, Gibbous, Crescent)"
+    )
+    retrograde_status: str = Field(
+        ..., description="Retrograde motion status (prograde or retrograde)"
+    )
 
 
 class ObservationFrame(BaseModel):
