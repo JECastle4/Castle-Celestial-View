@@ -16,6 +16,8 @@ from api.models import (
     VenusPositionResponse,
     MercuryPositionRequest,
     MercuryPositionResponse,
+    MarsPositionRequest,
+    MarsPositionResponse,
     MoonPhaseRequest,
     MoonPhaseResponse,
     BatchEarthObservationsRequest,
@@ -29,6 +31,7 @@ from api.services.sun import calculate_sun_position
 from api.services.moon import calculate_moon_position
 from api.services.venus import calculate_venus_position
 from api.services.mercury import calculate_mercury_position
+from api.services.mars import calculate_mars_position
 from api.services.moon_phase import calculate_moon_phase
 from api.services.batch_earth_observations import calculate_batch_earth_observations
 
@@ -364,6 +367,79 @@ async def get_mercury_position(request: MercuryPositionRequest):
         raise HTTPException(
             status_code=500,
             detail=f"Error calculating Mercury position: {str(e)}"
+        ) from e
+
+
+@router.post("/mars-position", response_model=MarsPositionResponse)
+async def get_mars_position(request: MarsPositionRequest):
+    """
+    Calculate Mars's position and phase at a given time and location.
+
+    Returns altitude (angle above horizon), azimuth (compass direction), visibility status,
+    and phase information (illumination, phase angle, phase name, retrograde status).
+
+    Mars Characteristics:
+    Mars is a superior planet (orbit outside Earth's). Key differences from Mercury/Venus:
+    - Phase angle maximum: 45° (vs Venus 47°, Mercury 28°)
+    - Illumination ranges from ~50% (quadrature) to ~100% (opposition)
+    - No elongation threshold for visibility (always visible when above horizon)
+    - Exhibits retrograde motion ~every 26 months when Earth overtakes it (~2.5 month duration)
+
+    Phase Calculation (Superior Planet):
+    Mars illumination is computed using Mars-centric phase angle (IAU standard).
+    The phase angle is determined by the angle at Mars between the Sun and Earth.
+    Phases are classified by illumination:
+    - Full: ≥85% (opposition region, closest to Earth)
+    - Gibbous: 50-85% (near quadrature)
+    - Crescent: <50% (approaching conjunction, rarely observable)
+
+    Retrograde Motion:
+    Retrograde motion occurs when Earth's faster orbital speed causes us to overtake Mars,
+    making it appear to move backward against the stars. This is detected by calculating
+    heliocentric longitude rate of change.
+
+    Parameters:
+    - **date**: Date in ISO format (YYYY-MM-DD)
+    - **time**: Time in HH:MM:SS format
+    - **latitude**: Latitude in degrees (-90 to 90)
+    - **longitude**: Longitude in degrees (-180 to 180)
+    - **elevation**: Elevation above sea level in meters (optional)
+
+    Returns:
+    - **altitude**: Mars's altitude in degrees (negative = below horizon)
+    - **azimuth**: Mars's azimuth in degrees (0=North, 90=East)
+    - **is_visible**: True if Mars is above horizon (altitude > 0°)
+    - **illumination**: Fraction of Mars illuminated (0.0 to 1.0)
+    - **phase_angle**: Mars's phase angle in ecliptic longitude (0 to 360 degrees)
+    - **phase_name**: Textual phase name (Full, Gibbous, Crescent)
+    - **retrograde_status**: Current retrograde motion status (prograde or retrograde)
+    - **julian_date**: JD for this calculation
+    - **input_datetime**: The processed input
+    - **location**: The location used for calculation
+    """
+    try:
+        observation_time = ObservationDateTime(date=request.date, time=request.time)
+        location = LocationModel(
+            latitude=request.latitude,
+            longitude=request.longitude,
+            elevation=request.elevation
+        )
+        result = calculate_mars_position(
+            observation_time,
+            location,
+            locale=get_i18n().locale,
+        )
+        return MarsPositionResponse(**result)
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid input: {str(e)}"
+        ) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error calculating Mars position: {str(e)}"
         ) from e
 
 
