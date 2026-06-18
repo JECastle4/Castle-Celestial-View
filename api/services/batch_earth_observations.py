@@ -18,7 +18,7 @@ def calculate_batch_earth_observations(
     time_range: TimeRange,
     location: LocationModel,
     locale: Optional[str] = None,
-):
+):  # pylint: disable=too-many-statements
     """
     Calculate batch observations of sun, moon, Venus, Mercury, and Mars positions from Earth.
 
@@ -91,7 +91,8 @@ def calculate_batch_earth_observations(
         venus_with_loc = get_body("venus", obs_time, earth_location)
         mercury_with_loc = get_body("mercury", obs_time, earth_location)
         mars_with_loc = get_body("mars", obs_time, earth_location)
-        # Get Venus, Mercury, and Mars at geocenter for geocentric separation/phase calculations (no location)
+        # Get Venus, Mercury, and Mars at geocenter for phase calculations
+        # (no location - used for geocentric separation)
         venus_gcrs = get_body("venus", obs_time)
         mercury_gcrs = get_body("mercury", obs_time)
         mars_gcrs = get_body("mars", obs_time)
