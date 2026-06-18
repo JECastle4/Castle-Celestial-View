@@ -91,9 +91,10 @@
 	"astronomy": {
 		"bodyNames": {
 			"sun": "Sun",
-			"moon": "Moon",
-			"venus": "Venus",
 			"mercury": "Mercury",
+			"venus": "Venus",
+			"earth": "Earth",
+			"moon": "Moon",
 			"mars": "Mars"
 		},
 		"sunAltitude": "Sun Alt",

@@ -91,9 +91,10 @@
   "astronomy": {
     "bodyNames": {
       "sun": "nuS",
-      "moon": "nooM",
-      "venus": "suneV",
       "mercury": "yrucreM",
+      "venus": "suneV",
+      "earth": "htraE",
+      "moon": "nooM",
       "mars": "sraM"
     },
     "sunAltitude": "tlA nuS",

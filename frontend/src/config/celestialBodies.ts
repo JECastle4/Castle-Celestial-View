@@ -12,6 +12,7 @@ export interface CelestialBodyConfig {
   hasIllumination: boolean;
   hasNakedEyeVisibility: boolean;
   icon: string;
+  enabled?: boolean;
 }
 
 export const CELESTIAL_BODIES: CelestialBodyConfig[] = [
@@ -23,17 +24,19 @@ export const CELESTIAL_BODIES: CelestialBodyConfig[] = [
     hasPhase: false,
     hasIllumination: false,
     hasNakedEyeVisibility: false,
-    icon: 'fa-sun'
+    icon: 'fa-sun',
+    enabled: true
   },
   {
-    id: 'moon',
-    name: 'Moon',
-    labelKey: 'astronomy.bodyNames.moon',
+    id: 'mercury',
+    name: 'Mercury',
+    labelKey: 'astronomy.bodyNames.mercury',
     order: 1,
     hasPhase: true,
     hasIllumination: true,
-    hasNakedEyeVisibility: false,
-    icon: 'fa-moon'
+    hasNakedEyeVisibility: true,
+    icon: 'fa-circle',
+    enabled: true
   },
   {
     id: 'venus',
@@ -43,27 +46,41 @@ export const CELESTIAL_BODIES: CelestialBodyConfig[] = [
     hasPhase: true,
     hasIllumination: true,
     hasNakedEyeVisibility: true,
-    icon: 'fa-circle'
+    icon: 'fa-circle',
+    enabled: true
   },
   {
-    id: 'mercury',
-    name: 'Mercury',
-    labelKey: 'astronomy.bodyNames.mercury',
+    id: 'earth',
+    name: 'Earth',
+    labelKey: 'astronomy.bodyNames.earth',
     order: 3,
+    hasPhase: false,
+    hasIllumination: false,
+    hasNakedEyeVisibility: false,
+    icon: 'fa-earth',
+    enabled: false
+  },
+  {
+    id: 'moon',
+    name: 'Moon',
+    labelKey: 'astronomy.bodyNames.moon',
+    order: 4,
     hasPhase: true,
     hasIllumination: true,
-    hasNakedEyeVisibility: true,
-    icon: 'fa-circle'
+    hasNakedEyeVisibility: false,
+    icon: 'fa-moon',
+    enabled: true
   },
   {
     id: 'mars',
     name: 'Mars',
     labelKey: 'astronomy.bodyNames.mars',
-    order: 4,
+    order: 5,
     hasPhase: true,
     hasIllumination: true,
     hasNakedEyeVisibility: false,
-    icon: 'fa-circle'
+    icon: 'fa-circle',
+    enabled: true
   }
 ];
 
