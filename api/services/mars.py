@@ -1,15 +1,66 @@
 """
 Mars position calculation services
 
-Mars is a superior planet (orbit outside Earth's). Key characteristics:
-- Phase angle maximum: 45° (max illumination variation: ~50% to ~100%)
+PHASE STRATEGY ACROSS CELESTIAL BODIES:
+========================================
+Different celestial bodies have different phase characteristics based on their orbital
+positions relative to Earth and the Sun. The API implements phases for bodies where they
+are astronomically significant:
+
+  Moon:
+    - Type: Satellite (orbits Earth)
+    - Phase range: 0% to 100% illumination
+    - Phase names: New, Waxing Crescent, First Quarter, Waxing Gibbous, Full,
+                   Waning Gibbous, Last Quarter, Waning Crescent (8 phases)
+    - Always visible (no glare threshold)
+
+  Venus (Inferior Planet):
+    - Type: Inferior planet (orbit inside Earth's)
+    - Max phase angle: 47° (max illumination variation: 14% to 100%)
+    - Phase names: New, Crescent, Quarter, Gibbous, Full (5 phases)
+    - Glare threshold: 10° elongation (disappears in solar glare)
+    - Visible only as "Morning Star" or "Evening Star"
+
+  Mercury (Inferior Planet):
+    - Type: Inferior planet (orbit inside Earth's)
+    - Max phase angle: 28° (max illumination variation: 28% to 100%)
+    - Phase names: New, Crescent, Quarter, Gibbous, Full (5 phases)
+    - Glare threshold: 18° elongation (disappears in solar glare)
+    - Visible only as "Morning Star" or "Evening Star" (brief visibility)
+
+  Mars (Superior Planet) - THIS FILE:
+    - Type: Superior planet (orbit outside Earth's)
+    - Max phase angle: 45° (max illumination variation: 50% to 100%)
+    - Phase names: Crescent, Gibbous, Full (3 phases)
+    - Always visible when above horizon (no glare threshold)
+    - Can exhibit retrograde motion ~every 26 months when Earth overtakes it
+    - Illumination formula: (1 + cos(phase_angle)) / 2
+
+  Jupiter, Saturn, Uranus, Neptune (Superior Planets):
+    - Type: Superior planets (orbits outside Earth's)
+    - Max phase angle: ~11° (max illumination variation: 99.9% to 100%)
+    - Phase names: None (always appears full) - not implemented
+    - Always visible when above horizon
+    - Illumination effectively constant at ~100%
+
+KEY INSIGHTS:
+- Inferior planets (Venus, Mercury) have larger phase variations and glare constraints
+- Superior planets (Mars, Jupiter+) have smaller phase variations
+- Mars bridges the gap: superior planet position but significant phase angle (45°)
+- Only Moon, Venus, Mercury, and Mars need phase calculations for user interface
+- Jupiter+ can be treated as always-full (illumination effectively 100%)
+
+Mars Key Characteristics:
+- Phase angle maximum: 45° (superior planet geometry)
 - Phases are classified by illumination: Full (≥85%), Gibbous (50-85%), Crescent (<50%)
 - No elongation threshold for visibility (unlike Mercury/Venus)
-- Can exhibit retrograde motion ~every 26 months when Earth overtakes it
-- Always visible when above horizon (doesn't disappear in solar glare like inferior planets)
+- Always visible when above horizon (doesn't disappear in solar glare)
+- Retrograde motion possible: ~every 26 months when Earth overtakes Mars
 """
 from typing import Optional
-from astropy.coordinates import get_body, get_sun, AltAz, EarthLocation
+from astropy.coordinates import (
+    get_body, get_sun, AltAz, EarthLocation, HeliocentricTrueEcliptic
+)
 from astropy.time import Time
 import astropy.units as u
 import numpy as np
@@ -174,7 +225,8 @@ def _process_mars_position(
     phase_angle = float((mars_lon - sun_lon) % 360)
 
     # Determine phase name based on illumination threshold
-    # Mars has max 45° phase angle, so illumination ranges from ~50% (quadrature) to ~100% (opposition)
+    # Mars has max 45° phase angle, so illumination ranges from ~50% (quadrature)
+    # to ~100% (opposition)
     illum_pct = illumination * 100
 
     if illum_pct >= 85:
@@ -217,7 +269,7 @@ def _process_mars_position(
     }
 
 
-def _get_retrograde_status(mars_gcrs, sun, obs_time: Time) -> str:
+def _get_retrograde_status(_mars_gcrs, _sun, obs_time: Time) -> str:
     """
     Determine if Mars is in retrograde motion by calculating heliocentric longitude rate.
 
@@ -229,8 +281,8 @@ def _get_retrograde_status(mars_gcrs, sun, obs_time: Time) -> str:
     then check if longitude is increasing (prograde) or decreasing (retrograde).
 
     Args:
-        mars_gcrs: Mars position at current time (GCRS frame)
-        sun: Sun position at current time (GCRS frame)
+        _mars_gcrs: Mars position at current time (GCRS frame) [unused, kept for API]
+        _sun: Sun position at current time (GCRS frame) [unused, kept for API]
         obs_time: Astropy Time object
 
     Returns:
@@ -246,9 +298,6 @@ def _get_retrograde_status(mars_gcrs, sun, obs_time: Time) -> str:
     # Get Mars positions at ±1 day
     mars_minus = get_body("mars", t_minus)
     mars_plus = get_body("mars", t_plus)
-
-    # Get heliocentric ecliptic coordinates (transforms to Sun-centered frame)
-    from astropy.coordinates import GeocentricTrueEcliptic, HeliocentricTrueEcliptic
 
     # Transform to heliocentric ecliptic frame
     mars_minus_heliocentric = mars_minus.transform_to(
@@ -272,5 +321,4 @@ def _get_retrograde_status(mars_gcrs, sun, obs_time: Time) -> str:
     # If longitude is decreasing (negative rate), Mars is in retrograde motion
     if lon_rate < 0:
         return "retrograde"
-    else:
-        return "prograde"
+    return "prograde"
