@@ -12,4 +12,5 @@ export const FEATURE_FLAGS = {
   MOON_ENABLED: true,
   VENUS_ENABLED: true,
   MERCURY_ENABLED: true,
+  MARS_ENABLED: true,
 };
