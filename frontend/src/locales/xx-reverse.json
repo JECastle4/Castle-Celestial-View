@@ -93,7 +93,8 @@
       "sun": "nuS",
       "moon": "nooM",
       "venus": "suneV",
-      "mercury": "yrucreM"
+      "mercury": "yrucreM",
+      "mars": "sraM"
     },
     "sunAltitude": "tlA nuS",
     "sunVisible": "elbisiV nuS",
@@ -108,6 +109,7 @@
     "visible": "elbisiV",
     "venusData": "ataD suneV",
     "mercuryData": "ataD yrucreM",
+    "marsData": "ataD sraM",
     "nakedEyeVisible": "elbisiV eyE dekaN",
     "celestialCoordinates": "setanidroC laitselEC",
     "horizontalCoordinates": "setanidroC latnoziroH",
@@ -143,6 +145,11 @@
       "new": "weN",
       "crescent": "tnecserC",
       "quarter": "retrauQ",
+      "gibbous": "suobbiG",
+      "full": "lluF"
+    },
+    "marsPhases": {
+      "crescent": "tnecserC",
       "gibbous": "suobbiG",
       "full": "lluF"
     },

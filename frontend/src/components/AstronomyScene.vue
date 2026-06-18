@@ -192,10 +192,11 @@
           
           <BodyInfoPanel
             :bodyId="selectedBodyId"
-            :bodyData="selectedBodyId === 'sun' ? currentFrame.sun : selectedBodyId === 'moon' ? currentFrame.moon : selectedBodyId === 'mercury' ? currentFrame.mercury : currentFrame.venus"
+            :bodyData="selectedBodyId === 'sun' ? currentFrame.sun : selectedBodyId === 'moon' ? currentFrame.moon : selectedBodyId === 'mercury' ? currentFrame.mercury : selectedBodyId === 'mars' ? currentFrame.mars : currentFrame.venus"
             :moonPhaseData="selectedBodyId === 'moon' ? currentFrame.moon_phase : undefined"
             :venusPhaseData="selectedBodyId === 'venus' ? currentFrame.venus_phase : undefined"
             :mercuryPhaseData="selectedBodyId === 'mercury' ? currentFrame.mercury_phase : undefined"
+            :marsPhaseData="selectedBodyId === 'mars' ? currentFrame.mars_phase : undefined"
           />
         </div>
       </div>
@@ -298,6 +299,7 @@ import { Sun } from '@/three/objects/Sun';
 import { Moon } from '@/three/objects/Moon';
 import { Venus } from '@/three/objects/Venus';
 import { Mercury } from '@/three/objects/Mercury';
+import { Mars } from '@/three/objects/Mars';
 import { Earth } from '@/three/objects/Earth';
 import { FEATURE_FLAGS } from '@/config/features';
 import type { ObservationFrame } from '@/types/api.types';
@@ -345,6 +347,7 @@ let sun: Sun | null = null;
 let moon: Moon | null = null;
 let venus: Venus | null = null;
 let mercury: Mercury | null = null;
+let mars: Mars | null = null;
 let earth: Earth | null = null;
 
 const isAnimating = ref(false);
@@ -423,7 +426,7 @@ const isFormValid = computed(() => {
 
 const initializeObjects = () => {
   if (!canvasRef.value) return;
-  if (!earth || !sun || !moon || (FEATURE_FLAGS.VENUS_ENABLED && !venus) || (FEATURE_FLAGS.MERCURY_ENABLED && !mercury) || !sceneManager) {
+  if (!earth || !sun || !moon || (FEATURE_FLAGS.VENUS_ENABLED && !venus) || (FEATURE_FLAGS.MERCURY_ENABLED && !mercury) || (FEATURE_FLAGS.MARS_ENABLED && !mars) || !sceneManager) {
     sceneManager = new SceneManager(canvasRef.value);
     earth = new Earth();
     sun = new Sun();
@@ -434,6 +437,9 @@ const initializeObjects = () => {
     if (FEATURE_FLAGS.MERCURY_ENABLED) {
       mercury = new Mercury();
     }
+    if (FEATURE_FLAGS.MARS_ENABLED) {
+      mars = new Mars();
+    }
     earth.addToScene(sceneManager.scene);
     sun.addToScene(sceneManager.scene);
     moon.addToScene(sceneManager.scene);
@@ -442,6 +448,9 @@ const initializeObjects = () => {
     }
     if (mercury) {
       mercury.addToScene(sceneManager.scene);
+    }
+    if (mars) {
+      mars.addToScene(sceneManager.scene);
     }
     // Hide objects until data is loaded
     if (earth && earth.mesh && earth.getGridHelper() && earth.getAxesHelper() && earth.getHemisphereGrid()) {
@@ -462,6 +471,9 @@ const initializeObjects = () => {
     }
     if (FEATURE_FLAGS.MERCURY_ENABLED && mercury && mercury.mesh) {
       mercury.mesh.visible = false;
+    }
+    if (FEATURE_FLAGS.MARS_ENABLED && mars && mars.mesh) {
+      mars.mesh.visible = false;
     }
     sceneManager.startAnimation(updateAnimation);
   }
@@ -616,6 +628,15 @@ function updatePositions() {
     );
   }
 
+  if (FEATURE_FLAGS.MARS_ENABLED && frame.mars && mars) {
+    mars.updatePosition(
+      frame.mars.azimuth,
+      frame.mars.altitude,
+      frame.mars.is_visible,
+      viewMode.value
+    );
+  }
+
   moon.updatePhase(frame.moon_phase.illumination * 100);
   
   // Update label billboard orientations to face camera
@@ -627,6 +648,9 @@ function updatePositions() {
     }
     if (FEATURE_FLAGS.MERCURY_ENABLED && mercury) {
       mercury.updateLabelBillboard(sceneManager.camera);
+    }
+    if (FEATURE_FLAGS.MARS_ENABLED && mars) {
+      mars.updateLabelBillboard(sceneManager.camera);
     }
   }
 }
@@ -644,6 +668,9 @@ function setViewMode(mode: '3D' | 'SKY') {
     }
     if (mercury) {
       mercury.setViewMode(mode.toLowerCase() as 'sky' | '3d');
+    }
+    if (mars) {
+      mars.setViewMode(mode.toLowerCase() as 'sky' | '3d');
     }
     updatePositions();
   }

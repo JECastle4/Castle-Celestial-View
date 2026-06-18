@@ -54,6 +54,16 @@ export const CELESTIAL_BODIES: CelestialBodyConfig[] = [
     hasIllumination: true,
     hasNakedEyeVisibility: true,
     icon: 'fa-circle'
+  },
+  {
+    id: 'mars',
+    name: 'Mars',
+    labelKey: 'astronomy.bodyNames.mars',
+    order: 4,
+    hasPhase: true,
+    hasIllumination: true,
+    hasNakedEyeVisibility: false,
+    icon: 'fa-circle'
   }
 ];
 
