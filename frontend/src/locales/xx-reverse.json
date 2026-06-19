@@ -95,7 +95,8 @@
       "venus": "suneV",
       "earth": "htraE",
       "moon": "nooM",
-      "mars": "sraM"
+      "mars": "sraM",
+      "earthMoon": "nooM/htraE"
     },
     "sunAltitude": "tlA nuS",
     "sunVisible": "elbisiV nuS",
@@ -181,6 +182,9 @@
       "yes": "seY",
       "no": "oN",
       "animationReset": ".etats laitini ot teser noitaminA"
+    },
+    "labels": {
+      "cameraControls": "sweivV aremagC"
     },
     "units": {
       "degrees": "°",

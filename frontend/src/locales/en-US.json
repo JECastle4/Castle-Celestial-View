@@ -95,7 +95,8 @@
 			"venus": "Venus",
 			"earth": "Earth",
 			"moon": "Moon",
-			"mars": "Mars"
+			"mars": "Mars",
+			"earthMoon": "Earth/Moon"
 		},
 		"sunAltitude": "Sun Alt",
 		"sunVisible": "Sun Visible",
@@ -181,6 +182,9 @@
 			"yes": "Yes",
 			"no": "No",
 			"animationReset": "Animation reset to initial state."
+		},
+		"labels": {
+			"cameraControls": "Camera Views"
 		},
 		"units": {
 			"degrees": "°",
