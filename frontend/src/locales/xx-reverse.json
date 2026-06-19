@@ -58,7 +58,9 @@
     "recentreAria": ")htrae no dertnec( noitacol tluafed eht ot aremac eht nruteR",
     "newQuery": "yreuQ weN",
     "apply": "ylppA",
-    "cancel": "lecnaC"
+    "cancel": "lecnaC",
+    "selectBody": "sliated weiv ot {body} tceleS",
+    "zoomToBody": "{body} ot mooZ"
   },
   "views": {
     "solar3d": "weiV metsyS raloS",

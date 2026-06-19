@@ -15,8 +15,8 @@
         :class="['body-tab', { active: currentId === body.id, disabled: !body.enabled }]"
         @click="select(body.id)"
         :disabled="!body.enabled"
-        :aria-label="t(body.labelKey)"
-        :title="t(body.labelKey)"
+        :aria-label="t('buttons.selectBody', { body: t(body.labelKey) })"
+        :title="t('buttons.selectBody', { body: t(body.labelKey) })"
         :aria-pressed="currentId === body.id"
       >
         <i :class="`fa ${body.icon}`" class="body-icon" aria-hidden="true"></i>
