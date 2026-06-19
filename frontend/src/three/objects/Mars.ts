@@ -15,8 +15,8 @@ export class Mars {
   private labelOffset: number = 0.25;
 
   constructor() {
-    // 3D view: proportional to Earth (3389.5 km / 6371 km × 0.3)
-    this.defaultGeometry = new THREE.SphereGeometry(0.15, 32, 32);
+    // 3D view: proportional to Earth (3389.5 km / 6371 km × 0.3 ≈ 0.16)
+    this.defaultGeometry = new THREE.SphereGeometry(0.16, 32, 32);
     // Sky view: Mars's angular diameter (~25 arcsec max) requires reasonable size
     const domeRadius = 10;
     const marsAngularDiameterRad = 0.0001217; // ~25 arcsec max in radians
