@@ -53,7 +53,9 @@
     "recentreAria": "Return the camera to the default location (centred on earth)",
     "newQuery": "New Query",
     "apply": "Apply",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "selectBody": "Select {body} to view details",
+    "zoomToBody": "Zoom to {body}"
   },
   "views": {
     "solar3d": "Solar System View",

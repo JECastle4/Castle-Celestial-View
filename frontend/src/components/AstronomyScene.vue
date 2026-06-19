@@ -185,25 +185,25 @@
         <div v-if="currentFrame && viewMode === '3D'" class="camera-controls-section">
           <div class="section-label">{{ t('ui.labels.cameraControls') }}</div>
           <div class="zoom-button-grid">
-            <button @click="zoomToBody('sun')" class="zoom-btn" :class="{ enabled: isSunVisible, disabled: !isSunVisible }" :disabled="!isSunVisible" :title="t('astronomy.bodyNames.sun')">
+            <button @click="zoomToBody('sun')" class="zoom-btn" :class="{ enabled: isSunVisible, disabled: !isSunVisible }" :disabled="!isSunVisible" :title="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.sun') })" :aria-label="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.sun') })">
               <i class="fa fa-sun" aria-hidden="true"></i> {{ t('astronomy.bodyNames.sun') }}
             </button>
-            <button @click="zoomToBody('mercury')" class="zoom-btn" :class="{ enabled: isMercuryVisible, disabled: !isMercuryVisible }" :disabled="!isMercuryVisible" :title="t('astronomy.bodyNames.mercury')">
+            <button @click="zoomToBody('mercury')" class="zoom-btn" :class="{ enabled: isMercuryVisible, disabled: !isMercuryVisible }" :disabled="!isMercuryVisible" :title="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.mercury') })" :aria-label="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.mercury') })">
               <i class="fa fa-circle" aria-hidden="true"></i> {{ t('astronomy.bodyNames.mercury') }}
             </button>
-            <button @click="zoomToBody('venus')" class="zoom-btn" :class="{ enabled: isVenusVisible, disabled: !isVenusVisible }" :disabled="!isVenusVisible" :title="t('astronomy.bodyNames.venus')">
+            <button @click="zoomToBody('venus')" class="zoom-btn" :class="{ enabled: isVenusVisible, disabled: !isVenusVisible }" :disabled="!isVenusVisible" :title="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.venus') })" :aria-label="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.venus') })">
               <i class="fa fa-circle" aria-hidden="true"></i> {{ t('astronomy.bodyNames.venus') }}
             </button>
-            <button @click="zoomToBody('earth')" class="zoom-btn" :class="{ enabled: true, disabled: false }" :title="t('astronomy.bodyNames.earth')">
+            <button @click="zoomToBody('earth')" class="zoom-btn" :class="{ enabled: true, disabled: false }" :title="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.earth') })" :aria-label="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.earth') })">
               <i class="fa fa-earth-americas" aria-hidden="true"></i> {{ t('astronomy.bodyNames.earth') }}
             </button>
-            <button @click="zoomToBody('moon')" class="zoom-btn" :class="{ enabled: isMoonVisible, disabled: !isMoonVisible }" :disabled="!isMoonVisible" :title="t('astronomy.bodyNames.moon')">
+            <button @click="zoomToBody('moon')" class="zoom-btn" :class="{ enabled: isMoonVisible, disabled: !isMoonVisible }" :disabled="!isMoonVisible" :title="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.moon') })" :aria-label="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.moon') })">
               <i class="fa fa-moon" aria-hidden="true"></i> {{ t('astronomy.bodyNames.moon') }}
             </button>
-            <button @click="zoomToBody('earthMoon')" class="zoom-btn" :class="{ enabled: isEarthMoonVisible, disabled: !isEarthMoonVisible }" :disabled="!isEarthMoonVisible" :title="t('astronomy.bodyNames.earthMoon')">
+            <button @click="zoomToBody('earthMoon')" class="zoom-btn" :class="{ enabled: isEarthMoonVisible, disabled: !isEarthMoonVisible }" :disabled="!isEarthMoonVisible" :title="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.earthMoon') })" :aria-label="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.earthMoon') })">
               <i class="fa fa-circle-half-stroke" aria-hidden="true"></i> {{ t('astronomy.bodyNames.earthMoon') }}
             </button>
-            <button @click="zoomToBody('mars')" class="zoom-btn" :class="{ enabled: isMarsVisible, disabled: !isMarsVisible }" :disabled="!isMarsVisible" :title="t('astronomy.bodyNames.mars')">
+            <button @click="zoomToBody('mars')" class="zoom-btn" :class="{ enabled: isMarsVisible, disabled: !isMarsVisible }" :disabled="!isMarsVisible" :title="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.mars') })" :aria-label="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.mars') })">
               <i class="fa fa-circle" aria-hidden="true"></i> {{ t('astronomy.bodyNames.mars') }}
             </button>
           </div>
@@ -1138,14 +1138,14 @@ button {
 }
 
 .zoom-btn.enabled {
-  background: #2563eb;
-  border-color: #1d4ed8;
+  background: #002d66;
+  border-color: #001f47;
   color: #ffffff;
 }
 
 .zoom-btn.enabled:hover {
-  background: #1d4ed8;
-  border-color: #1e40af;
+  background: #001f47;
+  border-color: #001a38;
 }
 
 .zoom-btn.disabled {
