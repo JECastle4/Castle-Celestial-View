@@ -181,6 +181,33 @@
           <input id="animation-speed" v-model.number="animationSpeed" type="range" min="0.1" max="5" step="0.1" />
           <span>{{ animationSpeed.toFixed(1) }}x</span>
         </div>
+
+        <div v-if="currentFrame && viewMode === '3D'" class="camera-controls-section">
+          <div class="section-label">{{ t('ui.labels.cameraControls') }}</div>
+          <div class="zoom-button-grid">
+            <button @click="zoomToBody('sun')" class="zoom-btn" :class="{ enabled: isSunVisible, disabled: !isSunVisible }" :disabled="!isSunVisible" :title="t('astronomy.bodyNames.sun')">
+              <i class="fa fa-sun" aria-hidden="true"></i> {{ t('astronomy.bodyNames.sun') }}
+            </button>
+            <button @click="zoomToBody('mercury')" class="zoom-btn" :class="{ enabled: isMercuryVisible, disabled: !isMercuryVisible }" :disabled="!isMercuryVisible" :title="t('astronomy.bodyNames.mercury')">
+              <i class="fa fa-circle" aria-hidden="true"></i> {{ t('astronomy.bodyNames.mercury') }}
+            </button>
+            <button @click="zoomToBody('venus')" class="zoom-btn" :class="{ enabled: isVenusVisible, disabled: !isVenusVisible }" :disabled="!isVenusVisible" :title="t('astronomy.bodyNames.venus')">
+              <i class="fa fa-circle" aria-hidden="true"></i> {{ t('astronomy.bodyNames.venus') }}
+            </button>
+            <button @click="zoomToBody('earth')" class="zoom-btn" :class="{ enabled: true, disabled: false }" :title="t('astronomy.bodyNames.earth')">
+              <i class="fa fa-earth-americas" aria-hidden="true"></i> {{ t('astronomy.bodyNames.earth') }}
+            </button>
+            <button @click="zoomToBody('moon')" class="zoom-btn" :class="{ enabled: isMoonVisible, disabled: !isMoonVisible }" :disabled="!isMoonVisible" :title="t('astronomy.bodyNames.moon')">
+              <i class="fa fa-moon" aria-hidden="true"></i> {{ t('astronomy.bodyNames.moon') }}
+            </button>
+            <button @click="zoomToBody('earthMoon')" class="zoom-btn" :class="{ enabled: isEarthMoonVisible, disabled: !isEarthMoonVisible }" :disabled="!isEarthMoonVisible" :title="t('astronomy.bodyNames.earthMoon')">
+              <i class="fa fa-circle-half-stroke" aria-hidden="true"></i> {{ t('astronomy.bodyNames.earthMoon') }}
+            </button>
+            <button @click="zoomToBody('mars')" class="zoom-btn" :class="{ enabled: isMarsVisible, disabled: !isMarsVisible }" :disabled="!isMarsVisible" :title="t('astronomy.bodyNames.mars')">
+              <i class="fa fa-circle" aria-hidden="true"></i> {{ t('astronomy.bodyNames.mars') }}
+            </button>
+          </div>
+        </div>
         
         <div v-if="currentFrame" class="celestial-panel">
           <PanelHeader
@@ -291,6 +318,7 @@
 <script setup lang="ts">
 import '@fortawesome/fontawesome-free/css/all.min.css';
 import { ref, computed, watch, nextTick, onMounted, onUnmounted, defineAsyncComponent } from 'vue';
+import * as THREE from 'three';
 import { useToast } from '@/composables/useToast';
 import { useI18n } from 'vue-i18n';
 import { useAstronomyData } from '@/composables/useAstronomyData';
@@ -423,6 +451,14 @@ const isFormValid = computed(() => {
   return isLatitudeValid.value && isLongitudeValid.value && isFrameCountValid.value;
 });
 
+// Visibility checks for camera view buttons
+const isSunVisible = computed(() => currentFrame.value?.sun?.is_visible ?? false);
+const isMercuryVisible = computed(() => currentFrame.value?.mercury?.is_visible ?? false);
+const isVenusVisible = computed(() => currentFrame.value?.venus?.is_visible ?? false);
+const isMoonVisible = computed(() => currentFrame.value?.moon?.is_visible ?? false);
+const isEarthMoonVisible = computed(() => currentFrame.value?.moon?.is_visible ?? false);
+const isMarsVisible = computed(() => currentFrame.value?.mars?.is_visible ?? false);
+
 
 const initializeObjects = () => {
   if (!canvasRef.value) return;
@@ -536,6 +572,25 @@ async function loadData() {
     }
     currentIndex.value = 0;
     updatePositions();
+    
+    // Phase 2: Update default view to frame all visible bodies
+    const bodyPositions: THREE.Vector3[] = [];
+    if (earth) bodyPositions.push(earth.mesh.position.clone());
+    if (sun) bodyPositions.push(sun.mesh.position.clone());
+    if (moon) bodyPositions.push(moon.mesh.position.clone());
+    if (venus) bodyPositions.push(venus.mesh.position.clone());
+    if (mercury) bodyPositions.push(mercury.mesh.position.clone());
+    if (mars) bodyPositions.push(mars.mesh.position.clone());
+    
+    if (sceneManager && bodyPositions.length > 0) {
+      sceneManager.updateDefaultView(bodyPositions);
+    }
+    
+    // Phase 3: Update Earth-Moon subsystem view with dynamic positioning
+    if (sceneManager && earth && moon) {
+      sceneManager.updateEarthMoonView(earth.mesh.position, moon.mesh.position);
+    }
+    
     // Set visibility for first frame from API data
     const frame = currentFrame.value;
     if (frame) {
@@ -736,6 +791,12 @@ function resetAnimation() {
 function recentreCamera() {
   if (sceneManager) {
     sceneManager.resetCamera();
+  }
+}
+
+function zoomToBody(bodyName: string) {
+  if (sceneManager && sceneManager.getViewMode() === '3D') {
+    sceneManager.transitionToPreset(bodyName, 800);
   }
 }
 
@@ -1033,6 +1094,74 @@ button {
   padding: 0;
   border-top: 1px solid #555;
   font-size: 0.85em;
+}
+
+.camera-controls-section {
+  margin-bottom: 15px;
+  padding: 10px;
+  background: #1a1a1a;
+  border: 1px solid #444;
+  border-radius: 4px;
+}
+
+.section-label {
+  display: block;
+  font-size: 0.85em;
+  font-weight: bold;
+  margin-bottom: 8px;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.zoom-button-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.zoom-btn {
+  padding: 8px;
+  margin-bottom: 0;
+  font-size: 0.85em;
+  background: #334455;
+  border: 1px solid #556677;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.zoom-btn:hover:not(:disabled) {
+  background: #445566;
+  border-color: #667788;
+}
+
+.zoom-btn.enabled {
+  background: #2563eb;
+  border-color: #1d4ed8;
+  color: #ffffff;
+}
+
+.zoom-btn.enabled:hover {
+  background: #1d4ed8;
+  border-color: #1e40af;
+}
+
+.zoom-btn.disabled {
+  background: #6b7280;
+  border-color: #4b5563;
+  color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.zoom-btn:disabled {
+  cursor: not-allowed;
+}
+
+.zoom-btn i {
+  font-size: 0.9em;
 }
 
 /* Ensure canvas always fills its parent container */
