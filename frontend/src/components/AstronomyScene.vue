@@ -796,7 +796,18 @@ function recentreCamera() {
 
 function zoomToBody(bodyName: string) {
   if (sceneManager && sceneManager.getViewMode() === '3D') {
-    sceneManager.transitionToPreset(bodyName, 800);
+    // Collect current body positions for dynamic camera calculation
+    const bodyPositions: Record<string, THREE.Vector3 | undefined> = {};
+    
+    if (sun) bodyPositions.sun = sun.mesh.position.clone();
+    if (mars) bodyPositions.mars = mars.mesh.position.clone();
+    if (mercury) bodyPositions.mercury = mercury.mesh.position.clone();
+    if (venus) bodyPositions.venus = venus.mesh.position.clone();
+    if (earth) bodyPositions.earth = earth.mesh.position.clone();
+    if (moon) bodyPositions.moon = moon.mesh.position.clone();
+
+    // Pass body positions to enable dynamic camera calculation
+    sceneManager.transitionToPreset(bodyName, 800, bodyPositions);
   }
 }
 

@@ -129,7 +129,7 @@ async function loadAstronomyData(page: Page) {
   // 4. Timeout (failure)
   
   const startTime = Date.now();
-  const timeout = 90000; // 90 seconds for Firefox SSE streaming
+  const timeout = 200000; // 200 seconds to handle parallel API queue from multiple test browsers
   let lastProgressLog = startTime;
   
   while (Date.now() - startTime < timeout) {
@@ -295,7 +295,7 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
    * TEST 1: Load Data & Capture Sun
    * Sets up the scene with data loaded, defaults to Sun body in 3D view
    */
-  testWithPersistentPage('1. Load data and verify Sun is selected', { timeout: 90000 }, async ({ page }) => {
+  testWithPersistentPage('1. Load data and verify Sun is selected', { timeout: 240000 }, async ({ page }) => {
     await loadAstronomyData(page);
     
     // Verify Sun tab is active by default
@@ -315,7 +315,7 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
     await expect(visibilityBadge).toBeVisible();
     
     // Capture snapshot of Sun in 3D view
-    await expect(page.locator('.app-layout')).toHaveScreenshot('sun-3d-view.png');
+    await expect(page.locator('.app-layout')).toHaveScreenshot('sun-3d-view.png', { timeout: 15000 });
     
     // Stabilize page after screenshot and before next test
     await stabilizePage(page, 5000);
@@ -357,7 +357,7 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
     await expect(mercuryTab).toHaveClass(/active/);
     
     // Capture snapshot of Mercury in 3D view
-    await expect(page.locator('.app-layout')).toHaveScreenshot('mercury-3d-view.png');
+    await expect(page.locator('.app-layout')).toHaveScreenshot('mercury-3d-view.png', { timeout: 15000 });
     
     // Wait for DOM to settle after screenshot
     await page.waitForTimeout(1000);
@@ -400,7 +400,7 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
     await expect(venusTab).toHaveClass(/active/);
     
     // Capture snapshot of Venus in 3D view
-    await expect(page.locator('.app-layout')).toHaveScreenshot('venus-3d-view.png');
+    await expect(page.locator('.app-layout')).toHaveScreenshot('venus-3d-view.png', { timeout: 15000 });
     
     // Wait for DOM to settle after screenshot
     await page.waitForTimeout(2000);
@@ -451,7 +451,7 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
     await expect(nakedEyeInfo).toBeVisible();
     
     // Capture snapshot of Mercury in 3D view
-    await expect(page.locator('.app-layout')).toHaveScreenshot('mercury-3d-view.png');
+    await expect(page.locator('.app-layout')).toHaveScreenshot('mercury-3d-view.png', { timeout: 15000 });
     
     // Wait for DOM to settle after screenshot
     await page.waitForTimeout(2000);
@@ -495,7 +495,7 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
     await expect(marsTab).toHaveClass(/active/);
     
     // Capture snapshot of Mars in 3D view
-    await expect(page.locator('.app-layout')).toHaveScreenshot('mars-3d-view.png');
+    await expect(page.locator('.app-layout')).toHaveScreenshot('mars-3d-view.png', { timeout: 15000 });
     
     // Wait for DOM to settle after screenshot
     await page.waitForTimeout(1000);
@@ -660,7 +660,7 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
     await expect(skyViewButton).toHaveClass(/active/);
     
     // Capture snapshot of Sky View
-    await expect(page.locator('.app-layout')).toHaveScreenshot('sun-sky-view.png');
+    await expect(page.locator('.app-layout')).toHaveScreenshot('sun-sky-view.png', { timeout: 15000 });
     
     // Wait for DOM to settle after screenshot
     await page.waitForTimeout(2000);
@@ -803,7 +803,7 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
     await page.waitForTimeout(500);
     
     // Capture snapshot showing reset state (with timeout to prevent hanging)
-    const screenshotPromise = expect(page.locator('.app-layout')).toHaveScreenshot('sun-sky-view-restarted.png');
+    const screenshotPromise = expect(page.locator('.app-layout')).toHaveScreenshot('sun-sky-view-restarted.png', { timeout: 15000 });
     try {
       await Promise.race([
         screenshotPromise,
@@ -825,7 +825,7 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
 });
 
 test.describe('Astronomy Scene - Initial Load', () => {
-  test('should load the page and have Load Data button enabled', { timeout: 90000 }, async ({ page }) => {
+  test('should load the page and have Load Data button enabled', { timeout: 240000 }, async ({ page }) => {
     // Navigate to the home page
     await page.goto('/en-UK');
 
@@ -880,7 +880,7 @@ test.describe('Astronomy Scene - Initial Load', () => {
     const animationControls = page.locator('.animation-controls');
     
     const startTime = Date.now();
-    const timeout = 90000; // 90 seconds for Firefox SSE streaming
+    const timeout = 200000; // 200 seconds to handle parallel API queue from multiple test browsers
     
     while (Date.now() - startTime < timeout) {
       // Check if animation controls appeared (scene loaded successfully)
@@ -949,7 +949,7 @@ test.describe('Astronomy Scene - Initial Load', () => {
 
     // Capture screenshot of the full scene (including right panel)
     const scene = page.locator('.app-layout');
-    await expect(scene).toHaveScreenshot('3d-view-first-frame.png');
+    await expect(scene).toHaveScreenshot('3d-view-first-frame.png', { timeout: 15000 });
 
     // Click the Sky View button
     const skyViewButton = page.getByRole('button', { name: 'Sky View' });
@@ -959,12 +959,12 @@ test.describe('Astronomy Scene - Initial Load', () => {
     await page.waitForTimeout(1000);
 
     // Capture screenshot of Sky View (full scene)
-    await expect(scene).toHaveScreenshot('sky-view-first-frame.png');
+    await expect(scene).toHaveScreenshot('sky-view-first-frame.png', { timeout: 15000 });
   });
 });
 
 test.describe('Astronomy Scene - Sky View Animation Controls', () => {
-  test('should play, pause, and reset animation in Sky View', { timeout: 90000 }, async ({ page }) => {
+  test('should play, pause, and reset animation in Sky View', { timeout: 240000 }, async ({ page }) => {
     // Define beforePlayFrameXY at the top for this test
     let beforePlayFrameXY = '';
     // Navigate to the home page and load data as in the initial test
@@ -986,7 +986,7 @@ test.describe('Astronomy Scene - Sky View Animation Controls', () => {
     const animationControls = page.locator('.animation-controls');
     
     const startTime = Date.now();
-    const timeout = 90000; // 90 seconds for Firefox SSE streaming
+    const timeout = 200000; // 200 seconds to handle parallel API queue from multiple test browsers
     
     while (Date.now() - startTime < timeout) {
       // Check if animation controls appeared (scene loaded successfully)
@@ -1029,7 +1029,7 @@ test.describe('Astronomy Scene - Sky View Animation Controls', () => {
     const frameCounter = page.locator('.animation-controls .frame-counter');
     await expect(frameCounter).toBeVisible({ timeout: 5000 });
     beforePlayFrameXY = await frameCounter.innerText();
-    await expect(scene).toHaveScreenshot('sky-view-first-frame.png');
+    await expect(scene).toHaveScreenshot('sky-view-first-frame.png', { timeout: 15000 });
     // Set animation speed to a reasonable value for testing (1.0 = normal speed)
     const speedInput = page.locator('.animation-controls input[type="range"]#animation-speed');
     if (await speedInput.count()) {
@@ -1070,6 +1070,6 @@ test.describe('Astronomy Scene - Sky View Animation Controls', () => {
     expect(afterWaitFrameXY).not.toBe(beforePlayFrameXY);
     const resetButton = page.getByRole('button', { name: 'Restart' });
     await resetButton.click();
-    await expect(scene).toHaveScreenshot('sky-view-reset-frame.png');
+    await expect(scene).toHaveScreenshot('sky-view-reset-frame.png', { timeout: 15000 });
   });
 });

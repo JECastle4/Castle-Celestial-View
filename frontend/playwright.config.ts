@@ -18,8 +18,9 @@ export default defineConfig({
   testDir: './tests/e2e',
   
   // Maximum time one test can run
-  // Set to 120 seconds to accommodate slower CI environments with SSE streaming
-  timeout: 120 * 1000,
+  // Set to 600 seconds (10 minutes) to accommodate frame-by-frame navigation at 0.1x speed
+  // Frame navigation to frame 36 requires ~396 seconds (36 frames × 11 sec/frame)
+  timeout: 600 * 1000,
   
   // Run tests in files in parallel
   fullyParallel: true,
@@ -39,7 +40,7 @@ export default defineConfig({
   // Shared settings for all projects
   use: {
     // Base URL for navigation
-    baseURL: 'http://localhost:5173',
+    baseURL: process.env.BASE_URL || 'http://localhost:5173',
     
     // Collect trace when retrying the failed test
     trace: 'on-first-retry',

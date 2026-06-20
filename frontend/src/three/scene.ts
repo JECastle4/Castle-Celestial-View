@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { CameraAnimator } from './cameraAnimation';
-import { CAMERA_PRESETS, calculateOptimalDefaultView, calculateOptimalEarthMoonView } from '../config/cameraPresets';
+import { CAMERA_PRESETS, calculateOptimalDefaultView, calculateOptimalEarthMoonView, calculateBodyViewPreset } from '../config/cameraPresets';
 
 /**
  * Three.js Scene Manager for Astronomy Animation
@@ -235,27 +235,47 @@ export class SceneManager {
 
   /**
    * Transition camera to a preset view with smooth animation
+   * Supports both static presets and dynamic positioning based on current body locations
    * @param presetName - Name of the preset (e.g., 'sun', 'mars', 'earthMoon')
    * @param duration - Animation duration in milliseconds (default: 800ms)
+   * @param bodyPositions - Optional current body positions for dynamic calculation
+   *                        { sun?, mars?, mercury?, venus?, earth?, moon? }
    * @param onComplete - Optional callback when animation completes
    */
   public transitionToPreset(
     presetName: string,
     duration: number = 800,
+    bodyPositions?: Record<string, THREE.Vector3 | undefined>,
     onComplete?: () => void
   ): void {
-    const preset = CAMERA_PRESETS[presetName.toLowerCase()] || CAMERA_PRESETS.default;
-    
-    if (this.currentViewMode === '3D') {
-      this.cameraAnimator.animateToView(
-        this.camera,
-        this.controls,
-        preset.position.clone(),
-        preset.target.clone(),
-        duration,
-        onComplete
-      );
+    if (this.currentViewMode !== '3D') {
+      return; // Only zoom in 3D mode
     }
+
+    let preset: any;
+
+    // Handle Earth-Moon subsystem with dynamic calculation
+    if (presetName.toLowerCase() === 'earthmoon' && bodyPositions?.earth && bodyPositions?.moon) {
+      preset = calculateOptimalEarthMoonView(bodyPositions.earth, bodyPositions.moon);
+    }
+    // Handle single body with dynamic calculation if position provided
+    else if (bodyPositions?.[presetName.toLowerCase()]) {
+      const bodyPosition = bodyPositions[presetName.toLowerCase()]!;
+      preset = calculateBodyViewPreset(bodyPosition, presetName);
+    }
+    // Fallback to static preset
+    else {
+      preset = CAMERA_PRESETS[presetName.toLowerCase()] || CAMERA_PRESETS.default;
+    }
+
+    this.cameraAnimator.animateToView(
+      this.camera,
+      this.controls,
+      preset.position.clone(),
+      preset.target.clone(),
+      duration,
+      onComplete
+    );
   }
 
   public dispose(): void {
