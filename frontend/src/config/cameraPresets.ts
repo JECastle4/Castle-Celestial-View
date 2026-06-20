@@ -192,8 +192,11 @@ export function calculateBodyViewPreset(
     bodyPosition.z - viewDistance * 0.85 // Primary distance back
   );
 
+  // Capitalize first letter of body name for display
+  const capitalizedName = bodyName.charAt(0).toUpperCase() + bodyName.slice(1);
+
   return {
-    name: `${bodyName} View (Dynamic)`,
+    name: `${capitalizedName} View (Dynamic)`,
     position: cameraPosition,
     target: bodyPosition.clone(),
   };
