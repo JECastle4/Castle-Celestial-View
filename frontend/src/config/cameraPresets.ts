@@ -159,3 +159,42 @@ export function calculateOptimalDefaultView(
     target: center,
   };
 }
+
+/**
+ * Calculate a dynamic camera view for a specific body at its current position
+ * Used by zoom-to buttons to frame bodies correctly even when they've moved
+ * @param bodyPosition - Current 3D position of the body
+ * @param bodyName - Name of the body (sun, mars, earth, etc.)
+ * @returns Camera preset optimized for viewing this body at its current location
+ */
+export function calculateBodyViewPreset(
+  bodyPosition: THREE.Vector3,
+  bodyName: string
+): CameraPreset {
+  // Define view distances for each body type
+  const viewDistances: Record<string, number> = {
+    sun: 25,
+    mars: 22,
+    mercury: 16,
+    venus: 20,
+    earth: 12,
+    moon: 11,
+  };
+
+  const bodyNameLower = bodyName.toLowerCase();
+  const viewDistance = viewDistances[bodyNameLower] || 15; // Default view distance
+
+  // Position camera slightly elevated and back from the body
+  // This provides a good viewing angle similar to the static presets
+  const cameraPosition = new THREE.Vector3(
+    bodyPosition.x,
+    bodyPosition.y + viewDistance * 0.3, // Slight elevation
+    bodyPosition.z - viewDistance * 0.85 // Primary distance back
+  );
+
+  return {
+    name: `${bodyName} View (Dynamic)`,
+    position: cameraPosition,
+    target: bodyPosition.clone(),
+  };
+}
