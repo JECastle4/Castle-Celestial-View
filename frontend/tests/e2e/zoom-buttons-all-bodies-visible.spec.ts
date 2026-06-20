@@ -79,7 +79,7 @@ async function loadAstronomyData(page: Page, startDate: string, endDate: string,
   const animationControls = page.locator('.animation-controls');
   
   const startTime = Date.now();
-  const timeout = 200000; // 200 seconds to handle parallel API queue from multiple test browsers
+  const timeout = 250000; // 250 seconds for Firefox SSE streaming (47/48 frames taking longest)
   let lastProgressLog = startTime;
   
   while (Date.now() - startTime < timeout) {
@@ -203,9 +203,19 @@ async function navigateToFrameAndPause(page: Page, targetFrameIndex: number) {
   // Poll frame counter until we reach target frame
   while (currentFrame < targetFrameIndex && Date.now() - startTime < maxWaitTime) {
     currentFrame = await getCurrentFrame();
-    if (currentFrame % 5 === 0) {
-      console.log(`[Frame Navigation] Current: ${currentFrame}/${targetFrameIndex}`);
+    
+    // Dynamically adjust speed based on proximity to target
+    if (currentFrame >= 25 && currentFrame < targetFrameIndex - 1) {
+      // Slow down dramatically when approaching target (frames 25-29 for target 30)
+      await setAnimationSpeed(page, 0.1);
+      console.log(`[Frame Navigation] Slowed to 0.1x for precise approach`);
+    } else if (currentFrame < 25) {
+      // Fast approach for frames 0-24
+      if (currentFrame % 5 === 0) {
+        console.log(`[Frame Navigation] Current: ${currentFrame}/${targetFrameIndex}`);
+      }
     }
+    
     await page.waitForTimeout(pollInterval);
   }
   
@@ -214,7 +224,7 @@ async function navigateToFrameAndPause(page: Page, targetFrameIndex: number) {
   const pauseBtn = page.getByRole('button', { name: /Pause|pause/ });
   try {
     await pauseBtn.click();
-    await page.waitForTimeout(800); // Wait for pause to take effect
+    await page.waitForTimeout(1000); // Extended wait for pause to take effect and animation to settle
   } catch (e) {
     console.log('[Frame Navigation] Pause button click failed, continuing anyway:', e);
   }
@@ -297,7 +307,7 @@ test.describe('Zoom Buttons with All Bodies Visible', () => {
     }
   });
 
-  test('Load data and navigate to all-bodies-visible frame', { timeout: 240000 }, async () => {
+  test('Load data and navigate to all-bodies-visible frame', { timeout: 290000 }, async () => {
     const page = persistentPage;
     
     // Load data for full day
@@ -345,8 +355,8 @@ test.describe('Zoom Buttons with All Bodies Visible', () => {
     // Click zoom to Sun
     await sunBtn.click();
     
-    // Wait for camera transition
-    await page.waitForTimeout(1200);
+    // Wait for camera transition and 3D rendering to complete
+    await page.waitForTimeout(1500);
     
     // Verify camera view matches snapshot
     await expect(page.locator('canvas').first()).toHaveScreenshot('camera-view-zoomed-sun.png', { timeout: 15000 });
@@ -363,7 +373,9 @@ test.describe('Zoom Buttons with All Bodies Visible', () => {
     expect(await mercBtn.isDisabled()).toBe(false);
     
     await mercBtn.click();
-    await page.waitForTimeout(1200);
+    
+    // Wait for camera transition and 3D rendering to complete
+    await page.waitForTimeout(1500);
     
     // Verify camera view with screenshot
     await expect(page.locator('canvas').first()).toHaveScreenshot('camera-view-zoomed-mercury.png', { timeout: 15000 });
@@ -379,7 +391,9 @@ test.describe('Zoom Buttons with All Bodies Visible', () => {
     expect(await venusBtn.isDisabled()).toBe(false);
     
     await venusBtn.click();
-    await page.waitForTimeout(1200);
+    
+    // Wait for camera transition and 3D rendering to complete
+    await page.waitForTimeout(1500);
     
     // Verify camera view with screenshot
     await expect(page.locator('canvas').first()).toHaveScreenshot('camera-view-zoomed-venus.png', { timeout: 15000 });
@@ -395,7 +409,9 @@ test.describe('Zoom Buttons with All Bodies Visible', () => {
     expect(await moonBtn.isDisabled()).toBe(false);
     
     await moonBtn.click();
-    await page.waitForTimeout(1200);
+    
+    // Wait for camera transition and 3D rendering to complete
+    await page.waitForTimeout(1500);
     
     // Verify camera view with screenshot
     await expect(page.locator('canvas').first()).toHaveScreenshot('camera-view-zoomed-moon.png', { timeout: 15000 });
@@ -411,7 +427,9 @@ test.describe('Zoom Buttons with All Bodies Visible', () => {
     expect(await marsBtn.isDisabled()).toBe(false);
     
     await marsBtn.click();
-    await page.waitForTimeout(1200);
+    
+    // Wait for camera transition and 3D rendering to complete
+    await page.waitForTimeout(1500);
     
     // Verify camera view with screenshot
     await expect(page.locator('canvas').first()).toHaveScreenshot('camera-view-zoomed-mars.png', { timeout: 15000 });
