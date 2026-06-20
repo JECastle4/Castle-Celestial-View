@@ -598,7 +598,7 @@ class TestMarsPositionLocalization:
     def test_mars_position_with_english_locale(self):
         """Test Mars position with English locale."""
         response = client.post(
-            "/api/v1/mars-position?locale=en",
+            "/api/v1/mars-position?lang=en",
             json={
                 "date": "2026-06-18",
                 "time": "12:00:00",
@@ -615,7 +615,7 @@ class TestMarsPositionLocalization:
     def test_mars_position_with_en_us_locale(self):
         """Test Mars position with en-US locale."""
         response = client.post(
-            "/api/v1/mars-position?locale=en-US",
+            "/api/v1/mars-position?lang=en-US",
             json={
                 "date": "2026-06-18",
                 "time": "12:00:00",

@@ -150,7 +150,8 @@ def _process_mars_position(
     time: Time,
     datetime_str: str,
     location: LocationModel,
-    locale: Optional[str] = None
+    locale: Optional[str] = None,
+    retrograde_status: Optional[str] = None
 ) -> dict:
     """
     Process Mars position data into response format.
@@ -239,9 +240,9 @@ def _process_mars_position(
     # Get localized phase name
     phase_name = i18n.get(f"marsPhases.{phase_key}")
 
-    # Determine retrograde status by heliocentric longitude rate
-    # We calculate Mars's heliocentric longitude at two nearby times
-    retrograde_status = _get_retrograde_status(mars_gcrs, sun, time)
+    # Determine retrograde status (pre-computed in batch mode, calculated on-demand in single-frame mode)
+    if retrograde_status is None:
+        retrograde_status = _get_retrograde_status(mars_gcrs, sun, time)
 
     # Extract RA/Dec in GCRS frame (topocentric/apparent, observer-dependent)
     # Mars coordinates from get_body(..., earth_location) are topocentric coordinates
@@ -269,6 +270,32 @@ def _process_mars_position(
     }
 
 
+def _get_retrograde_status_from_longitudes(lon_before: float, lon_after: float) -> str:
+    """
+    Determine retrograde status from two heliocentric longitudes (finite differences).
+    
+    Optimized for batch processing: uses pre-computed heliocentric longitudes from
+    adjacent frames instead of making additional ephemeris lookups.
+
+    Args:
+        lon_before: Mars heliocentric ecliptic longitude at earlier time (degrees)
+        lon_after: Mars heliocentric ecliptic longitude at later time (degrees)
+
+    Returns:
+        "retrograde" if longitude is decreasing, else "prograde"
+    """
+    # Calculate longitude rate
+    # Handle wraparound at 360°
+    dlon = (lon_after - lon_before) % 360
+    if dlon > 180:
+        dlon -= 360
+    
+    # If longitude is decreasing (negative rate), Mars is in retrograde motion
+    if dlon < 0:
+        return "retrograde"
+    return "prograde"
+
+
 def _get_retrograde_status(_mars_gcrs, _sun, obs_time: Time) -> str:
     """
     Determine if Mars is in retrograde motion by calculating heliocentric longitude rate.
@@ -279,6 +306,10 @@ def _get_retrograde_status(_mars_gcrs, _sun, obs_time: Time) -> str:
 
     Method: Calculate Mars's heliocentric longitude at current time and nearby time,
     then check if longitude is increasing (prograde) or decreasing (retrograde).
+
+    NOTE: This function is optimized for single-frame calculations. For batch processing,
+    use _get_retrograde_status_from_longitudes() with pre-computed heliocentric longitudes
+    to avoid redundant ephemeris lookups.
 
     Args:
         _mars_gcrs: Mars position at current time (GCRS frame) [unused, kept for API]
@@ -311,14 +342,4 @@ def _get_retrograde_status(_mars_gcrs, _sun, obs_time: Time) -> str:
     lon_minus = mars_minus_heliocentric.lon.degree
     lon_plus = mars_plus_heliocentric.lon.degree
 
-    # Calculate longitude rate (degrees per day)
-    # Handle wraparound at 360°
-    dlon = (lon_plus - lon_minus) % 360
-    if dlon > 180:
-        dlon -= 360
-    lon_rate = dlon / (2.0)  # 2 day difference
-
-    # If longitude is decreasing (negative rate), Mars is in retrograde motion
-    if lon_rate < 0:
-        return "retrograde"
-    return "prograde"
+    return _get_retrograde_status_from_longitudes(lon_minus, lon_plus)

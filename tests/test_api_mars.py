@@ -240,32 +240,32 @@ class TestMarsCoordinateValidation:
     """Tests for coordinate validation."""
 
     def test_mars_invalid_latitude_too_high(self):
-        """Test that latitude > 90 raises ValueError."""
-        with pytest.raises(ValueError):
+        """Test that latitude > 90 raises ValidationError."""
+        with pytest.raises(ValidationError):
             calculate_mars_position(
                 ObservationDateTime(date="2026-06-18", time="12:00:00"),
                 LocationModel(latitude=91.0, longitude=0.0, elevation=0.0)
             )
 
     def test_mars_invalid_latitude_too_low(self):
-        """Test that latitude < -90 raises ValueError."""
-        with pytest.raises(ValueError):
+        """Test that latitude < -90 raises ValidationError."""
+        with pytest.raises(ValidationError):
             calculate_mars_position(
                 ObservationDateTime(date="2026-06-18", time="12:00:00"),
                 LocationModel(latitude=-91.0, longitude=0.0, elevation=0.0)
             )
 
     def test_mars_invalid_longitude_too_high(self):
-        """Test that longitude > 180 raises ValueError."""
-        with pytest.raises(ValueError):
+        """Test that longitude > 180 raises ValidationError."""
+        with pytest.raises(ValidationError):
             calculate_mars_position(
                 ObservationDateTime(date="2026-06-18", time="12:00:00"),
                 LocationModel(latitude=0.0, longitude=181.0, elevation=0.0)
             )
 
     def test_mars_invalid_longitude_too_low(self):
-        """Test that longitude < -180 raises ValueError."""
-        with pytest.raises(ValueError):
+        """Test that longitude < -180 raises ValidationError."""
+        with pytest.raises(ValidationError):
             calculate_mars_position(
                 ObservationDateTime(date="2026-06-18", time="12:00:00"),
                 LocationModel(latitude=0.0, longitude=-181.0, elevation=0.0)
