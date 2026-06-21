@@ -381,17 +381,17 @@ async def get_mars_position(request: MarsPositionRequest):
     Mars Characteristics:
     Mars is a superior planet (orbit outside Earth's). Key differences from Mercury/Venus:
     - Phase angle maximum: 45° (vs Venus 47°, Mercury 28°)
-    - Illumination ranges from ~50% (quadrature) to ~100% (opposition)
+    - Illumination ranges from ~84% to ~100% (never reaches 50% unlike inferior planets)
     - No elongation threshold for visibility (always visible when above horizon)
     - Exhibits retrograde motion ~every 26 months when Earth overtakes it (~2.5 month duration)
 
     Phase Calculation (Superior Planet):
     Mars illumination is computed using Mars-centric phase angle (IAU standard).
     The phase angle is determined by the angle at Mars between the Sun and Earth.
-    Phases are classified by illumination:
-    - Full: ≥85% (opposition region, closest to Earth)
-    - Gibbous: 50-85% (near quadrature)
-    - Crescent: <50% (approaching conjunction, rarely observable)
+    Phases are classified by phase angle:
+    - Full: 0-15° phase angle (~100-96% illumination, opposition region)
+    - Gibbous: 15-30° phase angle (~96-92% illumination, near quadrature)
+    - Crescent: 30-45° phase angle (~92-84% illumination, max elongation)
 
     Retrograde Motion:
     Retrograde motion occurs when Earth's faster orbital speed causes us to overtake Mars,

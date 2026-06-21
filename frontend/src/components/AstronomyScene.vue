@@ -575,12 +575,15 @@ async function loadData() {
     
     // Phase 2: Update default view to frame all visible bodies
     const bodyPositions: THREE.Vector3[] = [];
+    const frame = currentFrame.value;
+    
+    // Only include bodies that are visible in the current frame
     if (earth) bodyPositions.push(earth.mesh.position.clone());
-    if (sun) bodyPositions.push(sun.mesh.position.clone());
-    if (moon) bodyPositions.push(moon.mesh.position.clone());
-    if (venus) bodyPositions.push(venus.mesh.position.clone());
-    if (mercury) bodyPositions.push(mercury.mesh.position.clone());
-    if (mars) bodyPositions.push(mars.mesh.position.clone());
+    if (sun && frame?.sun.is_visible) bodyPositions.push(sun.mesh.position.clone());
+    if (moon && frame?.moon.is_visible) bodyPositions.push(moon.mesh.position.clone());
+    if (venus && frame?.venus?.is_visible) bodyPositions.push(venus.mesh.position.clone());
+    if (mercury && frame?.mercury?.is_visible) bodyPositions.push(mercury.mesh.position.clone());
+    if (mars && frame?.mars?.is_visible) bodyPositions.push(mars.mesh.position.clone());
     
     if (sceneManager && bodyPositions.length > 0) {
       sceneManager.updateDefaultView(bodyPositions);
@@ -592,7 +595,6 @@ async function loadData() {
     }
     
     // Set visibility for first frame from API data
-    const frame = currentFrame.value;
     if (frame) {
       if (earth) {
         earth.mesh.visible = true;
