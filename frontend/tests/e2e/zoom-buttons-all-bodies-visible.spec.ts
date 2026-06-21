@@ -266,19 +266,76 @@ async function verifyAllBodiesVisible(page: Page) {
   }
 }
 
-// Helper to click Recentre button - non-blocking, continues if click fails
-async function clickRecentre(page: Page) {
+// Helper to check if we're still in 3D scene mode
+async function isIn3DSceneMode(page: Page): Promise<boolean> {
   try {
-    // Try clicking via class selector
-    const recentreBtn = page.locator('.recentre-btn').first();
-    const isVisible = await recentreBtn.isVisible({ timeout: 2000 }).catch(() => false);
-    if (isVisible) {
-      await recentreBtn.click({ timeout: 2000 }).catch(() => null);
-      console.log('[Recentre] Clicked');
-    }
-  } catch (e) {
-    // Non-blocking: just continue
+    const canvas = await page.locator('canvas').first().isVisible().catch(() => false);
+    const controls = await page.locator('.animation-controls').isVisible().catch(() => false);
+    const inputForm = await page.locator('.input-form').isVisible().catch(() => false);
+    
+    // We're in 3D mode if canvas and controls are visible, and input form is NOT visible
+    return canvas && controls && !inputForm;
+  } catch {
+    return false;
   }
+}
+
+// Helper to verify we're in 3D scene mode before a zoom test - throws if not
+async function verifySceneLoadedForZoomTest(page: Page, testName: string) {
+  const inScene = await isIn3DSceneMode(page);
+  if (!inScene) {
+    const inputFormVisible = await page.locator('.input-form').isVisible().catch(() => false);
+    const pageUrl = page.url();
+    const currentControls = await page.locator('.animation-controls').count();
+    const currentCanvas = await page.locator('canvas').count();
+    
+    throw new Error(
+      `[${testName}] Scene not loaded! Page appears to be in home/input state.\n` +
+      `  URL: ${pageUrl}\n` +
+      `  Input form visible: ${inputFormVisible}\n` +
+      `  Animation controls found: ${currentControls}\n` +
+      `  Canvas elements found: ${currentCanvas}\n` +
+      `  This suggests the data load test failed or the fixture was reset.`
+    );
+  }
+}
+
+// Helper to click Recentre button - BLOCKING, verifies reset actually happened
+async function clickRecentre(page: Page) {
+  console.log('[Recentre] Attempting to reset camera...');
+  
+  const recentreBtn = page.locator('.recentre-btn').first();
+  const isVisible = await recentreBtn.isVisible({ timeout: 2000 }).catch(() => false);
+  
+  if (!isVisible) {
+    throw new Error('[Recentre] Recentre button not found or not visible - page may have navigated away');
+  }
+  
+  // Click the button
+  await recentreBtn.click({ timeout: 2000 });
+  console.log('[Recentre] Button clicked, waiting for animation to settle...');
+  
+  // Wait for camera animation to complete (longer for CI)
+  await page.waitForTimeout(2000);
+  
+  // Stabilize the scene to ensure camera reset is complete
+  try {
+    await stabilizePage(page, 5000);
+  } catch (e) {
+    throw new Error(`[Recentre] Scene failed to stabilize after recentre: ${e}`);
+  }
+  
+  // Verify we're still in 3D scene mode
+  const stillInScene = await isIn3DSceneMode(page);
+  if (!stillInScene) {
+    const inputFormVisible = await page.locator('.input-form').isVisible().catch(() => false);
+    if (inputFormVisible) {
+      throw new Error('[Recentre] Page navigated back to input form after recentre - test fixture may be corrupted');
+    }
+    throw new Error('[Recentre] Not in 3D scene mode after recentre');
+  }
+  
+  console.log('[Recentre] ✅ Camera reset and scene verified');
 }
 
 // ==================== TESTS ====================
@@ -348,98 +405,125 @@ test.describe('Zoom Buttons with All Bodies Visible', () => {
   test('Zoom to Sun', async () => {
     const page = persistentPage;
     
-    // Verify button is not disabled
+    // Verify scene is loaded from previous test
+    await verifySceneLoadedForZoomTest(page, 'Zoom to Sun');
+    
+    // Verify button exists and is not disabled
     const sunBtn = page.locator('.zoom-btn').filter({ hasText: 'Sun' }).first();
-    expect(await sunBtn.isDisabled()).toBe(false);
+    const isDisabled = await sunBtn.isDisabled().catch(() => true);
+    expect(isDisabled, 'Sun button should be visible and enabled').toBe(false);
     
     // Click zoom to Sun
+    console.log('[Zoom Test] Clicking Sun button...');
     await sunBtn.click();
     
-    // Wait for camera transition and 3D rendering to complete
-    await page.waitForTimeout(1500);
+    // Wait for camera transition and 3D rendering to complete (extended for CI)
+    await page.waitForTimeout(2000);
     
     // Verify camera view matches snapshot
+    console.log('[Zoom Test] Taking screenshot...');
     await expect(page.locator('canvas').first()).toHaveScreenshot('camera-view-zoomed-sun.png', { timeout: 15000 });
     
-    // Reset camera
+    // Reset camera with blocking verification
     await clickRecentre(page);
-    await page.waitForTimeout(500);
+    
+    // Extended wait after recentre to ensure scene is fully settled for next test
+    await page.waitForTimeout(2000);
   });
 
   test('Zoom to Mercury', async () => {
     const page = persistentPage;
     
-    const mercBtn = page.locator('.zoom-btn').filter({ hasText: 'Mercury' }).first();
-    expect(await mercBtn.isDisabled()).toBe(false);
+    // Verify scene is loaded from previous test
+    await verifySceneLoadedForZoomTest(page, 'Zoom to Mercury');
     
+    const mercBtn = page.locator('.zoom-btn').filter({ hasText: 'Mercury' }).first();
+    const isDisabled = await mercBtn.isDisabled().catch(() => true);
+    expect(isDisabled, 'Mercury button should be visible and enabled').toBe(false);
+    
+    console.log('[Zoom Test] Clicking Mercury button...');
     await mercBtn.click();
     
-    // Wait for camera transition and 3D rendering to complete
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(2000);
     
-    // Verify camera view with screenshot
+    console.log('[Zoom Test] Taking screenshot...');
     await expect(page.locator('canvas').first()).toHaveScreenshot('camera-view-zoomed-mercury.png', { timeout: 15000 });
     
     await clickRecentre(page);
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(2000);
   });
 
   test('Zoom to Venus', async () => {
     const page = persistentPage;
     
-    const venusBtn = page.locator('.zoom-btn').filter({ hasText: 'Venus' }).first();
-    expect(await venusBtn.isDisabled()).toBe(false);
+    // Verify scene is loaded from previous test
+    await verifySceneLoadedForZoomTest(page, 'Zoom to Venus');
     
+    const venusBtn = page.locator('.zoom-btn').filter({ hasText: 'Venus' }).first();
+    const isDisabled = await venusBtn.isDisabled().catch(() => true);
+    expect(isDisabled, 'Venus button should be visible and enabled').toBe(false);
+    
+    console.log('[Zoom Test] Clicking Venus button...');
     await venusBtn.click();
     
-    // Wait for camera transition and 3D rendering to complete
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(2000);
     
-    // Verify camera view with screenshot
+    console.log('[Zoom Test] Taking screenshot...');
     await expect(page.locator('canvas').first()).toHaveScreenshot('camera-view-zoomed-venus.png', { timeout: 15000 });
     
     await clickRecentre(page);
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(2000);
   });
 
   test('Zoom to Moon', async () => {
     const page = persistentPage;
     
-    const moonBtn = page.locator('.zoom-btn').filter({ hasText: 'Moon' }).first();
-    expect(await moonBtn.isDisabled()).toBe(false);
+    // Verify scene is loaded from previous test
+    await verifySceneLoadedForZoomTest(page, 'Zoom to Moon');
     
+    const moonBtn = page.locator('.zoom-btn').filter({ hasText: 'Moon' }).first();
+    const isDisabled = await moonBtn.isDisabled().catch(() => true);
+    expect(isDisabled, 'Moon button should be visible and enabled').toBe(false);
+    
+    console.log('[Zoom Test] Clicking Moon button...');
     await moonBtn.click();
     
-    // Wait for camera transition and 3D rendering to complete
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(2000);
     
-    // Verify camera view with screenshot
+    console.log('[Zoom Test] Taking screenshot...');
     await expect(page.locator('canvas').first()).toHaveScreenshot('camera-view-zoomed-moon.png', { timeout: 15000 });
     
     await clickRecentre(page);
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(2000);
   });
 
   test('Zoom to Mars', async () => {
     const page = persistentPage;
     
-    const marsBtn = page.locator('.zoom-btn').filter({ hasText: 'Mars' }).first();
-    expect(await marsBtn.isDisabled()).toBe(false);
+    // Verify scene is loaded from previous test
+    await verifySceneLoadedForZoomTest(page, 'Zoom to Mars');
     
+    const marsBtn = page.locator('.zoom-btn').filter({ hasText: 'Mars' }).first();
+    const isDisabled = await marsBtn.isDisabled().catch(() => true);
+    expect(isDisabled, 'Mars button should be visible and enabled').toBe(false);
+    
+    console.log('[Zoom Test] Clicking Mars button...');
     await marsBtn.click();
     
-    // Wait for camera transition and 3D rendering to complete
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(2000);
     
-    // Verify camera view with screenshot
+    console.log('[Zoom Test] Taking screenshot...');
     await expect(page.locator('canvas').first()).toHaveScreenshot('camera-view-zoomed-mars.png', { timeout: 15000 });
     
     await clickRecentre(page);
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(2000);
   });
 
   test('Zoom buttons work with repeated clicks', async () => {
     const page = persistentPage;
+    
+    // Verify scene is loaded from previous test
+    await verifySceneLoadedForZoomTest(page, 'Zoom buttons work with repeated clicks');
     
     const bodies = ['Sun', 'Mercury', 'Venus', 'Moon', 'Mars'];
     
@@ -448,19 +532,19 @@ test.describe('Zoom Buttons with All Bodies Visible', () => {
       
       // Click once
       await btn.click();
-      await page.waitForTimeout(1500);
+      await page.waitForTimeout(2000);
       
-      // Recentre
+      // Recentre (now blocking with verification)
       await clickRecentre(page);
-      await page.waitForTimeout(1000);
+      await page.waitForTimeout(1500);
       
       // Click again
       await btn.click();
-      await page.waitForTimeout(1500);
+      await page.waitForTimeout(2000);
       
       // Recentre
       await clickRecentre(page);
-      await page.waitForTimeout(1000);
+      await page.waitForTimeout(1500);
     }
     
     expect(true).toBe(true);
