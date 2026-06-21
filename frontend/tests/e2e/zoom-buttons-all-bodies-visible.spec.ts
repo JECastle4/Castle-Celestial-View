@@ -778,6 +778,9 @@ testWithPersistentPage.describe('Zoom Buttons with All Bodies Visible', () => {
     // Verify scene is loaded from previous test
     await verifySceneLoadedForZoomTest(page, 'Zoom buttons work with repeated clicks');
     
+    // Verify scene is loaded from previous test
+    await verifySceneLoadedForZoomTest(page, 'Zoom buttons work with repeated clicks');
+    
     const bodies = ['Sun', 'Mercury', 'Venus', 'Moon', 'Mars'];
     
     for (const body of bodies) {
