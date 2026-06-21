@@ -52,7 +52,7 @@ KEY INSIGHTS:
 
 Mars Key Characteristics:
 - Phase angle maximum: 45° (superior planet geometry)
-- Phases are classified by illumination: Full (≥85%), Gibbous (50-85%), Crescent (<50%)
+- Phases are classified by phase angle: Full (0-15°, ~100-96% illum), Gibbous (15-30°, ~96-92% illum), Crescent (30-45°, ~92-84% illum)
 - No elongation threshold for visibility (unlike Mercury/Venus)
 - Always visible when above horizon (doesn't disappear in solar glare)
 - Retrograde motion possible: ~every 26 months when Earth overtakes Mars

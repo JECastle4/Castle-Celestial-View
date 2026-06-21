@@ -192,7 +192,7 @@ describe('CameraAnimator', () => {
     });
 
     it('animateToView with very short duration should complete immediately', () => {
-      const rAFSpy = vi.spyOn(global, 'requestAnimationFrame');
+      const rAFSpy = vi.spyOn(window, 'requestAnimationFrame');
       const targetPos = new THREE.Vector3(0, 5, 20);
       const targetLookAt = new THREE.Vector3(0, 0, 0);
 
