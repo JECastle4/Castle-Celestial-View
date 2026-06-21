@@ -163,10 +163,10 @@ def _process_mars_position(
     Phase angle = angle at Mars between Sun and Earth directions.
     Illumination = (1 + cos(phase_angle)) / 2 (same formula as inferior planets, different geometry)
 
-    For Mars with max 45° phase angle:
+    For Mars with max ~45° phase angle (never reaches quadrature/conjunction):
     - Opposition (0° phase angle): ~100% illuminated (closest to Earth, fully lit)
-    - Quadrature (90° phase angle): ~50% illuminated
-    - Conjunction (~180° phase angle): ~0% illuminated (behind Sun, not visible)
+    - Maximum elongation (~45° phase angle): ~84% illuminated (gibbous phase)
+    - Mars never reaches quadrature (90°) or conjunction (180°) due to orbital geometry
 
     Retrograde Motion Detection:
     Mars appears to move backward relative to the stars when Earth overtakes it in orbit.
@@ -225,16 +225,21 @@ def _process_mars_position(
     mars_lon = mars_gcrs.geocentrictrueecliptic.lon.deg
     phase_angle = float((mars_lon - sun_lon) % 360)
 
-    # Determine phase name based on illumination threshold
-    # Mars has max 45° phase angle, so illumination ranges from ~50% (quadrature)
-    # to ~100% (opposition)
-    illum_pct = illumination * 100
+    # Determine phase name based on Mars-centric phase angle
+    # Mars max phase angle ~45° means illumination ranges ~84-100%, so illumination thresholds
+    # are ineffective. Instead, classify using the phase angle directly from cos_phase_angle:
+    # - 0° (opposition): Full phase (~100% illuminated)
+    # - ~15-30°: Gibbous phase (~96-92% illuminated)
+    # - ~30-45° (max elongation): Crescent phase (~85-86% illuminated)
+    # Convert cos_phase_angle to Python float (may be astropy Quantity) before using with numpy
+    cos_value = float(cos_phase_angle)
+    phase_angle_deg = float(np.degrees(np.arccos(cos_value)))
 
-    if illum_pct >= 85:
+    if phase_angle_deg <= 15:
         phase_key = "full"
-    elif illum_pct >= 50:
+    elif phase_angle_deg <= 30:
         phase_key = "gibbous"
-    else:  # < 50%
+    else:  # > 30° (up to ~45° max)
         phase_key = "crescent"
 
     # Get localized phase name

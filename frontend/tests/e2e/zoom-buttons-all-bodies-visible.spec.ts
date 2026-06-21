@@ -7,13 +7,13 @@
  * RESEARCH DATA (Phase 1 Complete):
  * - Date: June 19, 2026 (New York observer location: 40.7128° N, -74.0060° W)
  * - All bodies visible window: 15:00-21:30 EDT (14 consecutive 30-min frames)
- * - Recommended test frame: Frame 36 at 18:00:00 (6:00 PM)
- * - Minimum altitudes at frame 36: Sun(68.30°), Moon(36.16°), Mercury(69.15°), Venus(59.79°), Mars(39.78°)
+ * - Recommended test frame: Frame 30 at 15:00:00 EDT (3:00 PM)
+ * - Minimum altitudes at frame 30: Sun(55.88°), Moon(21.65°), Mercury(56.75°), Venus(47.33°), Mars(26.34°)
  *
  * TEST APPROACH:
  * 1. Load 24-hour data for June 19, 2026 with 30-minute frame resolution (48 frames total)
  * 2. Set animation speed to 0.1x (10 seconds per frame for easy manual control)
- * 3. Pause animation and navigate to Frame 36 (18:00:00) where all bodies are visible
+ * 3. Pause animation and navigate to Frame 30 (15:00:00 EDT) where all bodies are visible
  * 4. Verify all zoom buttons are enabled (bodies visible, not .disabled state)
  * 5. Test each zoom button individually:
  *    - Click zoom button → wait for camera transition (800ms) + buffer
