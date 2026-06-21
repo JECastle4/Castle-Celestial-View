@@ -90,7 +90,7 @@ class I18n:
             self.locale = self._load_locale(locale)
 
 
-SUPPORTED_LOCALES = {'en', 'xx-reverse'}
+SUPPORTED_LOCALES = {'en', 'en-uk', 'en-us', 'xx-reverse'}
 
 # Per-request locale stored in an async-safe context variable.
 # Defaults to English so callers that don't set a locale get English.

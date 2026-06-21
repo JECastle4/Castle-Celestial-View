@@ -12,7 +12,7 @@ export interface CelestialBodyConfig {
   hasIllumination: boolean;
   hasNakedEyeVisibility: boolean;
   icon: string;
-  enabled?: boolean;
+  enabled: boolean;
 }
 
 export const CELESTIAL_BODIES: CelestialBodyConfig[] = [
@@ -57,7 +57,7 @@ export const CELESTIAL_BODIES: CelestialBodyConfig[] = [
     hasPhase: false,
     hasIllumination: false,
     hasNakedEyeVisibility: false,
-    icon: 'fa-earth',
+    icon: 'fa-earth-americas',
     enabled: false
   },
   {

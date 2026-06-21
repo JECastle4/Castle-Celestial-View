@@ -427,31 +427,31 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
     const celestialPanel = page.locator('.celestial-panel');
     await expect(celestialPanel).toBeVisible({ timeout: 10000 });
     
-    // Click Mercury tab by body-tab selector with 'Select' verb (distinguishes from 'Zoom to' buttons)
-    const mercuryTab = page.locator('button.body-tab[aria-label*="Select"][aria-label*="Mercury"]');
-    await expect(mercuryTab).toBeVisible();
-    await mercuryTab.click();
+    // Click Moon tab by body-tab selector with 'Select' verb (distinguishes from 'Zoom to' buttons)
+    const moonTab = page.locator('button.body-tab[aria-label*="Select"][aria-label*="Moon"]');
+    await expect(moonTab).toBeVisible();
+    await moonTab.click();
     
     // Wait a moment for UI to update after button click
     await page.waitForTimeout(300);
     
-    // Wait for Mercury-specific data to load
-    const mercurySection = page.locator('.mercury-section');
-    await expect(mercurySection).toBeVisible({ timeout: 10000 });
+    // Wait for Moon-specific data to load
+    const moonSection = page.locator('.moon-section');
+    await expect(moonSection).toBeVisible({ timeout: 10000 });
     
-    // Verify Mercury tab is active
-    await expect(mercuryTab).toHaveClass(/active/);
+    // Verify Moon tab is active
+    await expect(moonTab).toHaveClass(/active/);
     
-    // Verify Mercury-specific data is visible (phase, illumination, naked-eye visibility)
-    const phaseInfo = celestialPanel.locator('.mercury-section .phase-name');
-    const illuminationInfo = celestialPanel.locator('.mercury-section .illumination');
-    const nakedEyeInfo = celestialPanel.locator('.mercury-section .naked-eye');
+    // Verify Moon-specific data is visible (phase, illumination, phase angle)
+    const phaseInfo = celestialPanel.locator('.moon-section .phase-name');
+    const illuminationInfo = celestialPanel.locator('.moon-section .illumination');
+    const phaseAngleInfo = celestialPanel.locator('.moon-section .phase-angle');
     await expect(phaseInfo).toBeVisible();
     await expect(illuminationInfo).toBeVisible();
-    await expect(nakedEyeInfo).toBeVisible();
+    await expect(phaseAngleInfo).toBeVisible();
     
-    // Capture snapshot of Mercury in 3D view
-    await expect(page.locator('.app-layout')).toHaveScreenshot('mercury-3d-view.png', { timeout: 15000 });
+    // Capture snapshot of Moon in 3D view
+    await expect(page.locator('.app-layout')).toHaveScreenshot('moon-3d-view.png', { timeout: 15000 });
     
     // Wait for DOM to settle after screenshot
     await page.waitForTimeout(2000);
