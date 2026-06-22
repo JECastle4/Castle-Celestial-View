@@ -342,30 +342,57 @@ async function clickRecentre(page: Page) {
 
 let persistentPage: Page;
 let persistentContext: BrowserContext;
+let projectConfig: any = null;
 
-test.describe('Zoom Buttons with All Bodies Visible', () => {
-  test.describe.configure({ mode: 'serial' });
+/**
+ * Custom test with persistent page across serial tests
+ * Matches the carousel tests (astronomy-scene.spec.ts) pattern
+ * Uses project baseURL and viewport from playwright.config.ts
+ */
+const testWithPersistentPage = test.extend({
+  page: async ({ browser }, use) => {
+    if (!persistentContext) {
+      // Create context with project settings (baseURL and viewport) from configuration
+      // This prevents brittle hardcoding and allows configuration changes in playwright.config.ts
+      if (!projectConfig?.baseURL) {
+        console.warn('[testWithPersistentPage] projectConfig.baseURL not set; falling back to http://localhost:5173. Ensure beforeAll runs before the first test fixture.');
+      }
+      if (!projectConfig?.viewport) {
+        console.warn('[testWithPersistentPage] projectConfig.viewport not set; falling back to 1280x720.');
+      }
+      persistentContext = await browser.newContext({
+        baseURL: projectConfig?.baseURL || 'http://localhost:5173',
+        viewport: projectConfig?.viewport || { width: 1280, height: 720 },
+      });
+      persistentPage = await persistentContext.newPage();
+    }
+    await use(persistentPage);
+  },
+});
+
+testWithPersistentPage.describe('Zoom Buttons with All Bodies Visible', () => {
+  // Configure tests to run serially
+  testWithPersistentPage.describe.configure({ mode: 'serial' });
   
-  test.beforeAll(async ({ browser }) => {
-    persistentContext = await browser.newContext({
-      baseURL: 'http://localhost:5173',
-      viewport: { width: 1280, height: 720 }
-    });
-    persistentPage = await persistentContext.newPage();
+  testWithPersistentPage.beforeAll(async ({}, testInfo) => {
+    // Capture project configuration from testInfo to use in persistent context
+    projectConfig = testInfo.project.use;
     
     // Navigate to app
-    await persistentPage.goto('/en-UK');
-    await persistentPage.waitForLoadState('networkidle');
+    if (persistentPage) {
+      await persistentPage.goto('/en-UK');
+      await persistentPage.waitForLoadState('networkidle');
+    }
   });
 
-  test.afterAll(async () => {
+  testWithPersistentPage.afterAll(async () => {
     if (persistentContext) {
       await persistentContext.close();
     }
   });
 
-  test('Load data and navigate to all-bodies-visible frame', { timeout: 290000 }, async () => {
-    const page = persistentPage;
+  testWithPersistentPage('Load data and navigate to all-bodies-visible frame', { timeout: 290000 }, async ({ page: testPage }) => {
+    const page = testPage || persistentPage;
     
     // Load data for full day
     await loadAstronomyData(page, '2026-06-19', '2026-06-19', 48);
@@ -402,8 +429,8 @@ test.describe('Zoom Buttons with All Bodies Visible', () => {
     expect(count).toBeGreaterThanOrEqual(5);
   });
 
-  test('Zoom to Sun', async () => {
-    const page = persistentPage;
+  testWithPersistentPage('Zoom to Sun', async ({ page: testPage }) => {
+    const page = testPage || persistentPage;
     
     // Verify scene is loaded from previous test
     await verifySceneLoadedForZoomTest(page, 'Zoom to Sun');
@@ -431,8 +458,8 @@ test.describe('Zoom Buttons with All Bodies Visible', () => {
     await page.waitForTimeout(2000);
   });
 
-  test('Zoom to Mercury', async () => {
-    const page = persistentPage;
+  testWithPersistentPage('Zoom to Mercury', async ({ page: testPage }) => {
+    const page = testPage || persistentPage;
     
     // Verify scene is loaded from previous test
     await verifySceneLoadedForZoomTest(page, 'Zoom to Mercury');
@@ -453,8 +480,8 @@ test.describe('Zoom Buttons with All Bodies Visible', () => {
     await page.waitForTimeout(2000);
   });
 
-  test('Zoom to Venus', async () => {
-    const page = persistentPage;
+  testWithPersistentPage('Zoom to Venus', async ({ page: testPage }) => {
+    const page = testPage || persistentPage;
     
     // Verify scene is loaded from previous test
     await verifySceneLoadedForZoomTest(page, 'Zoom to Venus');
@@ -475,8 +502,8 @@ test.describe('Zoom Buttons with All Bodies Visible', () => {
     await page.waitForTimeout(2000);
   });
 
-  test('Zoom to Moon', async () => {
-    const page = persistentPage;
+  testWithPersistentPage('Zoom to Moon', async ({ page: testPage }) => {
+    const page = testPage || persistentPage;
     
     // Verify scene is loaded from previous test
     await verifySceneLoadedForZoomTest(page, 'Zoom to Moon');
@@ -497,8 +524,8 @@ test.describe('Zoom Buttons with All Bodies Visible', () => {
     await page.waitForTimeout(2000);
   });
 
-  test('Zoom to Mars', async () => {
-    const page = persistentPage;
+  testWithPersistentPage('Zoom to Mars', async ({ page: testPage }) => {
+    const page = testPage || persistentPage;
     
     // Verify scene is loaded from previous test
     await verifySceneLoadedForZoomTest(page, 'Zoom to Mars');
@@ -519,8 +546,8 @@ test.describe('Zoom Buttons with All Bodies Visible', () => {
     await page.waitForTimeout(2000);
   });
 
-  test('Zoom buttons work with repeated clicks', async () => {
-    const page = persistentPage;
+  testWithPersistentPage('Zoom buttons work with repeated clicks', async ({ page: testPage }) => {
+    const page = testPage || persistentPage;
     
     // Verify scene is loaded from previous test
     await verifySceneLoadedForZoomTest(page, 'Zoom buttons work with repeated clicks');

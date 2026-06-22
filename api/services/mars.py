@@ -88,12 +88,12 @@ def calculate_mars_position(
             - is_visible: Boolean indicating if Mars is above horizon
             - illumination: Fraction of Mars's disk illuminated (0.0 to 1.0),
               computed using Mars-centric phase angle (superior planet geometry).
-              Ranges from ~50% at quadrature to ~100% at opposition.
+              Ranges from ~84% to ~100% (Mars never reaches 50% due to max phase angle of 45°).
               Note: Mars never has 0% illumination from Earth (never passes directly
               behind Sun from our perspective).
             - phase_angle: Mars's phase angle in ecliptic longitude (0 to 360 degrees)
-            - phase_name: Textual name of the phase based on illumination:
-              Full (≥85%), Gibbous (50-85%), Crescent (<50%)
+            - phase_name: Textual name of the phase based on phase angle:
+              Full (0-15°, ~100-96% illum), Gibbous (15-30°, ~96-92% illum), Crescent (30-45°, ~92-84% illum)
             - retrograde_status: Whether Mars is in retrograde motion from Earth's
               perspective ("prograde" or "retrograde"). Retrograde occurs ~every 26 months
               when Earth overtakes Mars, lasting ~2.5 months.

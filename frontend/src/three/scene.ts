@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { CameraAnimator } from './cameraAnimation';
-import { CAMERA_PRESETS, calculateOptimalDefaultView, calculateOptimalEarthMoonView, calculateBodyViewPreset } from '../config/cameraPresets';
+import { CameraPreset, CAMERA_PRESETS, calculateOptimalDefaultView, calculateOptimalEarthMoonView, calculateBodyViewPreset } from '../config/cameraPresets';
 
 /**
  * Three.js Scene Manager for Astronomy Animation
@@ -17,7 +17,7 @@ export class SceneManager {
   private animationCallback?: () => void;
   private currentViewMode: '3D' | 'SKY' = '3D';
   private resizeHandler: () => void;
-  private defaultViewPreset: any = null;
+  private defaultViewPreset: CameraPreset | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     // Create scene
@@ -89,7 +89,7 @@ export class SceneManager {
   /**
    * Get the current default view preset for 3D mode
    */
-  public getDefaultViewPreset(): any {
+  public getDefaultViewPreset(): CameraPreset | null {
     return this.defaultViewPreset;
   }
 
@@ -252,7 +252,7 @@ export class SceneManager {
       return; // Only zoom in 3D mode
     }
 
-    let preset: any;
+    let preset: CameraPreset;
 
     // Handle Earth-Moon subsystem with dynamic calculation
     if (presetName.toLowerCase() === 'earthmoon' && bodyPositions?.earth && bodyPositions?.moon) {
