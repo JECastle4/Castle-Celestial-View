@@ -577,7 +577,7 @@ async function loadData() {
     const bodyPositions: THREE.Vector3[] = [];
     const frame = currentFrame.value;
     
-    // Only include bodies that are visible in the current frame
+    // Always include Earth (reference point); filter other bodies by is_visible
     if (earth) bodyPositions.push(earth.mesh.position.clone());
     if (sun && frame?.sun.is_visible) bodyPositions.push(sun.mesh.position.clone());
     if (moon && frame?.moon.is_visible) bodyPositions.push(moon.mesh.position.clone());
