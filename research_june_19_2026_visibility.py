@@ -3,7 +3,6 @@ Research script to find when all celestial bodies are visible on June 19, 2026
 """
 from api.models import TimeRange, ObservationDateTime, LocationModel
 from api.services.batch_earth_observations import calculate_batch_earth_observations
-from datetime import datetime
 
 
 def research_june_19_visibility():
