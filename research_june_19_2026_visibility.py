@@ -25,7 +25,13 @@ def research_june_19_visibility():
     print("=" * 80)
     print("JUNE 19, 2026 - CELESTIAL BODY VISIBILITY RESEARCH")
     print("=" * 80)
-    print(f"Location: {location.latitude}° N, {location.longitude}° E")
+    # Format latitude with proper N/S designation (negative = S, positive = N)
+    lat_dir = 'S' if location.latitude < 0 else 'N'
+    lat_value = abs(location.latitude)
+    # Format longitude with proper E/W designation (negative = W, positive = E)
+    lon_dir = 'W' if location.longitude < 0 else 'E'
+    lon_value = abs(location.longitude)
+    print(f"Location: {lat_value}° {lat_dir}, {lon_value}° {lon_dir}")
     print(f"Date: 2026-06-19")
     print(f"Time resolution: 30-minute intervals (48 frames)")
     print()

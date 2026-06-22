@@ -42,8 +42,8 @@ dev = [
 packages = ["api", "api.services"]
 
 [tool.setuptools.package-data]
-# Only include the production locale; excludes dev-only xx-reverse.json
-api = ["locales/en.json"]
+# Include all production locales (excludes dev-only xx-reverse.json)
+api = ["locales/en.json", "locales/en-uk.json", "locales/en-us.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

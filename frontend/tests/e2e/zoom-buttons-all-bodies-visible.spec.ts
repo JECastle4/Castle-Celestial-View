@@ -47,8 +47,14 @@ async function stabilizePage(page: Page, timeoutMs: number = 8000) {
 
 // Load data using the form
 async function loadAstronomyData(page: Page, startDate: string, endDate: string, frameCount: number) {
-  // Wait for input form
-  await expect(page.locator('.input-form')).toBeVisible();
+  // Navigate to the app (fresh navigation ensures Vue renders properly)
+  await page.goto('/en-UK');
+  await page.waitForLoadState('domcontentloaded');
+  
+  // Wait for input form to be attached and visible
+  const inputForm = page.locator('.input-form');
+  await inputForm.waitFor({ state: 'attached', timeout: 15000 });
+  await expect(inputForm).toBeVisible({ timeout: 10000 });
   
   // Set start date
   await page.locator('#start-date').fill(startDate);
@@ -58,11 +64,11 @@ async function loadAstronomyData(page: Page, startDate: string, endDate: string,
   
   // Set frames per day (this affects frame-count)
   const framesPerDaySlider = page.locator('#frames-per-day');
-  await framesPerDaySlider.evaluate((el: HTMLInputElement) => {
-    el.value = '48'; // 48 frames per day = 48 frames for 24 hours (30-min intervals)
+  await framesPerDaySlider.evaluate((el: HTMLInputElement, frames: number) => {
+    el.value = frames.toString();
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
-  });
+  }, frameCount);
   
   // Wait a moment for frame-count to update
   await page.waitForTimeout(500);
@@ -378,11 +384,8 @@ testWithPersistentPage.describe('Zoom Buttons with All Bodies Visible', () => {
     // Capture project configuration from testInfo to use in persistent context
     projectConfig = testInfo.project.use;
     
-    // Navigate to app
-    if (persistentPage) {
-      await persistentPage.goto('/en-UK');
-      await persistentPage.waitForLoadState('networkidle');
-    }
+    // Note: Navigation happens in loadAstronomyData() for each test,
+    // which ensures Vue components render properly
   });
 
   testWithPersistentPage.afterAll(async () => {
