@@ -28,6 +28,10 @@ export default defineConfig({
   // Fail the build on CI if you accidentally left test.only in the source code
   forbidOnly: !!process.env.CI,
   
+  // Continue running all tests even after failures (don't bail on first failure)
+  // This allows screenshot mismatches to be reported alongside other test results
+  bail: 0,
+  
   // Retry on CI only
   retries: process.env.CI ? 2 : 0,
   
