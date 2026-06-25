@@ -826,6 +826,7 @@ function clearData() {
   moon = null;
   venus = null;
   mercury = null;
+  mars = null;
   earth = null;
 }
 
