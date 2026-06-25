@@ -58,7 +58,7 @@ export const CAMERA_PRESETS: Record<string, CameraPreset> = {
   },
 
   // Special case: Earth and Moon subsystem view
-  earthMoon: {
+  earthmoon: {
     name: 'Earth/Moon Subsystem',
     position: new THREE.Vector3(0, 4, 12),
     target: new THREE.Vector3(2, 0, 4), // midpoint between Earth and Moon with slight offset

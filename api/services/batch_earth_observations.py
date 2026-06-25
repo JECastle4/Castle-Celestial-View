@@ -14,56 +14,6 @@ from .mars import _process_mars_position, _get_retrograde_status_from_longitudes
 from .moon_phase import _process_moon_phase
 
 
-def _compute_mars_retrograde_statuses(
-    times: List[Time],
-) -> List[Tuple[float, str]]:
-    """
-    Pre-compute Mars heliocentric longitudes and retrograde status for all frames.
-    
-    This function computes the heliocentric longitudes once per frame and derives
-    retrograde status using finite differences between adjacent frames, avoiding
-    the 2 extra ephemeris lookups per frame that would occur in _get_retrograde_status.
-
-    Args:
-        times: List of Astropy Time objects for each frame
-
-    Returns:
-        List of tuples (heliocentric_longitude, retrograde_status) for each frame
-    """
-    if not times:
-        return []
-    
-    # Get Mars heliocentric longitudes for all frames (one get_body call per frame)
-    mars_longitudes = []
-    for obs_time in times:
-        mars_gcrs = get_body("mars", obs_time)
-        mars_heliocentric = mars_gcrs.transform_to(
-            HeliocentricTrueEcliptic(obstime=obs_time)
-        )
-        mars_longitudes.append(float(mars_heliocentric.lon.degree))
-    
-    # Compute retrograde status using finite differences between adjacent frames
-    retrograde_statuses = []
-    for i, lon in enumerate(mars_longitudes):
-        if i == 0:
-            # For first frame, look forward to next frame
-            if len(mars_longitudes) > 1:
-                retrograde = _get_retrograde_status_from_longitudes(
-                    lon, mars_longitudes[i + 1]
-                )
-            else:
-                # Only one frame, assume prograde
-                retrograde = "prograde"
-        else:
-            # For other frames, look backward to previous frame
-            retrograde = _get_retrograde_status_from_longitudes(
-                mars_longitudes[i - 1], lon
-            )
-        retrograde_statuses.append((lon, retrograde))
-    
-    return retrograde_statuses
-
-
 def calculate_batch_earth_observations(
     time_range: TimeRange,
     location: LocationModel,
@@ -131,9 +81,8 @@ def calculate_batch_earth_observations(
         height=location.elevation * u.m
     )
     
-    # Pre-compute Mars retrograde statuses using heliocentric longitudes
-    # This avoids 2 extra ephemeris lookups per frame that would occur in _get_retrograde_status
-    mars_retrograde_data = _compute_mars_retrograde_statuses(times)
+    # Track Mars heliocentric longitude for retrograde status computation (finite differences)
+    previous_mars_longitude: Optional[float] = None
     
     for frame_idx, obs_time in enumerate(times):
         iso_parts = obs_time.iso.split()
@@ -151,6 +100,25 @@ def calculate_batch_earth_observations(
         venus_gcrs = get_body("venus", obs_time)
         mercury_gcrs = get_body("mercury", obs_time)
         mars_gcrs = get_body("mars", obs_time)
+        
+        # Compute Mars retrograde status from mars_gcrs heliocentric longitude
+        # using finite differences (compare to previous frame's longitude)
+        mars_heliocentric = mars_gcrs.transform_to(
+            HeliocentricTrueEcliptic(obstime=obs_time)
+        )
+        current_mars_longitude = float(mars_heliocentric.lon.degree)
+        
+        if previous_mars_longitude is None:
+            # First frame: assume prograde (will compare forward to next frame)
+            mars_retrograde_status = "prograde"
+        else:
+            # Use finite differences: compare current to previous longitude
+            mars_retrograde_status = _get_retrograde_status_from_longitudes(
+                previous_mars_longitude, current_mars_longitude
+            )
+        
+        previous_mars_longitude = current_mars_longitude
+        
         sun_altaz = sun.transform_to(altaz_frame)
         moon_altaz = moon.transform_to(altaz_frame)
         venus_altaz = venus_with_loc.transform_to(altaz_frame)
@@ -199,7 +167,7 @@ def calculate_batch_earth_observations(
             datetime_str=datetime_str,
             location=location,
             locale=locale,
-            retrograde_status=mars_retrograde_data[frame_idx][1]
+            retrograde_status=mars_retrograde_status
         )
         phase_data = _process_moon_phase(
             sun=sun,
