@@ -28,10 +28,10 @@ describe('cameraPresets', () => {
       expect(CAMERA_PRESETS.moon.position.z).toBe(10);
     });
 
-    it('should have earthMoon preset for subsystem view', () => {
-      expect(CAMERA_PRESETS.earthMoon).toBeDefined();
-      expect(CAMERA_PRESETS.earthMoon.name).toBe('Earth/Moon Subsystem');
-      expect(CAMERA_PRESETS.earthMoon.position).toBeInstanceOf(THREE.Vector3);
+    it('should have earthmoon preset for subsystem view', () => {
+      expect(CAMERA_PRESETS.earthmoon).toBeDefined();
+      expect(CAMERA_PRESETS.earthmoon.name).toBe('Earth/Moon Subsystem');
+      expect(CAMERA_PRESETS.earthmoon.position).toBeInstanceOf(THREE.Vector3);
     });
 
     it('should have mercury preset', () => {

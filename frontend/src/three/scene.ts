@@ -100,7 +100,7 @@ export class SceneManager {
    */
   public updateEarthMoonView(earthPosition: THREE.Vector3, moonPosition: THREE.Vector3): void {
     const optimizedPreset = calculateOptimalEarthMoonView(earthPosition, moonPosition);
-    CAMERA_PRESETS.earthMoon = optimizedPreset;
+    CAMERA_PRESETS.earthmoon = optimizedPreset;
   }
 
   private setupLighting(): void {

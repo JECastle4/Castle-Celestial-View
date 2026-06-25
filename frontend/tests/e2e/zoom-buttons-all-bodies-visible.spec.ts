@@ -6,14 +6,14 @@
  *
  * RESEARCH DATA (Phase 1 Complete):
  * - Date: June 19, 2026 (New York observer location: 40.7128° N, -74.0060° W)
- * - All bodies visible window: 15:00-21:30 EDT (14 consecutive 30-min frames)
- * - Recommended test frame: Frame 30 at 15:00:00 EDT (3:00 PM)
- * - Minimum altitudes at frame 30: Sun(55.88°), Moon(21.65°), Mercury(56.75°), Venus(47.33°), Mars(26.34°)
+ * - All bodies visible window: 15:00-21:30 UTC (frames 30-43 in 30-minute intervals)
+ * - Recommended test frame: Frame 30 at 15:00:00 UTC (11:00:00 EDT)
+ * - Altitudes at frame 30: Sun(59.9°), Moon(3.9°), Mercury(39.9°), Venus(27.1°), Mars(66.5°)
  *
  * TEST APPROACH:
  * 1. Load 24-hour data for June 19, 2026 with 30-minute frame resolution (48 frames total)
- * 2. Set animation speed to 0.1x (10 seconds per frame for easy manual control)
- * 3. Pause animation and navigate to Frame 30 (15:00:00 EDT) where all bodies are visible
+ * 2. Set location to New York (40.7128° N, -74.0060° W)
+ * 3. Set animation speed to 0.5x and navigate to Frame 30 (15:00:00 UTC) where all bodies are visible
  * 4. Verify all zoom buttons are enabled (bodies visible, not .disabled state)
  * 5. Test each zoom button individually:
  *    - Click zoom button → wait for camera transition (800ms) + buffer
@@ -56,11 +56,29 @@ async function loadAstronomyData(page: Page, startDate: string, endDate: string,
   await inputForm.waitFor({ state: 'attached', timeout: 15000 });
   await expect(inputForm).toBeVisible({ timeout: 10000 });
   
-  // Set start date
+  // Set location (New York: 40.7128° N, -74.0060° W)
+  await page.locator('#latitude').fill('40.7128');
+  await page.locator('#longitude').fill('-74.0060');
+  
+  // Set start date in form
   await page.locator('#start-date').fill(startDate);
   
-  // Set end date
+  // Set end date in form
   await page.locator('#end-date').fill(endDate);
+  
+  // IMPORTANT: Also update the DateRangePicker inputs (drp-X-start/end) because the Apply button
+  // emits from the DateRangePicker's internal state, not from the form inputs.
+  // This ensures consistency between both date input systems.
+  const dateRangeStart = page.locator('input[id^="drp-"][id$="-start"]').first();
+  const dateRangeEnd = page.locator('input[id^="drp-"][id$="-end"]').first();
+  
+  // Only update if they exist (they should when loading data)
+  if (await dateRangeStart.count() > 0) {
+    await dateRangeStart.fill(startDate);
+  }
+  if (await dateRangeEnd.count() > 0) {
+    await dateRangeEnd.fill(endDate);
+  }
   
   // Set frames per day (this affects frame-count)
   const framesPerDaySlider = page.locator('#frames-per-day');
@@ -73,8 +91,27 @@ async function loadAstronomyData(page: Page, startDate: string, endDate: string,
   // Wait a moment for frame-count to update
   await page.waitForTimeout(500);
   
-  // Click Apply to confirm date range
+  // Debug: log form values before submitting
+  const formValues = await page.evaluate(() => {
+    const latInput = (document.querySelector('#latitude') as HTMLInputElement)?.value || 'N/A';
+    const lonInput = (document.querySelector('#longitude') as HTMLInputElement)?.value || 'N/A';
+    const startInput = (document.querySelector('#start-date') as HTMLInputElement)?.value || 'N/A';
+    const endInput = (document.querySelector('#end-date') as HTMLInputElement)?.value || 'N/A';
+    return { latInput, lonInput, startInput, endInput };
+  });
+  console.log('[FormDebug] Before Apply:', formValues);
+  
+  // Click Apply to confirm date range (this is from DateRangePicker)
   await page.getByRole('button', { name: /Apply|apply/ }).click();
+  
+  // Debug: log form values after Apply
+  await page.waitForTimeout(500);
+  const formValuesAfterApply = await page.evaluate(() => {
+    const startInput = (document.querySelector('#start-date') as HTMLInputElement)?.value || 'N/A';
+    const endInput = (document.querySelector('#end-date') as HTMLInputElement)?.value || 'N/A';
+    return { startInput, endInput };
+  });
+  console.log('[FormDebug] After Apply:', formValuesAfterApply);
   
   // Click Load Data
   await page.getByRole('button', { name: /Load Data|load/i }).click();
@@ -417,12 +454,33 @@ testWithPersistentPage.describe('Zoom Buttons with All Bodies Visible', () => {
     const panelText = await page.locator('.controls-panel').textContent();
     console.log('Current panel text:', panelText);
     
-    // Verify frame counter shows frame 30-31 (1-indexed)
+    // Extract all relevant debug info
+    const dateMatch = panelText?.match(/(\d+\s+\w+\s+\d+)/);
+    const timeMatch = panelText?.match(/(\d+:\d+:\d+)/);
     const frameMatch = panelText?.match(/Frame:\s*(\d+)\s*\/\s*(\d+)/);
     const currentFrameNum = frameMatch ? parseInt(frameMatch[1], 10) : 0;
+    
+    console.log(`[FrameDebug] Displayed date: ${dateMatch?.[1] || 'N/A'}`);
+    console.log(`[FrameDebug] Displayed time: ${timeMatch?.[1] || 'N/A'}`);
+    console.log(`[FrameDebug] Frame counter: ${currentFrameNum} / ${frameMatch?.[2] || 'N/A'} (expecting 31 for 15:00 UTC frame)`);
+    
+    // Get current frame data from Vue component to check Moon altitude
+    const currentFrameData = await page.evaluate(() => {
+      return (window as any).__VUE_APP_INSTANCE__?.appContext?.config?.globalProperties.$data?.currentFrame || null;
+    }).catch(() => null);
+    
+    if (currentFrameData?.moon) {
+      console.log(`[FrameDebug] Moon altitude: ${currentFrameData.moon.altitude}° (is_visible: ${currentFrameData.moon.is_visible})`);
+    }
+    
     expect(currentFrameNum).toBeGreaterThanOrEqual(30);
     expect(currentFrameNum).toBeLessThanOrEqual(32); // Allow for off-by-one in indexing
     console.log(`✅ Frame counter verified: ${currentFrameNum}`);
+    
+    // If we're at frame 30 or 32, warn that we might not be at the optimal frame
+    if (currentFrameNum !== 31) {
+      console.warn(`⚠️  WARNING: Expected frame 31 (15:00 UTC) but reached frame ${currentFrameNum}. Moon visibility may be different.`);
+    }
     
     // Give a moment for animation to fully stop
     await page.waitForTimeout(1000);
