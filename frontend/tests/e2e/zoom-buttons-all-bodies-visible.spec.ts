@@ -207,19 +207,21 @@ async function navigateToFrameAndPause(page: Page, targetFrameIndex: number) {
   const maxWaitTime = 120000; // 2 minute timeout
   
   // Poll frame counter until we reach target frame
+  let speedAdjusted = false;
   while (currentFrame < targetFrameIndex && Date.now() - startTime < maxWaitTime) {
     currentFrame = await getCurrentFrame();
     
-    // Dynamically adjust speed based on proximity to target
-    if (currentFrame >= 25 && currentFrame < targetFrameIndex - 1) {
-      // Slow down dramatically when approaching target (frames 25-29 for target 30)
-      await setAnimationSpeed(page, 0.1);
-      console.log(`[Frame Navigation] Slowed to 0.1x for precise approach`);
-    } else if (currentFrame < 25) {
-      // Fast approach for frames 0-24
-      if (currentFrame % 5 === 0) {
-        console.log(`[Frame Navigation] Current: ${currentFrame}/${targetFrameIndex}`);
-      }
+    // Dynamically adjust speed based on proximity to target (only adjust once)
+    if (currentFrame >= 25 && !speedAdjusted) {
+      // Moderate slowdown when approaching target (frames 25+)
+      await setAnimationSpeed(page, 0.5);
+      console.log(`[Frame Navigation] Slowed to 0.5x for precise approach`);
+      speedAdjusted = true;
+    }
+    
+    // Log progress every 5 frames
+    if (currentFrame % 5 === 0) {
+      console.log(`[Frame Navigation] Current: ${currentFrame}/${targetFrameIndex}`);
     }
     
     await page.waitForTimeout(pollInterval);
