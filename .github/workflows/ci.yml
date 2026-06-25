@@ -335,7 +335,7 @@ jobs:
         # llvmpipe (CPU-based GL) then handles WebGL correctly.
         # Xvfb is installed by `npx playwright install --with-deps` for Firefox on Ubuntu.
         xvfb-run --server-args="-screen 0 1280x720x24" \
-          npx playwright test --no-bail
+          npx playwright test
       env:
         CI: true
         LIBGL_ALWAYS_SOFTWARE: '1'
