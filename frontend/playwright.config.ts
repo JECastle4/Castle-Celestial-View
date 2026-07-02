@@ -33,10 +33,10 @@ export default defineConfig({
   bail: 0,
   
   // Retry on CI only
-  retries: process.env.CI ? 2 : 0,
+  retries: process.env.CI ? 1 : 0,
   
   // Opt out of parallel tests on CI for more stability
-  workers: process.env.CI ? 1 : undefined,
+  workers: process.env.CI ? 4 : undefined,
   
   // Reporter to use
   reporter: 'html',

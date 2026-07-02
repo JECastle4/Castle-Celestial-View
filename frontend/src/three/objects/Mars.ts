@@ -99,10 +99,15 @@ export class Mars {
   }
 
   public dispose(): void {
-    this.defaultGeometry.dispose();
-    this.skyViewGeometry.dispose();
-    (this.mesh.material as THREE.Material).dispose();
+    // Dispose the geometry not currently in the mesh
+    if (this.mesh.geometry === this.defaultGeometry) {
+      this.skyViewGeometry.dispose();
+    } else {
+      this.defaultGeometry.dispose();
+    }
+    // Dispose the geometry currently in the mesh
     this.mesh.geometry.dispose();
+    (this.mesh.material as THREE.Material).dispose();
     this.label.dispose();
   }
 }
