@@ -271,6 +271,20 @@ describe('Mars', () => {
       mars.dispose();
       expect(disposeSpy).toHaveBeenCalled();
     });
+
+    it('should dispose material', () => {
+      const material = mars.mesh.material as THREE.Material;
+      const disposeSpy = vi.spyOn(material, 'dispose' as any);
+      mars.dispose();
+      expect(disposeSpy).toHaveBeenCalled();
+    });
+
+    it('should dispose unused geometry when in sky view mode', () => {
+      mars.setViewMode('sky');
+      const defaultGeometrySpy = vi.spyOn(mars['defaultGeometry'], 'dispose');
+      mars.dispose();
+      expect(defaultGeometrySpy).toHaveBeenCalled();
+    });
   });
 
   describe('orbit distance verification', () => {
