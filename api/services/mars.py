@@ -287,7 +287,6 @@ def _process_mars_position(
 def _get_retrograde_status_from_longitudes(lon_before: float, lon_after: float) -> str:
     """
     Determine retrograde status from two heliocentric longitudes (finite differences).
-
     Optimized for batch processing: uses pre-computed heliocentric longitudes from
     adjacent frames instead of making additional ephemeris lookups.
 
@@ -303,7 +302,6 @@ def _get_retrograde_status_from_longitudes(lon_before: float, lon_after: float) 
     dlon = (lon_after - lon_before) % 360
     if dlon > 180:
         dlon -= 360
-
     # If longitude is decreasing (negative rate), Mars is in retrograde motion
     if dlon < 0:
         return "retrograde"

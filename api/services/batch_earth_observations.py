@@ -1,6 +1,6 @@
 """Batch earth observations service for calculating multiple frames of celestial positions."""
 
-from typing import Optional
+from typing import Optional, List, Tuple
 from astropy.time import Time
 from astropy.coordinates import get_sun, get_body, AltAz, EarthLocation, HeliocentricTrueEcliptic
 import astropy.units as u
@@ -108,7 +108,6 @@ def calculate_batch_earth_observations(
         venus_gcrs = get_body("venus", obs_time)
         mercury_gcrs = get_body("mercury", obs_time)
         mars_gcrs = get_body("mars", obs_time)
-
         # Compute Mars retrograde status from mars_gcrs heliocentric longitude
         # using finite differences (compare to previous frame's longitude)
         mars_heliocentric = mars_gcrs.transform_to(
