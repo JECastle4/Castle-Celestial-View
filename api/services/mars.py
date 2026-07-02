@@ -52,7 +52,10 @@ KEY INSIGHTS:
 
 Mars Key Characteristics:
 - Phase angle maximum: 45° (superior planet geometry)
-- Phases are classified by phase angle: Full (0-15°, ~100-96% illum), Gibbous (15-30°, ~96-92% illum), Crescent (30-45°, ~92-84% illum)
+- Phases are classified by phase angle:
+  * Full (0-15°, ~100-96% illum)
+  * Gibbous (15-30°, ~96-92% illum)
+  * Crescent (30-45°, ~92-84% illum)
 - No elongation threshold for visibility (unlike Mercury/Venus)
 - Always visible when above horizon (doesn't disappear in solar glare)
 - Retrograde motion possible: ~every 26 months when Earth overtakes Mars
@@ -88,12 +91,15 @@ def calculate_mars_position(
             - is_visible: Boolean indicating if Mars is above horizon
             - illumination: Fraction of Mars's disk illuminated (0.0 to 1.0),
               computed using Mars-centric phase angle (superior planet geometry).
-              Ranges from ~84% to ~100% (Mars never reaches 50% due to max phase angle of 45°).
+              Ranges from ~84% to ~100%
+              (Mars never reaches 50% due to max phase angle of 45°).
               Note: Mars never has 0% illumination from Earth (never passes directly
               behind Sun from our perspective).
             - phase_angle: Mars's phase angle in ecliptic longitude (0 to 360 degrees)
             - phase_name: Textual name of the phase based on phase angle:
-              Full (0-15°, ~100-96% illum), Gibbous (15-30°, ~96-92% illum), Crescent (30-45°, ~92-84% illum)
+              - Full (0-15°, ~100-96% illum)
+              - Gibbous (15-30°, ~96-92% illum)
+              - Crescent (30-45°, ~92-84% illum)
             - retrograde_status: Whether Mars is in retrograde motion from Earth's
               perspective ("prograde" or "retrograde"). Retrograde occurs ~every 26 months
               when Earth overtakes Mars, lasting ~2.5 months.
@@ -150,7 +156,7 @@ def _process_mars_position(
     time: Time,
     datetime_str: str,
     location: LocationModel,
-    locale: Optional[str] = None,
+    locale: Optional[str] = None,  # pylint: disable=unused-argument
     retrograde_status: Optional[str] = None
 ) -> dict:
     """
@@ -223,15 +229,17 @@ def _process_mars_position(
     # Phase angle from ecliptic longitudes
     sun_lon = sun.geocentrictrueecliptic.lon.deg
     mars_lon = mars_gcrs.geocentrictrueecliptic.lon.deg
-    phase_angle = float((mars_lon - sun_lon) % 360)
+    phase_angle = float((mars_lon - sun_lon) % 360)  # pylint: disable=line-too-long
 
     # Determine phase name based on Mars-centric phase angle
-    # Mars max phase angle ~45° means illumination ranges ~84-100%, so illumination thresholds
-    # are ineffective. Instead, classify using the phase angle directly from cos_phase_angle:
+    # Mars max phase angle ~45° means illumination ranges ~84-100%, so
+    # illumination thresholds are ineffective.
+    # Instead, classify using the phase angle directly from cos_phase_angle:
     # - 0° (opposition): Full phase (~100% illuminated)
     # - ~15-30°: Gibbous phase (~96-92% illuminated)
     # - ~30-45° (max elongation): Crescent phase (~85-86% illuminated)
-    # Convert cos_phase_angle to Python float (may be astropy Quantity) before using with numpy
+    # Convert cos_phase_angle to Python float (may be astropy Quantity) before
+    # using with numpy
     cos_value = float(cos_phase_angle)
     phase_angle_deg = float(np.degrees(np.arccos(cos_value)))
 
@@ -245,7 +253,8 @@ def _process_mars_position(
     # Get localized phase name
     phase_name = i18n.get(f"marsPhases.{phase_key}")
 
-    # Determine retrograde status (pre-computed in batch mode, calculated on-demand in single-frame mode)
+    # Determine retrograde status (pre-computed in batch mode, calculated on-demand in
+    # single-frame mode)
     if retrograde_status is None:
         retrograde_status = _get_retrograde_status(mars_gcrs, sun, time)
 
@@ -278,7 +287,7 @@ def _process_mars_position(
 def _get_retrograde_status_from_longitudes(lon_before: float, lon_after: float) -> str:
     """
     Determine retrograde status from two heliocentric longitudes (finite differences).
-    
+
     Optimized for batch processing: uses pre-computed heliocentric longitudes from
     adjacent frames instead of making additional ephemeris lookups.
 
@@ -294,7 +303,7 @@ def _get_retrograde_status_from_longitudes(lon_before: float, lon_after: float) 
     dlon = (lon_after - lon_before) % 360
     if dlon > 180:
         dlon -= 360
-    
+
     # If longitude is decreasing (negative rate), Mars is in retrograde motion
     if dlon < 0:
         return "retrograde"

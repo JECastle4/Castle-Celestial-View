@@ -1,6 +1,6 @@
 """Batch earth observations service for calculating multiple frames of celestial positions."""
 
-from typing import Optional, List, Tuple
+from typing import Optional
 from astropy.time import Time
 from astropy.coordinates import get_sun, get_body, AltAz, EarthLocation, HeliocentricTrueEcliptic
 import astropy.units as u
@@ -80,10 +80,18 @@ def calculate_batch_earth_observations(
         lon=location.longitude * u.deg,
         height=location.elevation * u.m
     )
-    
-    # Track Mars heliocentric longitude for retrograde status computation (finite differences)
-    previous_mars_longitude: Optional[float] = None
-    
+
+    # Pre-calculate Mars longitude for first two frames to get accurate initial retrograde status
+    # (compare frame 0 to frame 1, rather than hardcoding "prograde")
+    mars_longitudes = [None] * frame_count
+    if frame_count >= 2:
+        for idx in [0, 1]:
+            mars_gcrs_temp = get_body("mars", times[idx])
+            mars_helio_temp = mars_gcrs_temp.transform_to(
+                HeliocentricTrueEcliptic(obstime=times[idx])
+            )
+            mars_longitudes[idx] = float(mars_helio_temp.lon.degree)
+
     for frame_idx, obs_time in enumerate(times):
         iso_parts = obs_time.iso.split()
         date_part = iso_parts[0]
@@ -100,25 +108,26 @@ def calculate_batch_earth_observations(
         venus_gcrs = get_body("venus", obs_time)
         mercury_gcrs = get_body("mercury", obs_time)
         mars_gcrs = get_body("mars", obs_time)
-        
+
         # Compute Mars retrograde status from mars_gcrs heliocentric longitude
         # using finite differences (compare to previous frame's longitude)
         mars_heliocentric = mars_gcrs.transform_to(
             HeliocentricTrueEcliptic(obstime=obs_time)
         )
         current_mars_longitude = float(mars_heliocentric.lon.degree)
-        
-        if previous_mars_longitude is None:
-            # First frame: assume prograde (will compare forward to next frame)
-            mars_retrograde_status = "prograde"
+        mars_longitudes[frame_idx] = current_mars_longitude
+
+        if frame_idx == 0 and frame_count >= 2:
+            # First frame: compare to next frame to determine actual retrograde status
+            mars_retrograde_status = _get_retrograde_status_from_longitudes(
+                current_mars_longitude, mars_longitudes[1]
+            )
         else:
             # Use finite differences: compare current to previous longitude
             mars_retrograde_status = _get_retrograde_status_from_longitudes(
-                previous_mars_longitude, current_mars_longitude
+                mars_longitudes[frame_idx - 1], current_mars_longitude
             )
-        
-        previous_mars_longitude = current_mars_longitude
-        
+
         sun_altaz = sun.transform_to(altaz_frame)
         moon_altaz = moon.transform_to(altaz_frame)
         venus_altaz = venus_with_loc.transform_to(altaz_frame)
