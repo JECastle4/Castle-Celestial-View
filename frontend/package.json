@@ -30,7 +30,7 @@
     "flag-icons": "^7.5.0",
     "ol": "^10.9.0",
     "three": "^0.185.1",
-    "vue": "^3.5.38",
+    "vue": "^3.5.39",
     "vue-i18n": "^11.4.6",
     "vue-router": "^5.1.0",
     "vue-toast-notification": "^3.1.3"
