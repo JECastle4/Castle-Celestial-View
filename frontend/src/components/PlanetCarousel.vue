@@ -12,10 +12,11 @@
       <button
         v-for="body in CELESTIAL_BODIES"
         :key="body.id"
-        :class="['body-tab', { active: currentId === body.id }]"
+        :class="['body-tab', { active: currentId === body.id, disabled: !body.enabled }]"
         @click="select(body.id)"
-        :aria-label="t(body.labelKey)"
-        :title="t(body.labelKey)"
+        :disabled="!body.enabled"
+        :aria-label="t('buttons.selectBody', { body: t(body.labelKey) })"
+        :title="t('buttons.selectBody', { body: t(body.labelKey) })"
         :aria-pressed="currentId === body.id"
       >
         <i :class="`fa ${body.icon}`" class="body-icon" aria-hidden="true"></i>
@@ -55,22 +56,46 @@ watch(() => props.selectedBody, (val) => {
 });
 
 function select(bodyId: string) {
-  currentId.value = bodyId;
-  emit('update:selectedBody', bodyId);
+  const body = CELESTIAL_BODIES.find(b => b.id === bodyId);
+  // Only allow selecting enabled bodies
+  if (body && body.enabled) {
+    currentId.value = bodyId;
+    emit('update:selectedBody', bodyId);
+  }
 }
 
 function next() {
   let idx = CELESTIAL_BODIES.findIndex(b => b.id === currentId.value);
-  // Safe fallback: if currentId not found (idx < 0), default to first body
   if (idx < 0) idx = 0;
-  select(CELESTIAL_BODIES[(idx + 1) % CELESTIAL_BODIES.length].id);
+  
+  // Find next enabled body
+  let nextIdx = (idx + 1) % CELESTIAL_BODIES.length;
+  let attempts = 0;
+  while (!CELESTIAL_BODIES[nextIdx].enabled && attempts < CELESTIAL_BODIES.length) {
+    nextIdx = (nextIdx + 1) % CELESTIAL_BODIES.length;
+    attempts++;
+  }
+  
+  if (CELESTIAL_BODIES[nextIdx].enabled) {
+    select(CELESTIAL_BODIES[nextIdx].id);
+  }
 }
 
 function prev() {
   let idx = CELESTIAL_BODIES.findIndex(b => b.id === currentId.value);
-  // Safe fallback: if currentId not found (idx < 0), default to first body
   if (idx < 0) idx = 0;
-  select(CELESTIAL_BODIES[(idx - 1 + CELESTIAL_BODIES.length) % CELESTIAL_BODIES.length].id);
+  
+  // Find previous enabled body
+  let prevIdx = (idx - 1 + CELESTIAL_BODIES.length) % CELESTIAL_BODIES.length;
+  let attempts = 0;
+  while (!CELESTIAL_BODIES[prevIdx].enabled && attempts < CELESTIAL_BODIES.length) {
+    prevIdx = (prevIdx - 1 + CELESTIAL_BODIES.length) % CELESTIAL_BODIES.length;
+    attempts++;
+  }
+  
+  if (CELESTIAL_BODIES[prevIdx].enabled) {
+    select(CELESTIAL_BODIES[prevIdx].id);
+  }
 }
 </script>
 
@@ -145,5 +170,19 @@ function prev() {
 
 .body-name {
   font-weight: inherit;
+}
+
+.body-tab.disabled {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #666;
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.body-tab.disabled:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #666;
 }
 </style>

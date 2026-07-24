@@ -58,7 +58,9 @@
     "recentreAria": ")htrae no dertnec( noitacol tluafed eht ot aremac eht nruteR",
     "newQuery": "yreuQ weN",
     "apply": "ylppA",
-    "cancel": "lecnaC"
+    "cancel": "lecnaC",
+    "selectBody": "sliated weiv ot {body} tceleS",
+    "zoomToBody": "{body} ot mooZ"
   },
   "views": {
     "solar3d": "weiV metsyS raloS",
@@ -91,9 +93,12 @@
   "astronomy": {
     "bodyNames": {
       "sun": "nuS",
-      "moon": "nooM",
+      "mercury": "yrucreM",
       "venus": "suneV",
-      "mercury": "yrucreM"
+      "earth": "htraE",
+      "moon": "nooM",
+      "mars": "sraM",
+      "earthMoon": "nooM/htraE"
     },
     "sunAltitude": "tlA nuS",
     "sunVisible": "elbisiV nuS",
@@ -108,6 +113,7 @@
     "visible": "elbisiV",
     "venusData": "ataD suneV",
     "mercuryData": "ataD yrucreM",
+    "marsData": "ataD sraM",
     "nakedEyeVisible": "elbisiV eyE dekaN",
     "celestialCoordinates": "setanidroC laitselEC",
     "horizontalCoordinates": "setanidroC latnoziroH",
@@ -146,6 +152,11 @@
       "gibbous": "suobbiG",
       "full": "lluF"
     },
+    "marsPhases": {
+      "crescent": "tnecserC",
+      "gibbous": "suobbiG",
+      "full": "lluF"
+    },
     "dayNames": {
       "sunday": "yadnuS",
       "monday": "yadnoM",
@@ -173,6 +184,9 @@
       "yes": "seY",
       "no": "oN",
       "animationReset": ".etats laitini ot teser noitaminA"
+    },
+    "labels": {
+      "cameraControls": "sweivV aremagC"
     },
     "units": {
       "degrees": "°",

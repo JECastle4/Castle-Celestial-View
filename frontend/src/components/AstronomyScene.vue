@@ -181,6 +181,33 @@
           <input id="animation-speed" v-model.number="animationSpeed" type="range" min="0.1" max="5" step="0.1" />
           <span>{{ animationSpeed.toFixed(1) }}x</span>
         </div>
+
+        <div v-if="currentFrame && viewMode === '3D'" class="camera-controls-section">
+          <div class="section-label">{{ t('ui.labels.cameraControls') }}</div>
+          <div class="zoom-button-grid">
+            <button @click="zoomToBody('sun')" class="zoom-btn" :class="{ enabled: isSunVisible, disabled: !isSunVisible }" :disabled="!isSunVisible" :title="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.sun') })" :aria-label="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.sun') })">
+              <i class="fa fa-sun" aria-hidden="true"></i> {{ t('astronomy.bodyNames.sun') }}
+            </button>
+            <button @click="zoomToBody('mercury')" class="zoom-btn" :class="{ enabled: isMercuryVisible, disabled: !isMercuryVisible }" :disabled="!isMercuryVisible" :title="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.mercury') })" :aria-label="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.mercury') })">
+              <i class="fa fa-circle" aria-hidden="true"></i> {{ t('astronomy.bodyNames.mercury') }}
+            </button>
+            <button @click="zoomToBody('venus')" class="zoom-btn" :class="{ enabled: isVenusVisible, disabled: !isVenusVisible }" :disabled="!isVenusVisible" :title="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.venus') })" :aria-label="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.venus') })">
+              <i class="fa fa-circle" aria-hidden="true"></i> {{ t('astronomy.bodyNames.venus') }}
+            </button>
+            <button @click="zoomToBody('earth')" class="zoom-btn" :class="{ enabled: true, disabled: false }" :title="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.earth') })" :aria-label="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.earth') })">
+              <i class="fa fa-earth-americas" aria-hidden="true"></i> {{ t('astronomy.bodyNames.earth') }}
+            </button>
+            <button @click="zoomToBody('moon')" class="zoom-btn" :class="{ enabled: isMoonVisible, disabled: !isMoonVisible }" :disabled="!isMoonVisible" :title="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.moon') })" :aria-label="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.moon') })">
+              <i class="fa fa-moon" aria-hidden="true"></i> {{ t('astronomy.bodyNames.moon') }}
+            </button>
+            <button @click="zoomToBody('earthMoon')" class="zoom-btn" :class="{ enabled: isEarthMoonVisible, disabled: !isEarthMoonVisible }" :disabled="!isEarthMoonVisible" :title="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.earthMoon') })" :aria-label="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.earthMoon') })">
+              <i class="fa fa-circle-half-stroke" aria-hidden="true"></i> {{ t('astronomy.bodyNames.earthMoon') }}
+            </button>
+            <button @click="zoomToBody('mars')" class="zoom-btn" :class="{ enabled: isMarsVisible, disabled: !isMarsVisible }" :disabled="!isMarsVisible" :title="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.mars') })" :aria-label="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.mars') })">
+              <i class="fa fa-circle" aria-hidden="true"></i> {{ t('astronomy.bodyNames.mars') }}
+            </button>
+          </div>
+        </div>
         
         <div v-if="currentFrame" class="celestial-panel">
           <PanelHeader
@@ -192,10 +219,11 @@
           
           <BodyInfoPanel
             :bodyId="selectedBodyId"
-            :bodyData="selectedBodyId === 'sun' ? currentFrame.sun : selectedBodyId === 'moon' ? currentFrame.moon : selectedBodyId === 'mercury' ? currentFrame.mercury : currentFrame.venus"
+            :bodyData="selectedBodyId === 'sun' ? currentFrame.sun : selectedBodyId === 'moon' ? currentFrame.moon : selectedBodyId === 'mercury' ? currentFrame.mercury : selectedBodyId === 'mars' ? currentFrame.mars : currentFrame.venus"
             :moonPhaseData="selectedBodyId === 'moon' ? currentFrame.moon_phase : undefined"
             :venusPhaseData="selectedBodyId === 'venus' ? currentFrame.venus_phase : undefined"
             :mercuryPhaseData="selectedBodyId === 'mercury' ? currentFrame.mercury_phase : undefined"
+            :marsPhaseData="selectedBodyId === 'mars' ? currentFrame.mars_phase : undefined"
           />
         </div>
       </div>
@@ -290,6 +318,7 @@
 <script setup lang="ts">
 import '@fortawesome/fontawesome-free/css/all.min.css';
 import { ref, computed, watch, nextTick, onMounted, onUnmounted, defineAsyncComponent } from 'vue';
+import * as THREE from 'three';
 import { useToast } from '@/composables/useToast';
 import { useI18n } from 'vue-i18n';
 import { useAstronomyData } from '@/composables/useAstronomyData';
@@ -298,6 +327,7 @@ import { Sun } from '@/three/objects/Sun';
 import { Moon } from '@/three/objects/Moon';
 import { Venus } from '@/three/objects/Venus';
 import { Mercury } from '@/three/objects/Mercury';
+import { Mars } from '@/three/objects/Mars';
 import { Earth } from '@/three/objects/Earth';
 import { FEATURE_FLAGS } from '@/config/features';
 import type { ObservationFrame } from '@/types/api.types';
@@ -345,6 +375,7 @@ let sun: Sun | null = null;
 let moon: Moon | null = null;
 let venus: Venus | null = null;
 let mercury: Mercury | null = null;
+let mars: Mars | null = null;
 let earth: Earth | null = null;
 
 const isAnimating = ref(false);
@@ -420,10 +451,18 @@ const isFormValid = computed(() => {
   return isLatitudeValid.value && isLongitudeValid.value && isFrameCountValid.value;
 });
 
+// Visibility checks for camera view buttons
+const isSunVisible = computed(() => currentFrame.value?.sun?.is_visible ?? false);
+const isMercuryVisible = computed(() => currentFrame.value?.mercury?.is_visible ?? false);
+const isVenusVisible = computed(() => currentFrame.value?.venus?.is_visible ?? false);
+const isMoonVisible = computed(() => currentFrame.value?.moon?.is_visible ?? false);
+const isEarthMoonVisible = computed(() => currentFrame.value?.moon?.is_visible ?? false);
+const isMarsVisible = computed(() => currentFrame.value?.mars?.is_visible ?? false);
+
 
 const initializeObjects = () => {
   if (!canvasRef.value) return;
-  if (!earth || !sun || !moon || (FEATURE_FLAGS.VENUS_ENABLED && !venus) || (FEATURE_FLAGS.MERCURY_ENABLED && !mercury) || !sceneManager) {
+  if (!earth || !sun || !moon || (FEATURE_FLAGS.VENUS_ENABLED && !venus) || (FEATURE_FLAGS.MERCURY_ENABLED && !mercury) || (FEATURE_FLAGS.MARS_ENABLED && !mars) || !sceneManager) {
     sceneManager = new SceneManager(canvasRef.value);
     earth = new Earth();
     sun = new Sun();
@@ -434,6 +473,9 @@ const initializeObjects = () => {
     if (FEATURE_FLAGS.MERCURY_ENABLED) {
       mercury = new Mercury();
     }
+    if (FEATURE_FLAGS.MARS_ENABLED) {
+      mars = new Mars();
+    }
     earth.addToScene(sceneManager.scene);
     sun.addToScene(sceneManager.scene);
     moon.addToScene(sceneManager.scene);
@@ -442,6 +484,9 @@ const initializeObjects = () => {
     }
     if (mercury) {
       mercury.addToScene(sceneManager.scene);
+    }
+    if (mars) {
+      mars.addToScene(sceneManager.scene);
     }
     // Hide objects until data is loaded
     if (earth && earth.mesh && earth.getGridHelper() && earth.getAxesHelper() && earth.getHemisphereGrid()) {
@@ -462,6 +507,9 @@ const initializeObjects = () => {
     }
     if (FEATURE_FLAGS.MERCURY_ENABLED && mercury && mercury.mesh) {
       mercury.mesh.visible = false;
+    }
+    if (FEATURE_FLAGS.MARS_ENABLED && mars && mars.mesh) {
+      mars.mesh.visible = false;
     }
     sceneManager.startAnimation(updateAnimation);
   }
@@ -524,8 +572,29 @@ async function loadData() {
     }
     currentIndex.value = 0;
     updatePositions();
-    // Set visibility for first frame from API data
+    
+    // Phase 2: Update default view to frame all visible bodies
+    const bodyPositions: THREE.Vector3[] = [];
     const frame = currentFrame.value;
+    
+    // Always include Earth (reference point); filter other bodies by is_visible
+    if (earth) bodyPositions.push(earth.mesh.position.clone());
+    if (sun && frame?.sun.is_visible) bodyPositions.push(sun.mesh.position.clone());
+    if (moon && frame?.moon.is_visible) bodyPositions.push(moon.mesh.position.clone());
+    if (venus && frame?.venus?.is_visible) bodyPositions.push(venus.mesh.position.clone());
+    if (mercury && frame?.mercury?.is_visible) bodyPositions.push(mercury.mesh.position.clone());
+    if (mars && frame?.mars?.is_visible) bodyPositions.push(mars.mesh.position.clone());
+    
+    if (sceneManager && bodyPositions.length > 0) {
+      sceneManager.updateDefaultView(bodyPositions);
+    }
+    
+    // Phase 3: Update Earth-Moon subsystem view with dynamic positioning
+    if (sceneManager && earth && moon) {
+      sceneManager.updateEarthMoonView(earth.mesh.position, moon.mesh.position);
+    }
+    
+    // Set visibility for first frame from API data
     if (frame) {
       if (earth) {
         earth.mesh.visible = true;
@@ -616,6 +685,15 @@ function updatePositions() {
     );
   }
 
+  if (FEATURE_FLAGS.MARS_ENABLED && frame.mars && mars) {
+    mars.updatePosition(
+      frame.mars.azimuth,
+      frame.mars.altitude,
+      frame.mars.is_visible,
+      viewMode.value
+    );
+  }
+
   moon.updatePhase(frame.moon_phase.illumination * 100);
   
   // Update label billboard orientations to face camera
@@ -627,6 +705,9 @@ function updatePositions() {
     }
     if (FEATURE_FLAGS.MERCURY_ENABLED && mercury) {
       mercury.updateLabelBillboard(sceneManager.camera);
+    }
+    if (FEATURE_FLAGS.MARS_ENABLED && mars) {
+      mars.updateLabelBillboard(sceneManager.camera);
     }
   }
 }
@@ -644,6 +725,9 @@ function setViewMode(mode: '3D' | 'SKY') {
     }
     if (mercury) {
       mercury.setViewMode(mode.toLowerCase() as 'sky' | '3d');
+    }
+    if (mars) {
+      mars.setViewMode(mode.toLowerCase() as 'sky' | '3d');
     }
     updatePositions();
   }
@@ -712,6 +796,23 @@ function recentreCamera() {
   }
 }
 
+function zoomToBody(bodyName: string) {
+  if (sceneManager && sceneManager.getViewMode() === '3D') {
+    // Collect current body positions for dynamic camera calculation
+    const bodyPositions: Record<string, THREE.Vector3 | undefined> = {};
+    
+    if (sun) bodyPositions.sun = sun.mesh.position.clone();
+    if (mars) bodyPositions.mars = mars.mesh.position.clone();
+    if (mercury) bodyPositions.mercury = mercury.mesh.position.clone();
+    if (venus) bodyPositions.venus = venus.mesh.position.clone();
+    if (earth) bodyPositions.earth = earth.mesh.position.clone();
+    if (moon) bodyPositions.moon = moon.mesh.position.clone();
+
+    // Pass body positions to enable dynamic camera calculation
+    sceneManager.transitionToPreset(bodyName, 800, bodyPositions);
+  }
+}
+
 function clearData() {
   isAnimating.value = false;
   currentIndex.value = 0;
@@ -725,6 +826,7 @@ function clearData() {
   moon = null;
   venus = null;
   mercury = null;
+  mars = null;
   earth = null;
 }
 
@@ -1006,6 +1108,74 @@ button {
   padding: 0;
   border-top: 1px solid #555;
   font-size: 0.85em;
+}
+
+.camera-controls-section {
+  margin-bottom: 15px;
+  padding: 10px;
+  background: #1a1a1a;
+  border: 1px solid #444;
+  border-radius: 4px;
+}
+
+.section-label {
+  display: block;
+  font-size: 0.85em;
+  font-weight: bold;
+  margin-bottom: 8px;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.zoom-button-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.zoom-btn {
+  padding: 8px;
+  margin-bottom: 0;
+  font-size: 0.85em;
+  background: #334455;
+  border: 1px solid #556677;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.zoom-btn:hover:not(:disabled) {
+  background: #445566;
+  border-color: #667788;
+}
+
+.zoom-btn.enabled {
+  background: #002d66;
+  border-color: #001f47;
+  color: #ffffff;
+}
+
+.zoom-btn.enabled:hover {
+  background: #001f47;
+  border-color: #001a38;
+}
+
+.zoom-btn.disabled {
+  background: #6b7280;
+  border-color: #4b5563;
+  color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.zoom-btn:disabled {
+  cursor: not-allowed;
+}
+
+.zoom-btn i {
+  font-size: 0.9em;
 }
 
 /* Ensure canvas always fills its parent container */

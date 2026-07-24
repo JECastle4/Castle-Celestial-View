@@ -58,7 +58,9 @@
 		"recentreAria": "Return the camera to the default location (centred on earth)",
 		"newQuery": "New Query",
 		"apply": "Apply",
-		"cancel": "Cancel"
+		"cancel": "Cancel",
+		"selectBody": "Select {body} to view details",
+		"zoomToBody": "Zoom to {body}"
 	},
 	"views": {
 		"solar3d": "Solar System View",
@@ -91,9 +93,12 @@
 	"astronomy": {
 		"bodyNames": {
 			"sun": "Sun",
-			"moon": "Moon",
+			"mercury": "Mercury",
 			"venus": "Venus",
-			"mercury": "Mercury"
+			"earth": "Earth",
+			"moon": "Moon",
+			"mars": "Mars",
+			"earthMoon": "Earth/Moon"
 		},
 		"sunAltitude": "Sun Alt",
 		"sunVisible": "Sun Visible",
@@ -108,6 +113,7 @@
 		"visible": "Visible",
 		"venusData": "Venus Data",
 		"mercuryData": "Mercury Data",
+		"marsData": "Mars Data",
 		"nakedEyeVisible": "Naked Eye Visible",
 		"celestialCoordinates": "Celestial Coordinates",
 		"horizontalCoordinates": "Horizontal Coordinates",
@@ -146,6 +152,11 @@
 			"gibbous": "Gibbous",
 			"full": "Full"
 		},
+		"marsPhases": {
+			"crescent": "Crescent",
+			"gibbous": "Gibbous",
+			"full": "Full"
+		},
 		"dayNames": {
 			"sunday": "Sunday",
 			"monday": "Monday",
@@ -173,6 +184,9 @@
 			"yes": "Yes",
 			"no": "No",
 			"animationReset": "Animation reset to initial state."
+		},
+		"labels": {
+			"cameraControls": "Camera Views"
 		},
 		"units": {
 			"degrees": "°",

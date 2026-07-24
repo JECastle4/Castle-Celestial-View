@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { CameraAnimator } from './cameraAnimation';
+import { CameraPreset, CAMERA_PRESETS, calculateOptimalDefaultView, calculateOptimalEarthMoonView, calculateBodyViewPreset } from '../config/cameraPresets';
 
 /**
  * Three.js Scene Manager for Astronomy Animation
@@ -9,11 +11,13 @@ export class SceneManager {
   public camera: THREE.PerspectiveCamera;
   public renderer: THREE.WebGLRenderer;
   public controls: OrbitControls;
+  private cameraAnimator: CameraAnimator;
   
   private animationId: number | null = null;
   private animationCallback?: () => void;
   private currentViewMode: '3D' | 'SKY' = '3D';
   private resizeHandler: () => void;
+  private defaultViewPreset: CameraPreset | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     // Create scene
@@ -42,7 +46,10 @@ export class SceneManager {
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.05;
     this.controls.minDistance = 2;
-    this.controls.maxDistance = 50;
+    this.controls.maxDistance = 70; // Increased from 50 to accommodate Mars at ~25.4 units
+
+    // Create camera animator
+    this.cameraAnimator = new CameraAnimator();
 
     // Add basic lighting
     this.setupLighting();
@@ -57,6 +64,43 @@ export class SceneManager {
    */
   public resetCamera(): void {
     this.setViewMode(this.currentViewMode);
+  }
+
+  /**
+   * Update the default 3D view to frame all celestial bodies intelligently
+   * @param bodyPositions - Array of Vector3 positions of celestial bodies
+   */
+  public updateDefaultView(bodyPositions: THREE.Vector3[]): void {
+    if (bodyPositions.length === 0) {
+      return; // No bodies to frame
+    }
+
+    // Calculate optimal view
+    this.defaultViewPreset = calculateOptimalDefaultView(bodyPositions);
+
+    // Update camera position only if in 3D view mode
+    if (this.currentViewMode === '3D') {
+      this.camera.position.copy(this.defaultViewPreset.position);
+      this.controls.target.copy(this.defaultViewPreset.target);
+      this.controls.update();
+    }
+  }
+
+  /**
+   * Get the current default view preset for 3D mode
+   */
+  public getDefaultViewPreset(): CameraPreset | null {
+    return this.defaultViewPreset;
+  }
+
+  /**
+   * Update the Earth-Moon subsystem view based on actual positions
+   * @param earthPosition - Earth's position
+   * @param moonPosition - Moon's position
+   */
+  public updateEarthMoonView(earthPosition: THREE.Vector3, moonPosition: THREE.Vector3): void {
+    const optimizedPreset = calculateOptimalEarthMoonView(earthPosition, moonPosition);
+    CAMERA_PRESETS.earthmoon = optimizedPreset;
   }
 
   private setupLighting(): void {
@@ -135,10 +179,16 @@ export class SceneManager {
 
     if (mode === '3D') {
       // 3D orbital view
-      this.camera.position.set(0, 7, 14); // restore original camera position
-      this.controls.target.set(0, 0, 0);
+      // Use calculated default view if available, otherwise fallback to original position
+      if (this.defaultViewPreset) {
+        this.camera.position.copy(this.defaultViewPreset.position);
+        this.controls.target.copy(this.defaultViewPreset.target);
+      } else {
+        this.camera.position.set(0, 7, 14); // fallback default
+        this.controls.target.set(0, 0, 0);
+      }
       this.controls.minDistance = 2;
-      this.controls.maxDistance = 50;
+      this.controls.maxDistance = 70;
       this.scene.background = new THREE.Color(0x000011);
       this.controls.update();
     } else {
@@ -183,9 +233,55 @@ export class SceneManager {
     return this.currentViewMode;
   }
 
+  /**
+   * Transition camera to a preset view with smooth animation
+   * Supports both static presets and dynamic positioning based on current body locations
+   * @param presetName - Name of the preset (e.g., 'sun', 'mars', 'earthMoon')
+   * @param duration - Animation duration in milliseconds (default: 800ms)
+   * @param bodyPositions - Optional current body positions for dynamic calculation
+   *                        { sun?, mars?, mercury?, venus?, earth?, moon? }
+   * @param onComplete - Optional callback when animation completes
+   */
+  public transitionToPreset(
+    presetName: string,
+    duration: number = 800,
+    bodyPositions?: Record<string, THREE.Vector3 | undefined>,
+    onComplete?: () => void
+  ): void {
+    if (this.currentViewMode !== '3D') {
+      return; // Only zoom in 3D mode
+    }
+
+    let preset: CameraPreset;
+
+    // Handle Earth-Moon subsystem with dynamic calculation
+    if (presetName.toLowerCase() === 'earthmoon' && bodyPositions?.earth && bodyPositions?.moon) {
+      preset = calculateOptimalEarthMoonView(bodyPositions.earth, bodyPositions.moon);
+    }
+    // Handle single body with dynamic calculation if position provided
+    else if (bodyPositions?.[presetName.toLowerCase()]) {
+      const bodyPosition = bodyPositions[presetName.toLowerCase()]!;
+      preset = calculateBodyViewPreset(bodyPosition, presetName);
+    }
+    // Fallback to static preset
+    else {
+      preset = CAMERA_PRESETS[presetName.toLowerCase()] || CAMERA_PRESETS.default;
+    }
+
+    this.cameraAnimator.animateToView(
+      this.camera,
+      this.controls,
+      preset.position.clone(),
+      preset.target.clone(),
+      duration,
+      onComplete
+    );
+  }
+
   public dispose(): void {
     this.stopAnimation();
     window.removeEventListener('resize', this.resizeHandler);
+    this.cameraAnimator.dispose();
     this.controls.dispose();
     this.renderer.dispose();
   }

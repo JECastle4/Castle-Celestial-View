@@ -52,9 +52,9 @@ describe('Header', () => {
   describe('emit propagation', () => {
     it('propagates update:selectedBody emitted by the carousel', async () => {
       const wrapper = mount(Header, { props: { hasData: true, selectedBody: 'sun' } });
-      await wrapper.findAll('.body-tab')[1].trigger('click'); // click Moon
+      await wrapper.findAll('.body-tab')[1].trigger('click'); // click Mercury
       expect(wrapper.emitted('update:selectedBody')).toBeTruthy();
-      expect(wrapper.emitted('update:selectedBody')![0]).toEqual(['moon']);
+      expect(wrapper.emitted('update:selectedBody')![0]).toEqual(['mercury']);
     });
   });
 });

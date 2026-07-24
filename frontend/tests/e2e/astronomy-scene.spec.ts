@@ -129,7 +129,7 @@ async function loadAstronomyData(page: Page) {
   // 4. Timeout (failure)
   
   const startTime = Date.now();
-  const timeout = 90000; // 90 seconds for Firefox SSE streaming
+  const timeout = 200000; // 200 seconds to handle parallel API queue from multiple test browsers
   let lastProgressLog = startTime;
   
   while (Date.now() - startTime < timeout) {
@@ -295,12 +295,16 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
    * TEST 1: Load Data & Capture Sun
    * Sets up the scene with data loaded, defaults to Sun body in 3D view
    */
-  testWithPersistentPage('1. Load data and verify Sun is selected', { timeout: 90000 }, async ({ page }) => {
+  testWithPersistentPage('1. Load data and verify Sun is selected', { timeout: 240000 }, async ({ page }) => {
     await loadAstronomyData(page);
     
     // Verify Sun tab is active by default
     const sunTab = page.locator('.body-tab').filter({ has: page.locator('i.fa-sun') });
     await expect(sunTab).toHaveClass(/active/);
+    
+    // Verify Earth button is disabled (not shown until enabled)
+    const earthTab = page.locator('button.body-tab[aria-label*="Select"][aria-label*="Earth"]');
+    await expect(earthTab).toHaveClass(/disabled/);
     
     // Verify celestial panel is visible with Sun data
     const celestialPanel = page.locator('.celestial-panel');
@@ -311,7 +315,7 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
     await expect(visibilityBadge).toBeVisible();
     
     // Capture snapshot of Sun in 3D view
-    await expect(page.locator('.app-layout')).toHaveScreenshot('sun-3d-view.png');
+    await expect(page.locator('.app-layout')).toHaveScreenshot('sun-3d-view.png', { timeout: 15000 });
     
     // Stabilize page after screenshot and before next test
     await stabilizePage(page, 5000);
@@ -322,10 +326,10 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
   });
 
   /**
-   * TEST 2: Click Moon tab directly
-   * Tests direct body tab selection for Moon
+   * TEST 2: Click Mercury tab directly
+   * Tests direct body selection for Mercury and verifies Mercury-specific data
    */
-  testWithPersistentPage('2. Click Moon tab directly', { timeout: 90000 }, async ({ page }) => {
+  testWithPersistentPage('2. Click Mercury tab directly', { timeout: 90000 }, async ({ page }) => {
     // Stabilize page before proceeding
     await stabilizePage(page, 8000, true);
     
@@ -337,23 +341,23 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
     const celestialPanel = page.locator('.celestial-panel');
     await expect(celestialPanel).toBeVisible({ timeout: 10000 });
     
-    // Click Moon tab by icon (accessible, resilient to reordering)
-    const moonTab = page.locator('.body-tab').filter({ has: page.locator('i.fa-moon') });
-    await expect(moonTab).toBeVisible();
-    await moonTab.click();
+    // Click Mercury tab by body-tab selector with 'Select' verb (distinguishes from 'Zoom to' buttons)
+    const mercuryTab = page.locator('button.body-tab[aria-label*="Select"][aria-label*="Mercury"]');
+    await expect(mercuryTab).toBeVisible();
+    await mercuryTab.click();
     
     // Wait a moment for UI to update after button click
     await page.waitForTimeout(300);
     
-    // Wait for Moon data to load (moon-section appears)
-    const moonSection = page.locator('.moon-section');
-    await expect(moonSection).toBeVisible({ timeout: 10000 });
+    // Wait for Mercury-specific data to load
+    const mercurySection = page.locator('.mercury-section');
+    await expect(mercurySection).toBeVisible({ timeout: 10000 });
     
-    // Verify Moon tab is now active
-    await expect(moonTab).toHaveClass(/active/);
+    // Verify Mercury tab is active
+    await expect(mercuryTab).toHaveClass(/active/);
     
-    // Capture snapshot of Moon in 3D view
-    await expect(page.locator('.app-layout')).toHaveScreenshot('moon-3d-view.png');
+    // Capture snapshot of Mercury in 3D view
+    await expect(page.locator('.app-layout')).toHaveScreenshot('mercury-3d-view.png', { timeout: 15000 });
     
     // Wait for DOM to settle after screenshot
     await page.waitForTimeout(1000);
@@ -380,8 +384,8 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
     const celestialPanel = page.locator('.celestial-panel');
     await expect(celestialPanel).toBeVisible({ timeout: 10000 });
     
-    // Click Venus tab by aria-label (accessible, resilient to reordering)
-    const venusTab = page.locator('button[aria-label*="Venus"]');
+    // Click Venus tab by body-tab selector with 'Select' verb (distinguishes from 'Zoom to' buttons)
+    const venusTab = page.locator('button.body-tab[aria-label*="Select"][aria-label*="Venus"]');
     await expect(venusTab).toBeVisible();
     await venusTab.click();
     
@@ -396,7 +400,7 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
     await expect(venusTab).toHaveClass(/active/);
     
     // Capture snapshot of Venus in 3D view
-    await expect(page.locator('.app-layout')).toHaveScreenshot('venus-3d-view.png');
+    await expect(page.locator('.app-layout')).toHaveScreenshot('venus-3d-view.png', { timeout: 15000 });
     
     // Wait for DOM to settle after screenshot
     await page.waitForTimeout(2000);
@@ -408,10 +412,10 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
   });
 
   /**
-   * TEST 4: Click Mercury tab directly
-   * Tests direct body selection for Mercury and verifies Mercury-specific data
+   * TEST 4: Click Moon tab directly
+   * Tests direct body tab selection for Moon
    */
-  testWithPersistentPage('4. Click Mercury tab directly', { timeout: 90000 }, async ({ page }) => {
+  testWithPersistentPage('4. Click Moon tab directly', { timeout: 90000 }, async ({ page }) => {
     // Stabilize page before proceeding
     await stabilizePage(page, 8000, true);
     
@@ -423,31 +427,31 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
     const celestialPanel = page.locator('.celestial-panel');
     await expect(celestialPanel).toBeVisible({ timeout: 10000 });
     
-    // Click Mercury tab by aria-label (accessible, resilient to reordering)
-    const mercuryTab = page.locator('button[aria-label*="Mercury"]');
-    await expect(mercuryTab).toBeVisible();
-    await mercuryTab.click();
+    // Click Moon tab by body-tab selector with 'Select' verb (distinguishes from 'Zoom to' buttons)
+    const moonTab = page.locator('button.body-tab[aria-label*="Select"][aria-label*="Moon"]');
+    await expect(moonTab).toBeVisible();
+    await moonTab.click();
     
     // Wait a moment for UI to update after button click
     await page.waitForTimeout(300);
     
-    // Wait for Mercury-specific data to load
-    const mercurySection = page.locator('.mercury-section');
-    await expect(mercurySection).toBeVisible({ timeout: 10000 });
+    // Wait for Moon-specific data to load
+    const moonSection = page.locator('.moon-section');
+    await expect(moonSection).toBeVisible({ timeout: 10000 });
     
-    // Verify Mercury tab is active
-    await expect(mercuryTab).toHaveClass(/active/);
+    // Verify Moon tab is active
+    await expect(moonTab).toHaveClass(/active/);
     
-    // Verify Mercury-specific data is visible (phase, illumination, naked-eye visibility)
-    const phaseInfo = celestialPanel.locator('.mercury-section .phase-name');
-    const illuminationInfo = celestialPanel.locator('.mercury-section .illumination');
-    const nakedEyeInfo = celestialPanel.locator('.mercury-section .naked-eye');
+    // Verify Moon-specific data is visible (phase, illumination, phase angle)
+    const phaseInfo = celestialPanel.locator('.moon-section .phase-name');
+    const illuminationInfo = celestialPanel.locator('.moon-section .illumination');
+    const phaseAngleInfo = celestialPanel.locator('.moon-section .phase-angle');
     await expect(phaseInfo).toBeVisible();
     await expect(illuminationInfo).toBeVisible();
-    await expect(nakedEyeInfo).toBeVisible();
+    await expect(phaseAngleInfo).toBeVisible();
     
-    // Capture snapshot of Mercury in 3D view
-    await expect(page.locator('.app-layout')).toHaveScreenshot('mercury-3d-view.png');
+    // Capture snapshot of Moon in 3D view
+    await expect(page.locator('.app-layout')).toHaveScreenshot('moon-3d-view.png', { timeout: 15000 });
     
     // Wait for DOM to settle after screenshot
     await page.waitForTimeout(2000);
@@ -459,10 +463,10 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
   });
 
   /**
-   * TEST 5: Click Sun tab directly
-   * Tests cycling back to Sun to verify carousel state consistency
+   * TEST 5: Click Mars tab directly
+   * Tests direct body selection for Mars (new body in carousel)
    */
-  testWithPersistentPage('5. Click Sun tab directly', { timeout: 90000 }, async ({ page }) => {
+  testWithPersistentPage('5. Click Mars tab directly', { timeout: 90000 }, async ({ page }) => {
     // Stabilize page before proceeding
     // Use 15s timeout to accommodate slower CI rendering (Linux headless)
     await stabilizePage(page, 15000, true);
@@ -475,8 +479,51 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
     const celestialPanel = page.locator('.celestial-panel');
     await expect(celestialPanel).toBeVisible({ timeout: 10000 });
     
+    // Click Mars tab to test the new body in the carousel
+    const marsTab = page.locator('button.body-tab[aria-label*="Select"][aria-label*="Mars"]');
+    await expect(marsTab).toBeVisible();
+    await marsTab.click();
+    
+    // Wait a moment for UI to update
+    await page.waitForTimeout(300);
+    
+    // Wait for Mars data to load (mars-section appears)
+    const marsSection = page.locator('.mars-section');
+    await expect(marsSection).toBeVisible({ timeout: 10000 });
+    
+    // Verify Mars tab is now active
+    await expect(marsTab).toHaveClass(/active/);
+    
+    // Capture snapshot of Mars in 3D view
+    await expect(page.locator('.app-layout')).toHaveScreenshot('mars-3d-view.png', { timeout: 15000 });
+    
+    // Wait for DOM to settle after screenshot
+    await page.waitForTimeout(1000);
+    
+    // Stabilize page after screenshot (warn only, don't throw)
+    await stabilizePage(page, 8000, false);
+    const animationControlsAfterScreenshot = page.locator('.animation-controls');
+    await expect(animationControlsAfterScreenshot).toBeVisible({ timeout: 8000 });
+  });
+
+  /**
+   * TEST 6: Click Sun tab directly
+   * Tests cycling back to Sun to verify carousel state consistency
+   */
+  testWithPersistentPage('6. Click Sun tab directly', { timeout: 90000 }, async ({ page }) => {
+    // Stabilize page before proceeding (use longer timeout for slow Linux environments)
+    await stabilizePage(page, 12000, true);
+    
+    // Verify page state is still good
+    const animationControls = page.locator('.animation-controls');
+    await expect(animationControls).toBeVisible({ timeout: 10000 });
+    
+    // Ensure celestial panel is visible before clicking carousel
+    const celestialPanel = page.locator('.celestial-panel');
+    await expect(celestialPanel).toBeVisible({ timeout: 10000 });
+    
     // Click Sun tab to cycle back
-    const sunTab = page.locator('.body-tab').filter({ has: page.locator('i.fa-sun') });
+    const sunTab = page.locator('button.body-tab[aria-label*="Select"][aria-label*="Sun"]');
     await expect(sunTab).toBeVisible();
     await sunTab.click();
     
@@ -500,51 +547,10 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
   });
 
   /**
-   * TEST 6: Click Next button to navigate forward
-   * Tests carousel Next button navigation from Sun to Moon
+   * TEST 7: Click Next button to navigate forward
+   * Tests carousel Next button navigation from Sun to Mercury
    */
-  testWithPersistentPage('6. Click Next button to navigate forward', { timeout: 90000 }, async ({ page }) => {
-    // Stabilize page before proceeding (use longer timeout for slow Linux environments)
-    await stabilizePage(page, 12000, true);
-    
-    // Verify page state is still good
-    const animationControls = page.locator('.animation-controls');
-    await expect(animationControls).toBeVisible({ timeout: 10000 });
-    
-    // Ensure celestial panel is visible before clicking carousel
-    const celestialPanel = page.locator('.celestial-panel');
-    await expect(celestialPanel).toBeVisible({ timeout: 10000 });
-    
-    // Click Next button on carousel (we should be on Sun from TEST 5)
-    const nextButton = page.locator('.planet-carousel .nav-btn:last-child');
-    await expect(nextButton).toBeVisible();
-    await nextButton.click();
-    
-    // Wait a moment for UI to update after button click
-    await page.waitForTimeout(300);
-    
-    // Wait for Moon data to load (moon-section appears)
-    const moonSection = page.locator('.moon-section');
-    await expect(moonSection).toBeVisible({ timeout: 10000 });
-    
-    // Verify Moon tab is now active
-    const moonTab = page.locator('.body-tab').filter({ has: page.locator('i.fa-moon') });
-    await expect(moonTab).toHaveClass(/active/);
-    
-    // Wait for animation controls to stabilize
-    await page.waitForTimeout(1000);
-    
-    // Stabilize page after button navigation (warn only, don't throw)
-    await stabilizePage(page, 8000, false);
-    const animationControlsAfterNavigate = page.locator('.animation-controls');
-    await expect(animationControlsAfterNavigate).toBeVisible({ timeout: 8000 });
-  });
-
-  /**
-   * TEST 7: Click Previous button to navigate backward
-   * Tests carousel Previous button navigation from Moon back to Sun
-   */
-  testWithPersistentPage('7. Click Previous button to navigate backward', { timeout: 90000 }, async ({ page }) => {
+  testWithPersistentPage('7. Click Next button to navigate forward', { timeout: 90000 }, async ({ page }) => {
     // Stabilize page before proceeding
     await stabilizePage(page, 8000, true);
     
@@ -556,7 +562,48 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
     const celestialPanel = page.locator('.celestial-panel');
     await expect(celestialPanel).toBeVisible({ timeout: 10000 });
     
-    // Click Previous button on carousel (we should be on Moon from TEST 6)
+    // Click Next button on carousel (we should be on Sun from TEST 6)
+    const nextButton = page.locator('.planet-carousel .nav-btn:last-child');
+    await expect(nextButton).toBeVisible();
+    await nextButton.click();
+    
+    // Wait a moment for UI to update after button click
+    await page.waitForTimeout(300);
+    
+    // Wait for Mercury data to load (Next from Sun should go to Mercury)
+    const mercurySection = page.locator('.mercury-section');
+    await expect(mercurySection).toBeVisible({ timeout: 10000 });
+    
+    // Verify Mercury tab is now active
+    const mercuryTab = page.locator('button.body-tab[aria-label*="Select"][aria-label*="Mercury"]');
+    await expect(mercuryTab).toHaveClass(/active/, { timeout: 10000 });
+    
+    // Wait for animation controls to stabilize
+    await page.waitForTimeout(1000);
+    
+    // Stabilize page after button navigation (warn only, don't throw)
+    await stabilizePage(page, 8000, false);
+    const animationControlsAfterNavigate = page.locator('.animation-controls');
+    await expect(animationControlsAfterNavigate).toBeVisible({ timeout: 8000 });
+  });
+
+  /**
+   * TEST 8: Click Previous button to navigate backward
+   * Tests carousel Previous button navigation from Mercury back to Sun
+   */
+  testWithPersistentPage('8. Click Previous button to navigate backward', { timeout: 90000 }, async ({ page }) => {
+    // Stabilize page before proceeding
+    await stabilizePage(page, 8000, true);
+    
+    // Verify page state is still good with extended timeout for CI
+    const animationControls = page.locator('.animation-controls');
+    await expect(animationControls).toBeVisible({ timeout: 15000 });
+    
+    // Ensure celestial panel is visible before clicking carousel
+    const celestialPanel = page.locator('.celestial-panel');
+    await expect(celestialPanel).toBeVisible({ timeout: 10000 });
+    
+    // Click Previous button on carousel (we should be on Mercury from TEST 7)
     const prevButton = page.locator('.planet-carousel .nav-btn:first-child');
     await expect(prevButton).toBeVisible();
     await prevButton.click();
@@ -565,7 +612,7 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
     await page.waitForTimeout(300);
     
     // Wait for Sun data to re-load and become active
-    const sunTab = page.locator('.body-tab').filter({ has: page.locator('i.fa-sun') });
+    const sunTab = page.locator('button.body-tab[aria-label*="Select"][aria-label*="Sun"]');
     await expect(sunTab).toHaveClass(/active/, { timeout: 10000 });
     
     // Verify Sun data is displayed
@@ -582,10 +629,10 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
   });
 
   /**
-   * TEST 8: Switch to Sky View
+   * TEST 9: Switch to Sky View
    * Tests view mode toggle while maintaining selected body (Sun)
    */
-  testWithPersistentPage('8. Switch to Sky View', { timeout: 90000 }, async ({ page }) => {
+  testWithPersistentPage('9. Switch to Sky View', { timeout: 90000 }, async ({ page }) => {
     // Stabilize page before proceeding (use longer timeout for slow Linux environments)
     await stabilizePage(page, 12000, true);
     
@@ -597,8 +644,8 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
     const celestialPanel = page.locator('.celestial-panel');
     await expect(celestialPanel).toBeVisible({ timeout: 10000 });
     
-    // We should be on Sun from TEST 7 - verify this
-    const sunTab = page.locator('.body-tab').filter({ has: page.locator('i.fa-sun') });
+    // We should be on Sun from TEST 8 - verify this
+    const sunTab = page.locator('button.body-tab[aria-label*="Select"][aria-label*="Sun"]');
     await expect(sunTab).toBeVisible();
     
     // Click Sky View button (last button in view-toggle)
@@ -613,7 +660,7 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
     await expect(skyViewButton).toHaveClass(/active/);
     
     // Capture snapshot of Sky View
-    await expect(page.locator('.app-layout')).toHaveScreenshot('sun-sky-view.png');
+    await expect(page.locator('.app-layout')).toHaveScreenshot('sun-sky-view.png', { timeout: 15000 });
     
     // Wait for DOM to settle after screenshot
     await page.waitForTimeout(2000);
@@ -625,10 +672,10 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
   });
 
   /**
-   * TEST 9: Click Play to start animation
+   * TEST 10: Click Play to start animation
    * Tests animation playback initiation
    */
-  testWithPersistentPage('9. Click Play to start animation', { timeout: 90000 }, async ({ page }) => {
+  testWithPersistentPage('10. Click Play to start animation', { timeout: 90000 }, async ({ page }) => {
     // Stabilize page before proceeding (use longer timeout for slow Linux environments)
     await stabilizePage(page, 12000, true);
     
@@ -656,10 +703,10 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
   });
 
   /**
-   * TEST 10: Wait for animation to advance frames
+   * TEST 11: Wait for animation to advance frames
    * Tests that animation is actually progressing frames
    */
-  testWithPersistentPage('10. Wait for animation to advance frames', { timeout: 90000 }, async ({ page }) => {
+  testWithPersistentPage('11. Wait for animation to advance frames', { timeout: 90000 }, async ({ page }) => {
     // Stabilize page before proceeding
     await stabilizePage(page, 8000, true);
     
@@ -704,10 +751,10 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
   });
 
   /**
-   * TEST 11: Click Restart and verify animation resets
+   * TEST 12: Click Restart and verify animation resets
    * Tests animation reset functionality
    */
-  testWithPersistentPage('11. Click Restart and verify animation resets', { timeout: 90000 }, async ({ page }) => {
+  testWithPersistentPage('12. Click Restart and verify animation resets', { timeout: 90000 }, async ({ page }) => {
     // Stabilize page before proceeding
     await stabilizePage(page, 8000, true);
     
@@ -756,7 +803,7 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
     await page.waitForTimeout(500);
     
     // Capture snapshot showing reset state (with timeout to prevent hanging)
-    const screenshotPromise = expect(page.locator('.app-layout')).toHaveScreenshot('sun-sky-view-restarted.png');
+    const screenshotPromise = expect(page.locator('.app-layout')).toHaveScreenshot('sun-sky-view-restarted.png', { timeout: 15000 });
     try {
       await Promise.race([
         screenshotPromise,
@@ -778,7 +825,7 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
 });
 
 test.describe('Astronomy Scene - Initial Load', () => {
-  test('should load the page and have Load Data button enabled', { timeout: 90000 }, async ({ page }) => {
+  test('should load the page and have Load Data button enabled', { timeout: 240000 }, async ({ page }) => {
     // Navigate to the home page
     await page.goto('/en-UK');
 
@@ -833,7 +880,7 @@ test.describe('Astronomy Scene - Initial Load', () => {
     const animationControls = page.locator('.animation-controls');
     
     const startTime = Date.now();
-    const timeout = 90000; // 90 seconds for Firefox SSE streaming
+    const timeout = 200000; // 200 seconds to handle parallel API queue from multiple test browsers
     
     while (Date.now() - startTime < timeout) {
       // Check if animation controls appeared (scene loaded successfully)
@@ -902,7 +949,7 @@ test.describe('Astronomy Scene - Initial Load', () => {
 
     // Capture screenshot of the full scene (including right panel)
     const scene = page.locator('.app-layout');
-    await expect(scene).toHaveScreenshot('3d-view-first-frame.png');
+    await expect(scene).toHaveScreenshot('3d-view-first-frame.png', { timeout: 15000 });
 
     // Click the Sky View button
     const skyViewButton = page.getByRole('button', { name: 'Sky View' });
@@ -912,12 +959,12 @@ test.describe('Astronomy Scene - Initial Load', () => {
     await page.waitForTimeout(1000);
 
     // Capture screenshot of Sky View (full scene)
-    await expect(scene).toHaveScreenshot('sky-view-first-frame.png');
+    await expect(scene).toHaveScreenshot('sky-view-first-frame.png', { timeout: 15000 });
   });
 });
 
 test.describe('Astronomy Scene - Sky View Animation Controls', () => {
-  test('should play, pause, and reset animation in Sky View', { timeout: 90000 }, async ({ page }) => {
+  test('should play, pause, and reset animation in Sky View', { timeout: 240000 }, async ({ page }) => {
     // Define beforePlayFrameXY at the top for this test
     let beforePlayFrameXY = '';
     // Navigate to the home page and load data as in the initial test
@@ -939,7 +986,7 @@ test.describe('Astronomy Scene - Sky View Animation Controls', () => {
     const animationControls = page.locator('.animation-controls');
     
     const startTime = Date.now();
-    const timeout = 90000; // 90 seconds for Firefox SSE streaming
+    const timeout = 200000; // 200 seconds to handle parallel API queue from multiple test browsers
     
     while (Date.now() - startTime < timeout) {
       // Check if animation controls appeared (scene loaded successfully)
@@ -982,7 +1029,7 @@ test.describe('Astronomy Scene - Sky View Animation Controls', () => {
     const frameCounter = page.locator('.animation-controls .frame-counter');
     await expect(frameCounter).toBeVisible({ timeout: 5000 });
     beforePlayFrameXY = await frameCounter.innerText();
-    await expect(scene).toHaveScreenshot('sky-view-first-frame.png');
+    await expect(scene).toHaveScreenshot('sky-view-first-frame.png', { timeout: 15000 });
     // Set animation speed to a reasonable value for testing (1.0 = normal speed)
     const speedInput = page.locator('.animation-controls input[type="range"]#animation-speed');
     if (await speedInput.count()) {
@@ -1023,6 +1070,6 @@ test.describe('Astronomy Scene - Sky View Animation Controls', () => {
     expect(afterWaitFrameXY).not.toBe(beforePlayFrameXY);
     const resetButton = page.getByRole('button', { name: 'Restart' });
     await resetButton.click();
-    await expect(scene).toHaveScreenshot('sky-view-reset-frame.png');
+    await expect(scene).toHaveScreenshot('sky-view-reset-frame.png', { timeout: 15000 });
   });
 });

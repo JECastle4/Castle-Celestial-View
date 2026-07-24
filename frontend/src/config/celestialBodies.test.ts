@@ -3,8 +3,8 @@ import { CELESTIAL_BODIES, getBodyConfig, getBodyById } from './celestialBodies'
 
 describe('celestialBodies', () => {
   describe('CELESTIAL_BODIES array', () => {
-    it('should have 4 celestial bodies', () => {
-      expect(CELESTIAL_BODIES).toHaveLength(4);
+    it('should have 6 celestial bodies', () => {
+      expect(CELESTIAL_BODIES).toHaveLength(6);
     });
 
     it('should have sun as first body', () => {
@@ -13,8 +13,8 @@ describe('celestialBodies', () => {
       expect(CELESTIAL_BODIES[0].hasPhase).toBe(false);
     });
 
-    it('should have moon as second body', () => {
-      expect(CELESTIAL_BODIES[1].id).toBe('moon');
+    it('should have mercury as second body', () => {
+      expect(CELESTIAL_BODIES[1].id).toBe('mercury');
       expect(CELESTIAL_BODIES[1].order).toBe(1);
       expect(CELESTIAL_BODIES[1].hasPhase).toBe(true);
     });
@@ -25,11 +25,10 @@ describe('celestialBodies', () => {
       expect(CELESTIAL_BODIES[2].hasPhase).toBe(true);
     });
 
-    it('should have mercury as fourth body', () => {
-      expect(CELESTIAL_BODIES[3].id).toBe('mercury');
+    it('should have earth as fourth body (disabled)', () => {
+      expect(CELESTIAL_BODIES[3].id).toBe('earth');
       expect(CELESTIAL_BODIES[3].order).toBe(3);
-      expect(CELESTIAL_BODIES[3].hasPhase).toBe(true);
-      expect(CELESTIAL_BODIES[3].hasNakedEyeVisibility).toBe(true);
+      expect(CELESTIAL_BODIES[3].enabled).toBe(false);
     });
   });
 
