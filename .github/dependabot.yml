@@ -57,7 +57,15 @@ updates:
       prefix: "chore(deps)"
       include: "scope"
     groups:
-      # Group dev dependencies
+      # TypeScript ecosystem — must upgrade together due to peer dependency constraints
+      # See: https://github.com/JECastle4/Castle-Celestial-View/issues (TypeScript 7 blocker)
+      typescript-ecosystem:
+        patterns:
+          - "typescript"
+          - "vue-tsc"
+          - "@typescript-eslint/*"
+          - "@types/node"
+      # Group other dev dependencies
       dev-dependencies:
         dependency-type: "development"
         patterns:
@@ -67,7 +75,6 @@ updates:
           - "@vitest/*"
           - "@vue/test-utils"
           - "happy-dom"
-          - "typescript"
           - "eslint*"
       # Group Vue ecosystem
       vue-ecosystem:
