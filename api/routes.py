@@ -18,6 +18,14 @@ from api.models import (
     MercuryPositionResponse,
     MarsPositionRequest,
     MarsPositionResponse,
+    JupiterPositionRequest,
+    JupiterPositionResponse,
+    SaturnPositionRequest,
+    SaturnPositionResponse,
+    UranusPositionRequest,
+    UranusPositionResponse,
+    NeptunePositionRequest,
+    NeptunePositionResponse,
     MoonPhaseRequest,
     MoonPhaseResponse,
     BatchEarthObservationsRequest,
@@ -32,6 +40,10 @@ from api.services.moon import calculate_moon_position
 from api.services.venus import calculate_venus_position
 from api.services.mercury import calculate_mercury_position
 from api.services.mars import calculate_mars_position
+from api.services.jupiter import calculate_jupiter_position
+from api.services.saturn import calculate_saturn_position
+from api.services.uranus import calculate_uranus_position
+from api.services.neptune import calculate_neptune_position
 from api.services.moon_phase import calculate_moon_phase
 from api.services.batch_earth_observations import calculate_batch_earth_observations
 
@@ -440,6 +452,245 @@ async def get_mars_position(request: MarsPositionRequest):
         raise HTTPException(
             status_code=500,
             detail=f"Error calculating Mars position: {str(e)}"
+        ) from e
+
+
+@router.post("/jupiter-position", response_model=JupiterPositionResponse)
+async def get_jupiter_position(request: JupiterPositionRequest):
+    """
+    Calculate Jupiter's position at a given time and location.
+
+    Returns altitude (angle above horizon), azimuth (compass direction), visibility status,
+    and retrograde motion status.
+
+    Jupiter Characteristics:
+    Jupiter is a superior planet (orbit outside Earth's). As a distant outer planet:
+    - Phase angle maximum: ~11° (negligible variation in illumination, always ~99.9%+ lit)
+    - Always visible when above horizon (no elongation threshold)
+    - Exhibits retrograde motion annually (~4 months retrograde per synodic period ~13 months)
+    - Appears as a non-varying bright disk; no meaningful phases for observation
+
+    Parameters:
+    - **date**: Date in ISO format (YYYY-MM-DD)
+    - **time**: Time in HH:MM:SS format
+    - **latitude**: Latitude in degrees (-90 to 90)
+    - **longitude**: Longitude in degrees (-180 to 180)
+    - **elevation**: Elevation above sea level in meters (optional)
+
+    Returns:
+    - **altitude**: Jupiter's altitude in degrees (negative = below horizon)
+    - **azimuth**: Jupiter's azimuth in degrees (0=North, 90=East)
+    - **is_visible**: True if Jupiter is above horizon
+    - **retrograde_status**: Current retrograde motion status (prograde or retrograde)
+    - **ra_degrees**: Right ascension in degrees
+    - **dec_degrees**: Declination in degrees
+    - **julian_date**: JD for this calculation
+    - **input_datetime**: The processed input
+    - **location**: The location used for calculation
+    """
+    try:
+        observation_time = ObservationDateTime(date=request.date, time=request.time)
+        location = LocationModel(
+            latitude=request.latitude,
+            longitude=request.longitude,
+            elevation=request.elevation
+        )
+        result = calculate_jupiter_position(
+            observation_time,
+            location,
+            locale=get_i18n().locale,
+        )
+        return JupiterPositionResponse(**result)
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid input: {str(e)}"
+        ) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error calculating Jupiter position: {str(e)}"
+        ) from e
+
+
+@router.post("/saturn-position", response_model=SaturnPositionResponse)
+async def get_saturn_position(request: SaturnPositionRequest):
+    """
+    Calculate Saturn's position at a given time and location.
+
+    Returns altitude (angle above horizon), azimuth (compass direction), visibility status,
+    and retrograde motion status.
+
+    Saturn Characteristics:
+    Saturn is a superior planet (orbit outside Earth's). As a distant outer planet:
+    - Phase angle maximum: ~5° (negligible variation in illumination, always ~99.95%+ lit)
+    - Always visible when above horizon (no elongation threshold)
+    - Exhibits retrograde motion annually (~4.5 months retrograde per synodic period ~12.4 months)
+    - Appears as a non-varying bright disk; no meaningful phases for observation
+    - Rings visible to telescopes but not relevant for positional astronomy
+
+    Parameters:
+    - **date**: Date in ISO format (YYYY-MM-DD)
+    - **time**: Time in HH:MM:SS format
+    - **latitude**: Latitude in degrees (-90 to 90)
+    - **longitude**: Longitude in degrees (-180 to 180)
+    - **elevation**: Elevation above sea level in meters (optional)
+
+    Returns:
+    - **altitude**: Saturn's altitude in degrees (negative = below horizon)
+    - **azimuth**: Saturn's azimuth in degrees (0=North, 90=East)
+    - **is_visible**: True if Saturn is above horizon
+    - **retrograde_status**: Current retrograde motion status (prograde or retrograde)
+    - **ra_degrees**: Right ascension in degrees
+    - **dec_degrees**: Declination in degrees
+    - **julian_date**: JD for this calculation
+    - **input_datetime**: The processed input
+    - **location**: The location used for calculation
+    """
+    try:
+        observation_time = ObservationDateTime(date=request.date, time=request.time)
+        location = LocationModel(
+            latitude=request.latitude,
+            longitude=request.longitude,
+            elevation=request.elevation
+        )
+        result = calculate_saturn_position(
+            observation_time,
+            location,
+            locale=get_i18n().locale,
+        )
+        return SaturnPositionResponse(**result)
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid input: {str(e)}"
+        ) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error calculating Saturn position: {str(e)}"
+        ) from e
+
+
+@router.post("/uranus-position", response_model=UranusPositionResponse)
+async def get_uranus_position(request: UranusPositionRequest):
+    """
+    Calculate Uranus's position at a given time and location.
+
+    Returns altitude (angle above horizon), azimuth (compass direction), visibility status,
+    and retrograde motion status.
+
+    Uranus Characteristics:
+    Uranus is a superior planet (orbit outside Earth's). As a distant outer planet:
+    - Phase angle maximum: ~3° (negligible variation in illumination, always ~99.98%+ lit)
+    - Always visible when above horizon (no elongation threshold)
+    - Exhibits retrograde motion annually (~5 months retrograde per synodic period ~12 months)
+    - Appears as a non-varying bright disk; no meaningful phases for observation
+    - Difficult to observe without binoculars or telescopes due to distance/faintness
+
+    Parameters:
+    - **date**: Date in ISO format (YYYY-MM-DD)
+    - **time**: Time in HH:MM:SS format
+    - **latitude**: Latitude in degrees (-90 to 90)
+    - **longitude**: Longitude in degrees (-180 to 180)
+    - **elevation**: Elevation above sea level in meters (optional)
+
+    Returns:
+    - **altitude**: Uranus's altitude in degrees (negative = below horizon)
+    - **azimuth**: Uranus's azimuth in degrees (0=North, 90=East)
+    - **is_visible**: True if Uranus is above horizon
+    - **retrograde_status**: Current retrograde motion status (prograde or retrograde)
+    - **ra_degrees**: Right ascension in degrees
+    - **dec_degrees**: Declination in degrees
+    - **julian_date**: JD for this calculation
+    - **input_datetime**: The processed input
+    - **location**: The location used for calculation
+    """
+    try:
+        observation_time = ObservationDateTime(date=request.date, time=request.time)
+        location = LocationModel(
+            latitude=request.latitude,
+            longitude=request.longitude,
+            elevation=request.elevation
+        )
+        result = calculate_uranus_position(
+            observation_time,
+            location,
+            locale=get_i18n().locale,
+        )
+        return UranusPositionResponse(**result)
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid input: {str(e)}"
+        ) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error calculating Uranus position: {str(e)}"
+        ) from e
+
+
+@router.post("/neptune-position", response_model=NeptunePositionResponse)
+async def get_neptune_position(request: NeptunePositionRequest):
+    """
+    Calculate Neptune's position at a given time and location.
+
+    Returns altitude (angle above horizon), azimuth (compass direction), visibility status,
+    and retrograde motion status.
+
+    Neptune Characteristics:
+    Neptune is a superior planet (orbit outside Earth's). As the most distant outer planet:
+    - Phase angle maximum: ~2° (negligible variation in illumination, always ~99.99%+ lit)
+    - Always visible when above horizon (no elongation threshold)
+    - Exhibits retrograde motion annually (~5.5 months retrograde per synodic period ~12 months)
+    - Appears as a non-varying bright disk; no meaningful phases for observation
+    - Extremely difficult to observe without telescopes due to distance/extreme faintness
+
+    Parameters:
+    - **date**: Date in ISO format (YYYY-MM-DD)
+    - **time**: Time in HH:MM:SS format
+    - **latitude**: Latitude in degrees (-90 to 90)
+    - **longitude**: Longitude in degrees (-180 to 180)
+    - **elevation**: Elevation above sea level in meters (optional)
+
+    Returns:
+    - **altitude**: Neptune's altitude in degrees (negative = below horizon)
+    - **azimuth**: Neptune's azimuth in degrees (0=North, 90=East)
+    - **is_visible**: True if Neptune is above horizon
+    - **retrograde_status**: Current retrograde motion status (prograde or retrograde)
+    - **ra_degrees**: Right ascension in degrees
+    - **dec_degrees**: Declination in degrees
+    - **julian_date**: JD for this calculation
+    - **input_datetime**: The processed input
+    - **location**: The location used for calculation
+    """
+    try:
+        observation_time = ObservationDateTime(date=request.date, time=request.time)
+        location = LocationModel(
+            latitude=request.latitude,
+            longitude=request.longitude,
+            elevation=request.elevation
+        )
+        result = calculate_neptune_position(
+            observation_time,
+            location,
+            locale=get_i18n().locale,
+        )
+        return NeptunePositionResponse(**result)
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid input: {str(e)}"
+        ) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error calculating Neptune position: {str(e)}"
         ) from e
 
 
