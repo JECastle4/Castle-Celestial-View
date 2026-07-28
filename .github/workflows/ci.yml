@@ -25,7 +25,7 @@ jobs:
           echo "API version:      $API_VERSION"
           echo "Frontend version: $FE_VERSION"
           if [ "$API_VERSION" != "$FE_VERSION" ]; then
-            echo "::error::Version mismatch — pyproject.toml ($API_VERSION) and frontend/package.json ($FE_VERSION) must match. Update both files together. See VERSIONING.md."
+            echo "::error::Version mismatch - pyproject.toml ($API_VERSION) and frontend/package.json ($FE_VERSION) must match. Update both files together. See VERSIONING.md."
             exit 1
           fi
           echo "Versions consistent: $API_VERSION"
@@ -125,9 +125,9 @@ jobs:
             if python3 -c "import sys; sys.exit(0 if float('${MI}') < 70 else 1)"; then
               HAS_ISSUES=true
               if [ -z "$WARNING" ]; then
-                WARNING="Maintainability index: $MI (aim for ≥70)"
+                WARNING="Maintainability index: $MI (aim for >=70)"
               else
-                WARNING="$WARNING | Maintainability index: $MI (aim for ≥70)"
+                WARNING="$WARNING | Maintainability index: $MI (aim for >=70)"
               fi
             fi
           fi

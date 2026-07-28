@@ -1,8 +1,8 @@
 """Batch earth observations service for calculating multiple frames of celestial positions."""
 
-from typing import Optional
+from typing import Optional, List, Tuple
 from astropy.time import Time
-from astropy.coordinates import get_sun, get_body, AltAz, EarthLocation
+from astropy.coordinates import get_sun, get_body, AltAz, EarthLocation, HeliocentricTrueEcliptic
 import astropy.units as u
 from api.i18n import get_i18n
 from api.models import TimeRange, LocationModel
@@ -10,6 +10,7 @@ from .sun import _process_sun_position
 from .moon import _process_moon_position
 from .venus import _process_venus_position
 from .mercury import _process_mercury_position
+from .mars import _process_mars_position, _get_retrograde_status_from_longitudes
 from .moon_phase import _process_moon_phase
 
 
@@ -17,14 +18,14 @@ def calculate_batch_earth_observations(
     time_range: TimeRange,
     location: LocationModel,
     locale: Optional[str] = None,
-):
+):  # pylint: disable=too-many-statements
     """
-    Calculate batch observations of sun, moon, Venus, and Mercury positions from Earth.
+    Calculate batch observations of sun, moon, Venus, Mercury, and Mars positions from Earth.
 
     This function generates multiple frames of celestial observations between
     a start and end time. Each frame contains sun position, moon position,
-    moon phase, Venus position with phase information, Mercury position, and
-    Mercury phase data for that specific moment.
+    moon phase, Venus position with phase information, Mercury position with phase,
+    and Mars position with phase data for that specific moment.
 
     Args:
         time_range: TimeRange object containing:
@@ -33,7 +34,7 @@ def calculate_batch_earth_observations(
             - frame_count: Number of frames to generate (must be >= 2)
         location: LocationModel with observer position (latitude, longitude, elevation)
         locale: BCP 47 locale tag (e.g. 'en', 'xx-reverse') used to translate
-            validation error messages and moon/Venus/Mercury phase names in each frame.
+            validation error messages and moon/Venus/Mercury/Mars phase names in each frame.
             Defaults to English when None.
 
     Yields:
@@ -79,7 +80,19 @@ def calculate_batch_earth_observations(
         lon=location.longitude * u.deg,
         height=location.elevation * u.m
     )
-    for obs_time in times:
+
+    # Pre-calculate Mars longitude for first two frames to get accurate initial retrograde status
+    # (compare frame 0 to frame 1, rather than hardcoding "prograde")
+    mars_longitudes = [None] * frame_count
+    if frame_count >= 2:
+        for idx in [0, 1]:
+            mars_gcrs_temp = get_body("mars", times[idx])
+            mars_helio_temp = mars_gcrs_temp.transform_to(
+                HeliocentricTrueEcliptic(obstime=times[idx])
+            )
+            mars_longitudes[idx] = float(mars_helio_temp.lon.degree)
+
+    for frame_idx, obs_time in enumerate(times):
         iso_parts = obs_time.iso.split()
         date_part = iso_parts[0]
         time_part = iso_parts[1].split('.')[0]
@@ -89,13 +102,36 @@ def calculate_batch_earth_observations(
         moon = get_body("moon", obs_time, earth_location)
         venus_with_loc = get_body("venus", obs_time, earth_location)
         mercury_with_loc = get_body("mercury", obs_time, earth_location)
-        # Get Venus and Mercury at geocenter for geocentric separation/phase calculations (no location)
+        mars_with_loc = get_body("mars", obs_time, earth_location)
+        # Get Venus, Mercury, and Mars at geocenter for phase calculations
+        # (no location - used for geocentric separation)
         venus_gcrs = get_body("venus", obs_time)
         mercury_gcrs = get_body("mercury", obs_time)
+        mars_gcrs = get_body("mars", obs_time)
+        # Compute Mars retrograde status from mars_gcrs heliocentric longitude
+        # using finite differences (compare to previous frame's longitude)
+        mars_heliocentric = mars_gcrs.transform_to(
+            HeliocentricTrueEcliptic(obstime=obs_time)
+        )
+        current_mars_longitude = float(mars_heliocentric.lon.degree)
+        mars_longitudes[frame_idx] = current_mars_longitude
+
+        if frame_idx == 0 and frame_count >= 2:
+            # First frame: compare to next frame to determine actual retrograde status
+            mars_retrograde_status = _get_retrograde_status_from_longitudes(
+                current_mars_longitude, mars_longitudes[1]
+            )
+        else:
+            # Use finite differences: compare current to previous longitude
+            mars_retrograde_status = _get_retrograde_status_from_longitudes(
+                mars_longitudes[frame_idx - 1], current_mars_longitude
+            )
+
         sun_altaz = sun.transform_to(altaz_frame)
         moon_altaz = moon.transform_to(altaz_frame)
         venus_altaz = venus_with_loc.transform_to(altaz_frame)
         mercury_altaz = mercury_with_loc.transform_to(altaz_frame)
+        mars_altaz = mars_with_loc.transform_to(altaz_frame)
         sun_data = _process_sun_position(
             sun_gcrs=sun,
             sun_altaz=sun_altaz,
@@ -129,6 +165,17 @@ def calculate_batch_earth_observations(
             datetime_str=datetime_str,
             location=location,
             locale=locale
+        )
+        mars_data = _process_mars_position(
+            mars_with_loc=mars_with_loc,
+            mars_altaz=mars_altaz,
+            sun=sun,
+            mars_gcrs=mars_gcrs,
+            time=obs_time,
+            datetime_str=datetime_str,
+            location=location,
+            locale=locale,
+            retrograde_status=mars_retrograde_status
         )
         phase_data = _process_moon_phase(
             sun=sun,
@@ -184,6 +231,19 @@ def calculate_batch_earth_observations(
                 "phase_angle": mercury_data["phase_angle"],
                 "phase_name": mercury_data["phase_name"],
                 "naked_eye_visible": mercury_data["naked_eye_visible"]
+            },
+            "mars": {
+                "altitude": mars_data["altitude"],
+                "azimuth": mars_data["azimuth"],
+                "is_visible": mars_data["is_visible"],
+                "ra_degrees": mars_data["ra_degrees"],
+                "dec_degrees": mars_data["dec_degrees"]
+            },
+            "mars_phase": {
+                "illumination": mars_data["illumination"],
+                "phase_angle": mars_data["phase_angle"],
+                "phase_name": mars_data["phase_name"],
+                "retrograde_status": mars_data["retrograde_status"]
             }
         }
         yield frame

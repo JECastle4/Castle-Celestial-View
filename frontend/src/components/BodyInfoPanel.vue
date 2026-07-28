@@ -164,6 +164,32 @@
           </div>
         </div>
       </div>
+
+      <!-- Mars Phase Info Section -->
+      <div
+        v-if="bodyId === 'mars' && marsPhaseData"
+        class="info-section mars-section"
+      >
+        <h2 class="section-title">{{ t('astronomy.marsData') }}</h2>
+        <div class="mars-info">
+          <div
+            class="phase-name"
+            tabindex="0"
+            :aria-label="`${t('astronomy.phase')}: ${translateMarsPhaseName(marsPhaseData.phase_name)}`"
+          >
+            <span class="label">{{ t('astronomy.phase') }}:</span>
+            <span class="value">{{ translateMarsPhaseName(marsPhaseData.phase_name) }}</span>
+          </div>
+          <div
+            class="illumination"
+            tabindex="0"
+            :aria-label="`${t('astronomy.illumination')}: ${formatPercentage(marsPhaseData.illumination)}`"
+          >
+            <span class="label">{{ t('astronomy.illumination') }}:</span>
+            <span class="value">{{ formatPercentage(marsPhaseData.illumination) }}</span>
+          </div>
+        </div>
+      </div>
     </template>
     <template v-else>
       <div class="no-data">
@@ -175,7 +201,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
-import type { CelestialPosition, MoonPhaseData, VenusPhaseData, MercuryPhaseData } from '@/types/api.types';
+import type { CelestialPosition, MoonPhaseData, VenusPhaseData, MercuryPhaseData, MarsPhaseData } from '@/types/api.types';
 
 const { t } = useI18n();
 
@@ -185,6 +211,7 @@ defineProps<{
   moonPhaseData?: MoonPhaseData;
   venusPhaseData?: VenusPhaseData;
   mercuryPhaseData?: MercuryPhaseData;
+  marsPhaseData?: MarsPhaseData;
 }>();
 
 const formatRA = (raDegrees: number): string => {
@@ -256,6 +283,18 @@ const mercuryPhaseNameMap: Record<string, string> = {
 
 const translateMercuryPhaseName = (phaseName: string): string => {
   const key = mercuryPhaseNameMap[phaseName];
+  return key ? t(key) : phaseName;
+};
+
+// Map Mars phase names from API to i18n keys
+const marsPhaseNameMap: Record<string, string> = {
+  'Full': 'astronomy.marsPhases.full',
+  'Gibbous': 'astronomy.marsPhases.gibbous',
+  'Crescent': 'astronomy.marsPhases.crescent',
+};
+
+const translateMarsPhaseName = (phaseName: string): string => {
+  const key = marsPhaseNameMap[phaseName];
   return key ? t(key) : phaseName;
 };
 </script>
