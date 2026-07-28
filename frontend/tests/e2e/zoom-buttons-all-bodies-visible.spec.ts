@@ -367,6 +367,8 @@ async function getPageDiagnostics(page: Page, testName: string) {
   
   return diagnostics;
 }
+
+async function isPageHealthy(page: Page): Promise<boolean> {
   try {
     // Check if page is closed
     if (page.isClosed()) {
