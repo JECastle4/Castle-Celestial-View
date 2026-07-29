@@ -3,14 +3,14 @@ Outer planets (Jupiter, Saturn, Uranus, Neptune) utilities and retrograde motion
 
 This module provides retrograde motion detection for the outer planets (superior planets that
 orbit outside Earth's orbit). All outer planets share identical retrograde detection logic based
-on heliocentric longitude rate of change.
+on geocentric longitude rate of change (apparent retrograde motion as observed from Earth).
 
 Retrograde motion occurs annually for all outer planets when Earth overtakes them in their
 orbits. Duration and cadence vary by planet distance.
 """
 from typing import Optional
 
-from astropy.coordinates import get_body, HeliocentricTrueEcliptic
+from astropy.coordinates import get_body, GeocentricTrueEcliptic
 from astropy.time import Time
 import astropy.units as u
 
@@ -49,17 +49,18 @@ def get_retrograde_status(planet_gcrs, time: Time, planet_name: str) -> str:
     if planet_name.lower() not in OUTER_PLANETS:
         return "prograde"  # Fallback for non-outer planets
 
-    # Use heliocentric true ecliptic coordinates for longitude calculation
+    # Use geocentric true ecliptic coordinates for longitude calculation
+    # This detects apparent retrograde motion as observed from Earth
     try:
-        planet_hce = planet_gcrs.transform_to(HeliocentricTrueEcliptic(obstime=time))
-        planet_lon = planet_hce.lon.degree
+        planet_gce = planet_gcrs.transform_to(GeocentricTrueEcliptic(obstime=time))
+        planet_lon = planet_gce.lon.degree
 
         # Small time step to compute rate of change (0.1 days ≈ 2.4 hours)
         dt_days = 0.1
         time_plus = time + dt_days * u.day
         planet_gcrs_plus = get_body(planet_name, time_plus)
-        planet_hce_plus = planet_gcrs_plus.transform_to(HeliocentricTrueEcliptic(obstime=time_plus))
-        planet_lon_plus = planet_hce_plus.lon.degree
+        planet_gce_plus = planet_gcrs_plus.transform_to(GeocentricTrueEcliptic(obstime=time_plus))
+        planet_lon_plus = planet_gce_plus.lon.degree
 
         # Compute rate (degrees per day)
         # Handle wraparound at 0°/360° boundary
