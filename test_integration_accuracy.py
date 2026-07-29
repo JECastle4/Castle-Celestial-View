@@ -42,15 +42,15 @@ def test_multi_planet_visibility_accuracy():
     # New York City coordinates
     location = LocationModel(latitude=40.7128, longitude=-74.0060, elevation=10)
 
-    # Date: August 15, 2026, 11:00 PM EDT (03:00 UTC August 16)
+    # Date: August 15, 2026, 11:00 PM EDT = 03:00 UTC August 16
     # Use a 1-hour window but we only examine the first observation
     observation_start = ObservationDateTime(
-        date="2026-08-15",
-        time="23:00:00"
+        date="2026-08-16",
+        time="03:00:00"
     )
     observation_end = ObservationDateTime(
-        date="2026-08-15",
-        time="23:59:59"
+        date="2026-08-16",
+        time="03:59:59"
     )
 
     time_range = TimeRange(
@@ -73,7 +73,7 @@ def test_multi_planet_visibility_accuracy():
     metadata = all_items[-1]
 
     # Extract the first observation (both frames are at same time)
-    assert len(frames) >= 1, f"Expected at least 1 frame, got {len(frames)}"
+    assert len(frames) >= 1, f"Expected at least 1 frame, got {len(frames)}"  # nosec: B101
     obs = frames[0]
 
     print("\n" + "=" * 80)
@@ -86,6 +86,7 @@ def test_multi_planet_visibility_accuracy():
     print("\n" + "-" * 80)
     print("API RESULTS:")
     print("-" * 80)
+    print(f"Date/Time: 2026-08-16 03:00:00 UTC (August 15, 11:00 PM EDT local time)")
 
     # Helper function to format position data
     def format_body_data(body_data, name):
@@ -150,7 +151,7 @@ def test_multi_planet_visibility_accuracy():
 
     checks = []
 
-    # 1. Sun - At 23:00 EDT, still in civil twilight (horizon to -6 deg depression)
+    # 1. Sun - At 11:00 PM EDT (03:00 UTC Aug 16), in civil twilight (horizon to -6 deg depression)
     # Sunset in NYC Aug 15 is around 20:00 EDT, so 23:00 is ~3 hours after sunset
     # Sun can be slightly above horizon if we're measuring from sea level vs terrain
     sun_in_twilight = -6 < sun_data["altitude"] < 18  # -6 = civil twilight, 0 = horizon, 18 = astronomical start

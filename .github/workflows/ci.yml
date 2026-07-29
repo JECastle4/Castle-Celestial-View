@@ -63,7 +63,13 @@ jobs:
     - name: Security scan - Bandit
       run: |
         bandit -r . -x ./tests,./htmlcov,./__pycache__,./.venv -f json -o bandit-report.json
-        bandit -r . -x ./tests,./htmlcov,./__pycache__,./.venv -f screen
+        bandit -r . -x ./tests,./htmlcov,./__pycache__,./.venv -f screen || true
+        # Check for actual issues in the JSON report
+        ISSUE_COUNT=$(python3 -c "import json; data = json.load(open('bandit-report.json')); print(len(data.get('results', [])))")
+        if [ "$ISSUE_COUNT" -gt 0 ]; then
+          echo "::error::Found $ISSUE_COUNT security issues in bandit scan"
+          exit 1
+        fi
     
     - name: Dependency vulnerability scan - pip-audit
       run: |

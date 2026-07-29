@@ -2,12 +2,7 @@
 
 import pytest
 from api.services.neptune import calculate_neptune_position
-from api.services.outer_planets import get_retrograde_status
 from api.models import ObservationDateTime, LocationModel
-from pydantic import ValidationError
-from astropy.coordinates import get_body
-from astropy.time import Time
-import astropy.units as u
 
 
 class TestNeptunePositionBasic:
