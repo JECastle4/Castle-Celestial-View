@@ -189,6 +189,13 @@ async function loadAstronomyData(page: Page, startDate: string, endDate: string,
   }
 }
 
+// Switch between 3D and SKY view modes
+async function switchViewMode(page: Page, mode: '3D' | 'SKY') {
+  const label = mode === '3D' ? /Solar System/i : /Sky View/i;
+  await page.locator('.view-toggle').getByRole('button', { name: label }).click();
+  await page.waitForTimeout(500);
+}
+
 // Set animation speed via slider
 async function setAnimationSpeed(page: Page, speed: number) {
   const speedSlider = page.locator('#animation-speed');
@@ -793,6 +800,57 @@ testWithPersistentPage.describe('Zoom Buttons with All Bodies Visible', () => {
     await page.waitForTimeout(2000);
   });
 
+  testWithPersistentPage('Zoom to Earth', async ({ page: testPage }) => {
+    const page = testPage || persistentPage;
+    
+    console.log(`[Zoom to Earth] Starting test, page URL: ${page.url()}, page closed: ${page.isClosed()}`);
+    
+    // Verify scene is loaded from previous test
+    await verifySceneLoadedForZoomTest(page, 'Zoom to Earth');
+    
+    // Earth's zoom button is always enabled (Earth is the observer's home body, not an
+    // observed-from-Earth visibility check like the other bodies)
+    const earthBtn = page.locator('.zoom-btn').filter({ hasText: 'Earth' }).first();
+    const isDisabled = await earthBtn.isDisabled().catch(() => true);
+    expect(isDisabled, 'Earth button should be visible and enabled').toBe(false);
+    
+    console.log('[Zoom Test] Clicking Earth button...');
+    await earthBtn.click();
+    
+    await page.waitForTimeout(2000);
+    
+    console.log('[Zoom Test] Taking screenshot...');
+    await safelyTakeCanvasScreenshot(page, 'camera-view-zoomed-earth.png', 'Zoom to Earth');
+    
+    await clickRecentre(page);
+    await page.waitForTimeout(2000);
+  });
+
+  testWithPersistentPage('Zoom to Earth-Moon subsystem', async ({ page: testPage }) => {
+    const page = testPage || persistentPage;
+    
+    console.log(`[Zoom to Earth-Moon] Starting test, page URL: ${page.url()}, page closed: ${page.isClosed()}`);
+    
+    // Verify scene is loaded from previous test
+    await verifySceneLoadedForZoomTest(page, 'Zoom to Earth-Moon subsystem');
+    
+    // Earth-Moon button visibility tracks Moon visibility (isEarthMoonVisible mirrors isMoonVisible)
+    const earthMoonBtn = page.locator('.zoom-btn').filter({ hasText: 'Earth/Moon' }).first();
+    const isDisabled = await earthMoonBtn.isDisabled().catch(() => true);
+    expect(isDisabled, 'Earth/Moon button should be visible and enabled').toBe(false);
+    
+    console.log('[Zoom Test] Clicking Earth/Moon button...');
+    await earthMoonBtn.click();
+    
+    await page.waitForTimeout(2000);
+    
+    console.log('[Zoom Test] Taking screenshot...');
+    await safelyTakeCanvasScreenshot(page, 'camera-view-zoomed-earthmoon.png', 'Zoom to Earth-Moon subsystem');
+    
+    await clickRecentre(page);
+    await page.waitForTimeout(2000);
+  });
+
   testWithPersistentPage('Zoom buttons work with repeated clicks', async ({ page: testPage }) => {
     const page = testPage || persistentPage;
     
@@ -801,7 +859,7 @@ testWithPersistentPage.describe('Zoom Buttons with All Bodies Visible', () => {
     // Verify scene is loaded from previous test
     await verifySceneLoadedForZoomTest(page, 'Zoom buttons work with repeated clicks');
     
-    const bodies = ['Sun', 'Mercury', 'Venus', 'Moon', 'Mars'];
+    const bodies = ['Sun', 'Mercury', 'Venus', 'Moon', 'Mars', 'Earth', 'Earth/Moon'];
     
     for (const body of bodies) {
       const btn = page.locator('.zoom-btn').filter({ hasText: body }).first();
@@ -824,5 +882,34 @@ testWithPersistentPage.describe('Zoom Buttons with All Bodies Visible', () => {
     }
     
     expect(true).toBe(true);
+  });
+
+  testWithPersistentPage('Sky View mode hides zoom buttons', async ({ page: testPage }) => {
+    const page = testPage || persistentPage;
+    
+    console.log(`[Sky View] Starting test, page URL: ${page.url()}, page closed: ${page.isClosed()}`);
+    
+    // Verify scene is loaded from previous test
+    await verifySceneLoadedForZoomTest(page, 'Sky View mode hides zoom buttons');
+    
+    // Sanity check: zoom buttons are present in 3D mode
+    const zoomButtonsIn3D = await page.locator('.zoom-btn').count();
+    expect(zoomButtonsIn3D, 'Zoom buttons should be present in 3D mode').toBeGreaterThanOrEqual(7);
+    
+    // Switch to Sky View
+    console.log('[Sky View] Switching to Sky View...');
+    await switchViewMode(page, 'SKY');
+    
+    // The camera-controls-section (including all zoom buttons) is only rendered when
+    // viewMode === '3D', so in Sky View it should not be in the DOM at all
+    const zoomButtonsInSky = await page.locator('.zoom-btn').count();
+    expect(zoomButtonsInSky, 'Zoom buttons should not be rendered in Sky View mode').toBe(0);
+    
+    // Switch back to 3D and verify zoom buttons return
+    console.log('[Sky View] Switching back to 3D...');
+    await switchViewMode(page, '3D');
+    
+    const zoomButtonsBackIn3D = await page.locator('.zoom-btn').count();
+    expect(zoomButtonsBackIn3D, 'Zoom buttons should reappear after returning to 3D mode').toBeGreaterThanOrEqual(7);
   });
 });
