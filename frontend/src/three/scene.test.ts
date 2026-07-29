@@ -89,7 +89,7 @@ describe.skip('SceneManager', () => {
       expect(sceneManager.controls.enableDamping).toBe(true);
       expect(sceneManager.controls.dampingFactor).toBe(0.05);
       expect(sceneManager.controls.minDistance).toBe(2);
-      expect(sceneManager.controls.maxDistance).toBe(50);
+      expect(sceneManager.controls.maxDistance).toBe(150);
     });
 
     it('should add ambient and directional lights to scene', () => {
@@ -159,7 +159,7 @@ describe.skip('SceneManager', () => {
       sceneManager.setViewMode('3D');
       
       expect(sceneManager.controls.minDistance).toBe(2);
-      expect(sceneManager.controls.maxDistance).toBe(50);
+      expect(sceneManager.controls.maxDistance).toBe(150);
     });
 
     it('should restore background color when switching back to 3D view', () => {

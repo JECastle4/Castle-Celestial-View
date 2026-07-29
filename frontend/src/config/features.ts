@@ -13,4 +13,8 @@ export const FEATURE_FLAGS = {
   VENUS_ENABLED: true,
   MERCURY_ENABLED: true,
   MARS_ENABLED: true,
+  JUPITER_ENABLED: true,
+  SATURN_ENABLED: true,
+  URANUS_ENABLED: true,
+  NEPTUNE_ENABLED: true,
 };

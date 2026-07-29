@@ -98,6 +98,10 @@
       "earth": "htraE",
       "moon": "nooM",
       "mars": "sraM",
+      "jupiter": "retipuJ",
+      "saturn": "nrutaS",
+      "uranus": "sunarU",
+      "neptune": "enutpeN",
       "earthMoon": "nooM/htraE"
     },
     "sunAltitude": "tlA nuS",
@@ -114,6 +118,11 @@
     "venusData": "ataD suneV",
     "mercuryData": "ataD yrucreM",
     "marsData": "ataD sraM",
+    "jupiterData": "ataD retipuJ",
+    "saturnData": "ataD nrutaS",
+    "uranusData": "ataD sunarU",
+    "neptuneData": "ataD enutpeN",
+    "retrogradeStatus": "sutatS edargorteR",
     "nakedEyeVisible": "elbisiV eyE dekaN",
     "celestialCoordinates": "setanidroC laitselEC",
     "horizontalCoordinates": "setanidroC latnoziroH",
@@ -156,6 +165,10 @@
       "crescent": "tnecserC",
       "gibbous": "suobbiG",
       "full": "lluF"
+    },
+    "retrogradeMotion": {
+      "prograde": "edargorP",
+      "retrograde": "edargorteR"
     },
     "dayNames": {
       "sunday": "yadnuS",

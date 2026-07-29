@@ -206,6 +206,18 @@
             <button @click="zoomToBody('mars')" class="zoom-btn" :class="{ enabled: isMarsVisible, disabled: !isMarsVisible }" :disabled="!isMarsVisible" :title="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.mars') })" :aria-label="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.mars') })">
               <i class="fa fa-circle" aria-hidden="true"></i> {{ t('astronomy.bodyNames.mars') }}
             </button>
+            <button @click="zoomToBody('jupiter')" class="zoom-btn" :class="{ enabled: isJupiterVisible, disabled: !isJupiterVisible }" :disabled="!isJupiterVisible" :title="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.jupiter') })" :aria-label="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.jupiter') })">
+              <i class="fa fa-circle" aria-hidden="true"></i> {{ t('astronomy.bodyNames.jupiter') }}
+            </button>
+            <button @click="zoomToBody('saturn')" class="zoom-btn" :class="{ enabled: isSaturnVisible, disabled: !isSaturnVisible }" :disabled="!isSaturnVisible" :title="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.saturn') })" :aria-label="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.saturn') })">
+              <i class="fa fa-circle" aria-hidden="true"></i> {{ t('astronomy.bodyNames.saturn') }}
+            </button>
+            <button @click="zoomToBody('uranus')" class="zoom-btn" :class="{ enabled: isUranusVisible, disabled: !isUranusVisible }" :disabled="!isUranusVisible" :title="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.uranus') })" :aria-label="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.uranus') })">
+              <i class="fa fa-circle" aria-hidden="true"></i> {{ t('astronomy.bodyNames.uranus') }}
+            </button>
+            <button @click="zoomToBody('neptune')" class="zoom-btn" :class="{ enabled: isNeptuneVisible, disabled: !isNeptuneVisible }" :disabled="!isNeptuneVisible" :title="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.neptune') })" :aria-label="t('buttons.zoomToBody', { body: t('astronomy.bodyNames.neptune') })">
+              <i class="fa fa-circle" aria-hidden="true"></i> {{ t('astronomy.bodyNames.neptune') }}
+            </button>
           </div>
         </div>
         
@@ -219,11 +231,12 @@
           
           <BodyInfoPanel
             :bodyId="selectedBodyId"
-            :bodyData="selectedBodyId === 'sun' ? currentFrame.sun : selectedBodyId === 'moon' ? currentFrame.moon : selectedBodyId === 'mercury' ? currentFrame.mercury : selectedBodyId === 'mars' ? currentFrame.mars : currentFrame.venus"
+            :bodyData="selectedBodyData"
             :moonPhaseData="selectedBodyId === 'moon' ? currentFrame.moon_phase : undefined"
             :venusPhaseData="selectedBodyId === 'venus' ? currentFrame.venus_phase : undefined"
             :mercuryPhaseData="selectedBodyId === 'mercury' ? currentFrame.mercury_phase : undefined"
             :marsPhaseData="selectedBodyId === 'mars' ? currentFrame.mars_phase : undefined"
+            :outerPlanetData="outerPlanetData"
           />
         </div>
       </div>
@@ -328,6 +341,10 @@ import { Moon } from '@/three/objects/Moon';
 import { Venus } from '@/three/objects/Venus';
 import { Mercury } from '@/three/objects/Mercury';
 import { Mars } from '@/three/objects/Mars';
+import { Jupiter } from '@/three/objects/Jupiter';
+import { Saturn } from '@/three/objects/Saturn';
+import { Uranus } from '@/three/objects/Uranus';
+import { Neptune } from '@/three/objects/Neptune';
 import { Earth } from '@/three/objects/Earth';
 import { FEATURE_FLAGS } from '@/config/features';
 import type { ObservationFrame } from '@/types/api.types';
@@ -376,6 +393,10 @@ let moon: Moon | null = null;
 let venus: Venus | null = null;
 let mercury: Mercury | null = null;
 let mars: Mars | null = null;
+let jupiter: Jupiter | null = null;
+let saturn: Saturn | null = null;
+let uranus: Uranus | null = null;
+let neptune: Neptune | null = null;
 let earth: Earth | null = null;
 
 const isAnimating = ref(false);
@@ -458,11 +479,45 @@ const isVenusVisible = computed(() => currentFrame.value?.venus?.is_visible ?? f
 const isMoonVisible = computed(() => currentFrame.value?.moon?.is_visible ?? false);
 const isEarthMoonVisible = computed(() => currentFrame.value?.moon?.is_visible ?? false);
 const isMarsVisible = computed(() => currentFrame.value?.mars?.is_visible ?? false);
+const isJupiterVisible = computed(() => currentFrame.value?.jupiter?.is_visible ?? false);
+const isSaturnVisible = computed(() => currentFrame.value?.saturn?.is_visible ?? false);
+const isUranusVisible = computed(() => currentFrame.value?.uranus?.is_visible ?? false);
+const isNeptuneVisible = computed(() => currentFrame.value?.neptune?.is_visible ?? false);
+
+// Resolves the celestial position data for the currently selected carousel body
+const selectedBodyData = computed(() => {
+  const frame = currentFrame.value;
+  if (!frame) return undefined;
+  switch (selectedBodyId.value) {
+    case 'sun': return frame.sun;
+    case 'moon': return frame.moon;
+    case 'mercury': return frame.mercury;
+    case 'mars': return frame.mars;
+    case 'jupiter': return frame.jupiter;
+    case 'saturn': return frame.saturn;
+    case 'uranus': return frame.uranus;
+    case 'neptune': return frame.neptune;
+    default: return frame.venus;
+  }
+});
+
+// Resolves the retrograde status data for the currently selected outer planet, if any
+const outerPlanetData = computed(() => {
+  const frame = currentFrame.value;
+  if (!frame) return undefined;
+  switch (selectedBodyId.value) {
+    case 'jupiter': return frame.jupiter_data;
+    case 'saturn': return frame.saturn_data;
+    case 'uranus': return frame.uranus_data;
+    case 'neptune': return frame.neptune_data;
+    default: return undefined;
+  }
+});
 
 
 const initializeObjects = () => {
   if (!canvasRef.value) return;
-  if (!earth || !sun || !moon || (FEATURE_FLAGS.VENUS_ENABLED && !venus) || (FEATURE_FLAGS.MERCURY_ENABLED && !mercury) || (FEATURE_FLAGS.MARS_ENABLED && !mars) || !sceneManager) {
+  if (!earth || !sun || !moon || (FEATURE_FLAGS.VENUS_ENABLED && !venus) || (FEATURE_FLAGS.MERCURY_ENABLED && !mercury) || (FEATURE_FLAGS.MARS_ENABLED && !mars) || (FEATURE_FLAGS.JUPITER_ENABLED && !jupiter) || (FEATURE_FLAGS.SATURN_ENABLED && !saturn) || (FEATURE_FLAGS.URANUS_ENABLED && !uranus) || (FEATURE_FLAGS.NEPTUNE_ENABLED && !neptune) || !sceneManager) {
     sceneManager = new SceneManager(canvasRef.value);
     earth = new Earth();
     sun = new Sun();
@@ -476,6 +531,18 @@ const initializeObjects = () => {
     if (FEATURE_FLAGS.MARS_ENABLED) {
       mars = new Mars();
     }
+    if (FEATURE_FLAGS.JUPITER_ENABLED) {
+      jupiter = new Jupiter();
+    }
+    if (FEATURE_FLAGS.SATURN_ENABLED) {
+      saturn = new Saturn();
+    }
+    if (FEATURE_FLAGS.URANUS_ENABLED) {
+      uranus = new Uranus();
+    }
+    if (FEATURE_FLAGS.NEPTUNE_ENABLED) {
+      neptune = new Neptune();
+    }
     earth.addToScene(sceneManager.scene);
     sun.addToScene(sceneManager.scene);
     moon.addToScene(sceneManager.scene);
@@ -487,6 +554,18 @@ const initializeObjects = () => {
     }
     if (mars) {
       mars.addToScene(sceneManager.scene);
+    }
+    if (jupiter) {
+      jupiter.addToScene(sceneManager.scene);
+    }
+    if (saturn) {
+      saturn.addToScene(sceneManager.scene);
+    }
+    if (uranus) {
+      uranus.addToScene(sceneManager.scene);
+    }
+    if (neptune) {
+      neptune.addToScene(sceneManager.scene);
     }
     // Hide objects until data is loaded
     if (earth && earth.mesh && earth.getGridHelper() && earth.getAxesHelper() && earth.getHemisphereGrid()) {
@@ -510,6 +589,18 @@ const initializeObjects = () => {
     }
     if (FEATURE_FLAGS.MARS_ENABLED && mars && mars.mesh) {
       mars.mesh.visible = false;
+    }
+    if (FEATURE_FLAGS.JUPITER_ENABLED && jupiter && jupiter.mesh) {
+      jupiter.mesh.visible = false;
+    }
+    if (FEATURE_FLAGS.SATURN_ENABLED && saturn && saturn.mesh) {
+      saturn.mesh.visible = false;
+    }
+    if (FEATURE_FLAGS.URANUS_ENABLED && uranus && uranus.mesh) {
+      uranus.mesh.visible = false;
+    }
+    if (FEATURE_FLAGS.NEPTUNE_ENABLED && neptune && neptune.mesh) {
+      neptune.mesh.visible = false;
     }
     sceneManager.startAnimation(updateAnimation);
   }
@@ -578,6 +669,8 @@ async function loadData() {
     const frame = currentFrame.value;
     
     // Always include Earth (reference point); filter other bodies by is_visible
+    // Note: Jupiter/Saturn/Uranus/Neptune are intentionally excluded here (see
+    // calculateOptimalDefaultView comment) — reach them via the zoom buttons instead.
     if (earth) bodyPositions.push(earth.mesh.position.clone());
     if (sun && frame?.sun.is_visible) bodyPositions.push(sun.mesh.position.clone());
     if (moon && frame?.moon.is_visible) bodyPositions.push(moon.mesh.position.clone());
@@ -694,6 +787,42 @@ function updatePositions() {
     );
   }
 
+  if (FEATURE_FLAGS.JUPITER_ENABLED && frame.jupiter && jupiter) {
+    jupiter.updatePosition(
+      frame.jupiter.azimuth,
+      frame.jupiter.altitude,
+      frame.jupiter.is_visible,
+      viewMode.value
+    );
+  }
+
+  if (FEATURE_FLAGS.SATURN_ENABLED && frame.saturn && saturn) {
+    saturn.updatePosition(
+      frame.saturn.azimuth,
+      frame.saturn.altitude,
+      frame.saturn.is_visible,
+      viewMode.value
+    );
+  }
+
+  if (FEATURE_FLAGS.URANUS_ENABLED && frame.uranus && uranus) {
+    uranus.updatePosition(
+      frame.uranus.azimuth,
+      frame.uranus.altitude,
+      frame.uranus.is_visible,
+      viewMode.value
+    );
+  }
+
+  if (FEATURE_FLAGS.NEPTUNE_ENABLED && frame.neptune && neptune) {
+    neptune.updatePosition(
+      frame.neptune.azimuth,
+      frame.neptune.altitude,
+      frame.neptune.is_visible,
+      viewMode.value
+    );
+  }
+
   moon.updatePhase(frame.moon_phase.illumination * 100);
   
   // Update label billboard orientations to face camera
@@ -708,6 +837,18 @@ function updatePositions() {
     }
     if (FEATURE_FLAGS.MARS_ENABLED && mars) {
       mars.updateLabelBillboard(sceneManager.camera);
+    }
+    if (FEATURE_FLAGS.JUPITER_ENABLED && jupiter) {
+      jupiter.updateLabelBillboard(sceneManager.camera);
+    }
+    if (FEATURE_FLAGS.SATURN_ENABLED && saturn) {
+      saturn.updateLabelBillboard(sceneManager.camera);
+    }
+    if (FEATURE_FLAGS.URANUS_ENABLED && uranus) {
+      uranus.updateLabelBillboard(sceneManager.camera);
+    }
+    if (FEATURE_FLAGS.NEPTUNE_ENABLED && neptune) {
+      neptune.updateLabelBillboard(sceneManager.camera);
     }
   }
 }
@@ -728,6 +869,18 @@ function setViewMode(mode: '3D' | 'SKY') {
     }
     if (mars) {
       mars.setViewMode(mode.toLowerCase() as 'sky' | '3d');
+    }
+    if (jupiter) {
+      jupiter.setViewMode(mode.toLowerCase() as 'sky' | '3d');
+    }
+    if (saturn) {
+      saturn.setViewMode(mode.toLowerCase() as 'sky' | '3d');
+    }
+    if (uranus) {
+      uranus.setViewMode(mode.toLowerCase() as 'sky' | '3d');
+    }
+    if (neptune) {
+      neptune.setViewMode(mode.toLowerCase() as 'sky' | '3d');
     }
     updatePositions();
   }
@@ -807,6 +960,10 @@ function zoomToBody(bodyName: string) {
     if (venus) bodyPositions.venus = venus.mesh.position.clone();
     if (earth) bodyPositions.earth = earth.mesh.position.clone();
     if (moon) bodyPositions.moon = moon.mesh.position.clone();
+    if (jupiter) bodyPositions.jupiter = jupiter.mesh.position.clone();
+    if (saturn) bodyPositions.saturn = saturn.mesh.position.clone();
+    if (uranus) bodyPositions.uranus = uranus.mesh.position.clone();
+    if (neptune) bodyPositions.neptune = neptune.mesh.position.clone();
 
     // Pass body positions to enable dynamic camera calculation
     sceneManager.transitionToPreset(bodyName, 800, bodyPositions);
@@ -827,6 +984,10 @@ function clearData() {
   venus = null;
   mercury = null;
   mars = null;
+  jupiter = null;
+  saturn = null;
+  uranus = null;
+  neptune = null;
   earth = null;
 }
 

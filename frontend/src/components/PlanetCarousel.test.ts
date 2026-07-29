@@ -142,7 +142,7 @@ describe('PlanetCarousel', () => {
     });
 
     it('cycles through all enabled bodies backward', async () => {
-      const wrapper = mount(PlanetCarousel, { props: { selectedBody: 'mars' } });
+      const wrapper = mount(PlanetCarousel, { props: { selectedBody: 'neptune' } });
       const [prevBtn] = wrapper.findAll('.nav-btn');
       const enabledBodies = CELESTIAL_BODIES.filter(b => b.enabled);
 

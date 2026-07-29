@@ -46,7 +46,7 @@ export class SceneManager {
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.05;
     this.controls.minDistance = 2;
-    this.controls.maxDistance = 70; // Increased from 50 to accommodate Mars at ~25.4 units
+    this.controls.maxDistance = 150; // Increased from 70 to accommodate outer planets (Jupiter-Neptune)
 
     // Create camera animator
     this.cameraAnimator = new CameraAnimator();
@@ -188,7 +188,7 @@ export class SceneManager {
         this.controls.target.set(0, 0, 0);
       }
       this.controls.minDistance = 2;
-      this.controls.maxDistance = 70;
+      this.controls.maxDistance = 150;
       this.scene.background = new THREE.Color(0x000011);
       this.controls.update();
     } else {

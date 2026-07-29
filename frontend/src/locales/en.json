@@ -93,6 +93,10 @@
       "earth": "Earth",
       "moon": "Moon",
       "mars": "Mars",
+      "jupiter": "Jupiter",
+      "saturn": "Saturn",
+      "uranus": "Uranus",
+      "neptune": "Neptune",
       "earthMoon": "Earth/Moon"
     },
     "sunAltitude": "Sun Alt",
@@ -109,6 +113,11 @@
     "venusData": "Venus Data",
     "mercuryData": "Mercury Data",
     "marsData": "Mars Data",
+    "jupiterData": "Jupiter Data",
+    "saturnData": "Saturn Data",
+    "uranusData": "Uranus Data",
+    "neptuneData": "Neptune Data",
+    "retrogradeStatus": "Retrograde Status",
     "nakedEyeVisible": "Naked Eye Visible",
     "celestialCoordinates": "Celestial Coordinates",
     "horizontalCoordinates": "Horizontal Coordinates",
@@ -151,6 +160,10 @@
       "crescent": "Crescent",
       "gibbous": "Gibbous",
       "full": "Full"
+    },
+    "retrogradeMotion": {
+      "prograde": "Prograde",
+      "retrograde": "Retrograde"
     },
     "dayNames": {
       "sunday": "Sunday",

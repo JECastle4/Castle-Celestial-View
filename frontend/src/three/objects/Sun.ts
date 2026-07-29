@@ -10,11 +10,12 @@ export class Sun {
   private skyViewGeometry: THREE.SphereGeometry;
   private defaultGeometry: THREE.SphereGeometry;
   private label: Label3D;
-  private labelOffset: number = 5; // Current label offset based on view mode
+  private labelOffset: number = 6.5; // Current label offset based on view mode
 
   constructor() {
-    // Default size for 3D view
-    this.defaultGeometry = new THREE.SphereGeometry(4, 32, 32);
+    // Default size for 3D view (manually enlarged from formula-derived 32.8 to 5 so gas
+    // giants can use the uncompressed size formula without dwarfing the Sun)
+    this.defaultGeometry = new THREE.SphereGeometry(5, 32, 32);
     // Sky view size (exaggerated for visibility)
     const domeRadius = 10;
     const sunAngularDiameterRad = 0.009; // ~0.5 degrees in radians
@@ -47,7 +48,7 @@ export class Sun {
     } else {
       this.mesh.geometry = this.defaultGeometry;
       // Position label farther in 3D view (larger sphere)
-      this.labelOffset = 5;
+      this.labelOffset = 6.5;
       this.label.positionRelativeTo(this.mesh.position, this.labelOffset);
     }
   }
