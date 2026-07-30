@@ -330,8 +330,7 @@ jobs:
 
     - name: Install Playwright Browsers
       run: |
-        npx playwright install --with-deps
-        npx playwright install msedge
+        npx playwright install chromium firefox webkit msedge --with-deps
 
     - name: Run Playwright E2E tests (All browsers – Xvfb + Mesa software rendering)
       run: |
