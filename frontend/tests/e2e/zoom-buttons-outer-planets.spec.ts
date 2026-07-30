@@ -464,35 +464,6 @@ testWithPersistentPage.describe('Zoom Buttons - Outer Planets', () => {
     }
   });
 
-  testWithPersistentPage.afterEach(async () => {
-    // After each test, verify the page is still in a valid state
-    // This prevents page context from becoming invalid (closed or about:blank) between tests
-    try {
-      if (!persistentPage || persistentPage.isClosed()) {
-        // Page is already closed, no cleanup needed but log it
-        if (persistentPage?.isClosed()) {
-          console.warn('[afterEach] Page was closed - fixture will be recreated');
-          persistentPage = null as any;
-          persistentContext = null as any;
-        }
-        return;
-      }
-
-      const url = persistentPage.url();
-      // If page navigated to about:blank, it's no longer usable for subsequent tests
-      if (url === 'about:blank') {
-        console.warn('[afterEach] Page is at about:blank - fixture will be recreated');
-        persistentPage = null as any;
-        persistentContext = null as any;
-      }
-    } catch (e) {
-      // If we get an error checking page state, assume page is invalid
-      console.warn('[afterEach] Error checking page state, fixture will be recreated:', e);
-      persistentPage = null as any;
-      persistentContext = null as any;
-    }
-  });
-
   testWithPersistentPage('Load data and navigate to all-outer-planets-visible frame', { timeout: 290000 }, async ({ page: testPage }) => {
     const page = testPage || persistentPage;
 
