@@ -3,12 +3,12 @@
 import warnings
 from typing import Optional
 from astropy.time import Time
-from astropy.coordinates import get_sun, get_body, EarthLocation
+from astropy.coordinates import get_sun, get_body
 from astropy.coordinates.baseframe import NonRotationTransformationWarning
-import astropy.units as u
 import numpy as np
 from api.i18n import get_i18n
 from api.models import ObservationDateTime, LocationModel
+from api.services.common_bodies import _setup_coordinates
 
 
 def calculate_moon_phase(
@@ -38,26 +38,8 @@ def calculate_moon_phase(
     Raises:
         ValueError: If date/time format is invalid or coordinates out of range
     """
-    # Validate coordinates
-    if not -90 <= location.latitude <= 90:
-        msg = get_i18n(locale).get('validation.latitudeRange',
-                                     value=location.latitude)
-        raise ValueError(msg)
-    if not -180 <= location.longitude <= 180:
-        msg = get_i18n(locale).get('validation.longitudeRange',
-                                    value=location.longitude)
-        raise ValueError(msg)
-
-    # Combine date and time (ISO 8601 format)
-    datetime_str = f"{observation_time.date}T{observation_time.time}Z"
-
-    # Convert to astropy Time (assumes UTC)
-    time = Time(datetime_str.rstrip('Z'), format="isot", scale="utc")
-
-    # Create location
-    earth_location = EarthLocation(
-        lat=location.latitude * u.deg, lon=location.longitude * u.deg,
-        height=location.elevation * u.m
+    time, earth_location, _, datetime_str = _setup_coordinates(
+        observation_time, location, locale
     )
 
     # Get sun and moon positions

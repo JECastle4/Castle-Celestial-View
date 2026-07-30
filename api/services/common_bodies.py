@@ -13,6 +13,7 @@ from typing import Optional
 from astropy.coordinates import get_body, AltAz, EarthLocation
 from astropy.time import Time
 import astropy.units as u
+import numpy as np
 
 from api.i18n import get_i18n
 from api.models import ObservationDateTime, LocationModel
@@ -174,4 +175,63 @@ def _process_body_position(
             "longitude": location.longitude,
             "elevation": location.elevation
         }
+    }
+
+
+def calculate_planetary_phase_angle(planet_gcrs, sun) -> dict:
+    """
+    Calculate phase angle and illumination for a planet using planet-centric geometry.
+
+    Shared by inferior planets (Venus, Mercury) and Mars (superior planet): all three
+    use identical 3D-vector geometry and the same illumination formula. Only the
+    interpretation/classification of the resulting phase differs by planet type
+    (handled by each caller).
+
+    Illumination Calculation:
+    Phase angle is computed from 3D vectors: Sun direction from the planet and Earth
+    direction from the planet. Illumination = (1 + cos(phase_angle)) / 2.
+
+    Args:
+        planet_gcrs: Planet position in GCRS coordinates (geocentric, from
+            get_body(planet_name, time))
+        sun: Sun position in GCRS coordinates (from get_sun(time))
+
+    Returns:
+        Dictionary containing:
+            - illumination: Fraction of the planet's disk illuminated (0.0 to 1.0)
+            - cos_phase_angle: Cosine of the planet-centric phase angle (float),
+              useful for callers that classify phases directly from the phase angle
+              (e.g. Mars)
+            - phase_angle_ecliptic: Phase angle from ecliptic longitude difference
+              (0 to 360 degrees), used to determine waxing/waning for inferior planets
+    """
+    # Get Cartesian positions (GCRS frame: Earth at origin)
+    planet_pos = planet_gcrs.cartesian.xyz  # Vector from Earth to planet
+    sun_pos = sun.cartesian.xyz  # Vector from Earth to Sun
+
+    # Vectors from the planet's perspective
+    vec_planet_to_sun = sun_pos - planet_pos  # Sun direction from planet
+    vec_planet_to_earth = -planet_pos  # Earth direction from planet
+
+    # Compute angle between the two vectors
+    dot_prod = np.dot(vec_planet_to_sun, vec_planet_to_earth)
+    mag_sun = np.linalg.norm(vec_planet_to_sun)
+    mag_earth = np.linalg.norm(vec_planet_to_earth)
+
+    cos_phase_angle = dot_prod / (mag_sun * mag_earth)
+    # Clamp to avoid numerical errors in arccos
+    cos_phase_angle = float(np.clip(cos_phase_angle, -1.0, 1.0))
+
+    # Illumination: (1 + cos(phase_angle)) / 2
+    illumination = float((1.0 + cos_phase_angle) / 2.0)
+
+    # Phase angle from ecliptic longitudes (0-180° = waxing, 180-360° = waning)
+    sun_lon = sun.geocentrictrueecliptic.lon.deg
+    planet_lon = planet_gcrs.geocentrictrueecliptic.lon.deg
+    phase_angle_ecliptic = float((planet_lon - sun_lon) % 360)
+
+    return {
+        "illumination": illumination,
+        "cos_phase_angle": cos_phase_angle,
+        "phase_angle_ecliptic": phase_angle_ecliptic,
     }

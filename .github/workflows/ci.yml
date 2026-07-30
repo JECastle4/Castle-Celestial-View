@@ -151,6 +151,7 @@ jobs:
         files: ./coverage.xml
         flags: unittests
         name: codecov-umbrella
+        token: ${{ secrets.CODECOV_TOKEN }}
       continue-on-error: true
     
     - name: Report Codecov warning if upload failed
@@ -281,6 +282,7 @@ jobs:
         files: ./frontend/coverage/coverage-final.json
         flags: frontend
         name: codecov-frontend
+        token: ${{ secrets.CODECOV_TOKEN }}
       continue-on-error: true
     
     - name: Report Codecov warning if upload failed

@@ -61,14 +61,17 @@ Mars Key Characteristics:
 - Retrograde motion possible: ~every 26 months when Earth overtakes Mars
 """
 from typing import Optional
-from astropy.coordinates import (
-    get_body, get_sun, AltAz, EarthLocation, HeliocentricTrueEcliptic
-)
+from astropy.coordinates import get_body, get_sun, HeliocentricTrueEcliptic
 from astropy.time import Time
 import astropy.units as u
 import numpy as np
 from api.i18n import get_i18n
 from api.models import ObservationDateTime, LocationModel
+from api.services.common_bodies import (
+    _setup_coordinates,
+    _process_body_position,
+    calculate_planetary_phase_angle,
+)
 
 
 def calculate_mars_position(
@@ -110,29 +113,9 @@ def calculate_mars_position(
     Raises:
         ValueError: If date/time format is invalid or coordinates out of range
     """
-    i18n = get_i18n(locale)
-
-    # Validate coordinates
-    if not -90 <= location.latitude <= 90:
-        raise ValueError(i18n.get('validation.latitudeRange', value=location.latitude))
-    if not -180 <= location.longitude <= 180:
-        raise ValueError(i18n.get('validation.longitudeRange', value=location.longitude))
-
-    # Combine date and time (ISO 8601 format)
-    datetime_str = f"{observation_time.date}T{observation_time.time}Z"
-
-    # Convert to astropy Time
-    obs_time = Time(datetime_str.rstrip('Z'), format='isot', scale='utc')
-
-    # Create Earth location
-    earth_location = EarthLocation(
-        lat=location.latitude * u.deg,
-        lon=location.longitude * u.deg,
-        height=location.elevation * u.m
+    obs_time, earth_location, altaz_frame, datetime_str = _setup_coordinates(
+        observation_time, location, locale
     )
-
-    # Create AltAz frame (pressure=0 to ignore atmospheric refraction for simplicity)
-    altaz_frame = AltAz(obstime=obs_time, location=earth_location, pressure=0.0)
 
     # Get Mars position and transform to AltAz coordinates
     mars_with_loc = get_body("mars", obs_time, earth_location)
@@ -195,41 +178,17 @@ def _process_mars_position(
     """
     i18n = get_i18n(locale)
 
-    # Extract altitude and azimuth
-    altitude = mars_altaz.alt.degree
-    azimuth = mars_altaz.az.degree
+    # Format base position data (altitude, azimuth, is_visible, RA/Dec, etc.)
+    position_dict = _process_body_position(
+        mars_altaz, mars_with_loc, time, datetime_str, location
+    )
 
-    # Mars is visible if altitude is positive (above horizon)
-    # No elongation threshold needed (unlike Mercury/Venus)
-    # Convert to Python bool to avoid numpy bool type
-    is_visible = bool(altitude > 0)
-
-    # Calculate Mars phase using Mars-centric geometry (superior planet)
-    # For a superior planet, phase angle must be computed from Mars's perspective
-    # Get Cartesian positions (GCRS frame: Earth at origin)
-    mars_pos = mars_gcrs.cartesian.xyz  # Vector from Earth to Mars
-    sun_pos = sun.cartesian.xyz  # Vector from Earth to Sun
-
-    # Vectors from Mars's perspective
-    vec_mars_to_sun = sun_pos - mars_pos  # Sun direction from Mars
-    vec_mars_to_earth = -mars_pos  # Earth direction from Mars
-
-    # Compute angle between the two vectors
-    dot_prod = np.dot(vec_mars_to_sun, vec_mars_to_earth)
-    mag_sun = np.linalg.norm(vec_mars_to_sun)
-    mag_earth = np.linalg.norm(vec_mars_to_earth)
-
-    cos_phase_angle = dot_prod / (mag_sun * mag_earth)
-    # Clamp to avoid numerical errors in arccos
-    cos_phase_angle = np.clip(cos_phase_angle, -1.0, 1.0)
-
-    # Illumination for a superior planet: (1 + cos(phase_angle)) / 2
-    illumination = float((1.0 + cos_phase_angle) / 2.0)
-
-    # Phase angle from ecliptic longitudes
-    sun_lon = sun.geocentrictrueecliptic.lon.deg
-    mars_lon = mars_gcrs.geocentrictrueecliptic.lon.deg
-    phase_angle = float((mars_lon - sun_lon) % 360)  # pylint: disable=line-too-long
+    # Calculate Mars phase using shared planet-centric geometry (same vector math and
+    # illumination formula as inferior planets; Mars just classifies the resulting
+    # phase angle differently, see below)
+    phase = calculate_planetary_phase_angle(mars_gcrs, sun)
+    illumination = phase["illumination"]
+    phase_angle = phase["phase_angle_ecliptic"]
 
     # Determine phase name based on Mars-centric phase angle
     # Mars max phase angle ~45° means illumination ranges ~84-100%, so
@@ -238,10 +197,7 @@ def _process_mars_position(
     # - 0° (opposition): Full phase (~100% illuminated)
     # - ~15-30°: Gibbous phase (~96-92% illuminated)
     # - ~30-45° (max elongation): Crescent phase (~85-86% illuminated)
-    # Convert cos_phase_angle to Python float (may be astropy Quantity) before
-    # using with numpy
-    cos_value = float(cos_phase_angle)
-    phase_angle_deg = float(np.degrees(np.arccos(cos_value)))
+    phase_angle_deg = float(np.degrees(np.arccos(phase["cos_phase_angle"])))
 
     if phase_angle_deg <= 15:
         phase_key = "full"
@@ -258,30 +214,14 @@ def _process_mars_position(
     if retrograde_status is None:
         retrograde_status = _get_retrograde_status(mars_gcrs, sun, time)
 
-    # Extract RA/Dec in GCRS frame (topocentric/apparent, observer-dependent)
-    # Mars coordinates from get_body(..., earth_location) are topocentric coordinates
-    # that account for parallax based on observer location and distance to Mars
-    ra_degrees = float(mars_with_loc.ra.degree)
-    dec_degrees = float(mars_with_loc.dec.degree)
-
-    return {
-        "altitude": float(altitude),
-        "azimuth": float(azimuth),
-        "is_visible": is_visible,
-        "ra_degrees": ra_degrees,
-        "dec_degrees": dec_degrees,
+    position_dict.update({
         "illumination": illumination,
         "phase_angle": phase_angle,
         "phase_name": phase_name,
         "retrograde_status": retrograde_status,
-        "julian_date": float(time.jd),
-        "input_datetime": datetime_str,
-        "location": {
-            "latitude": location.latitude,
-            "longitude": location.longitude,
-            "elevation": location.elevation
-        }
-    }
+    })
+
+    return position_dict
 
 
 def _get_retrograde_status_from_longitudes(lon_before: float, lon_after: float) -> str:
