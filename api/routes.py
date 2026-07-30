@@ -2,6 +2,7 @@
 API routes for astronomy calculations
 """
 import json
+import sys
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from api.i18n import get_i18n
@@ -98,8 +99,11 @@ async def stream_batch_earth_observations(
                 if idx < frame_count:
                     yield f"event: frame\nid: {idx}\ndata: {json.dumps(item)}\n\n"
                 else:
-                    import sys
-                    print(f'[DEBUG Metadata] About to send metadata: {item}', file=sys.stderr, flush=True)
+                    print(
+                        f'[DEBUG Metadata] About to send metadata: {item}',
+                        file=sys.stderr,
+                        flush=True
+                    )
                     yield f"event: metadata\ndata: {json.dumps(item)}\n\n"
 
         return StreamingResponse(
