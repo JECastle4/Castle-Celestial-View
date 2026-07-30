@@ -104,6 +104,7 @@ function prev() {
   display: flex;
   align-items: center;
   gap: 0.25rem;
+  min-width: 0;
 }
 
 .nav-btn {
@@ -131,6 +132,10 @@ function prev() {
   display: flex;
   align-items: center;
   gap: 0.15rem;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0.25rem 0;
 }
 
 .body-tab {
@@ -147,7 +152,24 @@ function prev() {
   white-space: nowrap;
   width: auto;
   margin-bottom: 0;
+  flex-shrink: 0;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+@media (max-width: 899px) {
+  .body-tab {
+    width: 0;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+  }
+  
+  .body-tab.active {
+    width: auto;
+    min-width: max-content;
+    padding: 0.25rem 0.6rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  }
 }
 
 .body-tab.active {

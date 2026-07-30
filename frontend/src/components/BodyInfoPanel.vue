@@ -188,6 +188,32 @@
             <span class="label">{{ t('astronomy.illumination') }}:</span>
             <span class="value">{{ formatPercentage(marsPhaseData.illumination) }}</span>
           </div>
+          <div
+            class="retrograde-status"
+            tabindex="0"
+            :aria-label="`${t('astronomy.retrogradeStatus')}: ${translateRetrogradeStatus(marsPhaseData.retrograde_status)}`"
+          >
+            <span class="label">{{ t('astronomy.retrogradeStatus') }}:</span>
+            <span class="value">{{ translateRetrogradeStatus(marsPhaseData.retrograde_status) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Outer Planet (Jupiter/Saturn/Uranus/Neptune) Retrograde Info Section -->
+      <div
+        v-if="isOuterPlanet(bodyId) && outerPlanetData"
+        class="info-section outer-planet-section"
+      >
+        <h2 class="section-title">{{ t(`astronomy.${bodyId}Data`) }}</h2>
+        <div class="outer-planet-info">
+          <div
+            class="retrograde-status"
+            tabindex="0"
+            :aria-label="`${t('astronomy.retrogradeStatus')}: ${translateRetrogradeStatus(outerPlanetData.retrograde_status)}`"
+          >
+            <span class="label">{{ t('astronomy.retrogradeStatus') }}:</span>
+            <span class="value">{{ translateRetrogradeStatus(outerPlanetData.retrograde_status) }}</span>
+          </div>
         </div>
       </div>
     </template>
@@ -201,7 +227,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
-import type { CelestialPosition, MoonPhaseData, VenusPhaseData, MercuryPhaseData, MarsPhaseData } from '@/types/api.types';
+import type { CelestialPosition, MoonPhaseData, VenusPhaseData, MercuryPhaseData, MarsPhaseData, OuterPlanetData } from '@/types/api.types';
 
 const { t } = useI18n();
 
@@ -212,7 +238,11 @@ defineProps<{
   venusPhaseData?: VenusPhaseData;
   mercuryPhaseData?: MercuryPhaseData;
   marsPhaseData?: MarsPhaseData;
+  outerPlanetData?: OuterPlanetData;
 }>();
+
+const OUTER_PLANET_IDS = ['jupiter', 'saturn', 'uranus', 'neptune'];
+const isOuterPlanet = (bodyId: string): boolean => OUTER_PLANET_IDS.includes(bodyId);
 
 const formatRA = (raDegrees: number): string => {
   // Format RA: degrees with 4 decimal places
@@ -296,6 +326,17 @@ const marsPhaseNameMap: Record<string, string> = {
 const translateMarsPhaseName = (phaseName: string): string => {
   const key = marsPhaseNameMap[phaseName];
   return key ? t(key) : phaseName;
+};
+
+// Map retrograde status values from API to i18n keys (shared by Mars and outer planets)
+const retrogradeStatusMap: Record<string, string> = {
+  'prograde': 'astronomy.retrogradeMotion.prograde',
+  'retrograde': 'astronomy.retrogradeMotion.retrograde',
+};
+
+const translateRetrogradeStatus = (status: string): string => {
+  const key = retrogradeStatusMap[status];
+  return key ? t(key) : status;
 };
 </script>
 
@@ -422,7 +463,8 @@ const translateMarsPhaseName = (phaseName: string): string => {
 .phase-name,
 .illumination,
 .phase-angle,
-.naked-eye {
+.naked-eye,
+.retrograde-status {
   display: flex;
   justify-content: space-between;
   align-items: center;

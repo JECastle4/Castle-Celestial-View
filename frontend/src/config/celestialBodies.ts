@@ -81,6 +81,50 @@ export const CELESTIAL_BODIES: CelestialBodyConfig[] = [
     hasNakedEyeVisibility: false,
     icon: 'fa-circle',
     enabled: true
+  },
+  {
+    id: 'jupiter',
+    name: 'Jupiter',
+    labelKey: 'astronomy.bodyNames.jupiter',
+    order: 6,
+    hasPhase: false,
+    hasIllumination: false,
+    hasNakedEyeVisibility: false,
+    icon: 'fa-circle',
+    enabled: true
+  },
+  {
+    id: 'saturn',
+    name: 'Saturn',
+    labelKey: 'astronomy.bodyNames.saturn',
+    order: 7,
+    hasPhase: false,
+    hasIllumination: false,
+    hasNakedEyeVisibility: false,
+    icon: 'fa-circle',
+    enabled: true
+  },
+  {
+    id: 'uranus',
+    name: 'Uranus',
+    labelKey: 'astronomy.bodyNames.uranus',
+    order: 8,
+    hasPhase: false,
+    hasIllumination: false,
+    hasNakedEyeVisibility: false,
+    icon: 'fa-circle',
+    enabled: true
+  },
+  {
+    id: 'neptune',
+    name: 'Neptune',
+    labelKey: 'astronomy.bodyNames.neptune',
+    order: 9,
+    hasPhase: false,
+    hasIllumination: false,
+    hasNakedEyeVisibility: false,
+    icon: 'fa-circle',
+    enabled: true
   }
 ];
 

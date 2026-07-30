@@ -107,8 +107,10 @@ const emit = defineEmits<{
 }
 
 .header-right {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
 }
 </style>

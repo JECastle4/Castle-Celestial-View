@@ -4,8 +4,8 @@ import * as THREE from 'three';
 
 describe('cameraPresets', () => {
   describe('CAMERA_PRESETS', () => {
-    it('should have 8 presets defined', () => {
-      expect(Object.keys(CAMERA_PRESETS)).toHaveLength(8);
+    it('should have 12 presets defined', () => {
+      expect(Object.keys(CAMERA_PRESETS)).toHaveLength(12);
     });
 
     it('should have default preset', () => {

@@ -40,6 +40,10 @@ export interface MarsPhaseData {
   retrograde_status: string;
 }
 
+export interface OuterPlanetData {
+  retrograde_status: string;
+}
+
 export interface ObservationFrame {
   datetime: string;
   sun: CelestialPosition;
@@ -51,6 +55,14 @@ export interface ObservationFrame {
   mercury_phase?: MercuryPhaseData;
   mars?: CelestialPosition;
   mars_phase?: MarsPhaseData;
+  jupiter?: CelestialPosition;
+  jupiter_data?: OuterPlanetData;
+  saturn?: CelestialPosition;
+  saturn_data?: OuterPlanetData;
+  uranus?: CelestialPosition;
+  uranus_data?: OuterPlanetData;
+  neptune?: CelestialPosition;
+  neptune_data?: OuterPlanetData;
 }
 
 export interface LocationModel {

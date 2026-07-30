@@ -1,8 +1,10 @@
 """Batch earth observations service for calculating multiple frames of celestial positions."""
 
-from typing import Optional, List, Tuple
+from typing import Optional
 from astropy.time import Time
-from astropy.coordinates import get_sun, get_body, AltAz, EarthLocation, HeliocentricTrueEcliptic
+from astropy.coordinates import (
+    get_sun, get_body, AltAz, EarthLocation, HeliocentricTrueEcliptic
+)
 import astropy.units as u
 from api.i18n import get_i18n
 from api.models import TimeRange, LocationModel
@@ -12,6 +14,10 @@ from .venus import _process_venus_position
 from .mercury import _process_mercury_position
 from .mars import _process_mars_position, _get_retrograde_status_from_longitudes
 from .moon_phase import _process_moon_phase
+from .jupiter import _process_jupiter_position
+from .saturn import _process_saturn_position
+from .uranus import _process_uranus_position
+from .neptune import _process_neptune_position
 
 
 def calculate_batch_earth_observations(
@@ -20,12 +26,13 @@ def calculate_batch_earth_observations(
     locale: Optional[str] = None,
 ):  # pylint: disable=too-many-statements
     """
-    Calculate batch observations of sun, moon, Venus, Mercury, and Mars positions from Earth.
+    Calculate batch observations of sun, moon, Venus, Mercury, Mars, and outer planets.
 
     This function generates multiple frames of celestial observations between
     a start and end time. Each frame contains sun position, moon position,
     moon phase, Venus position with phase information, Mercury position with phase,
-    and Mars position with phase data for that specific moment.
+    Mars position with phase data, and Jupiter/Saturn/Uranus/Neptune positions with
+    retrograde motion status for that specific moment.
 
     Args:
         time_range: TimeRange object containing:
@@ -34,7 +41,7 @@ def calculate_batch_earth_observations(
             - frame_count: Number of frames to generate (must be >= 2)
         location: LocationModel with observer position (latitude, longitude, elevation)
         locale: BCP 47 locale tag (e.g. 'en', 'xx-reverse') used to translate
-            validation error messages and moon/Venus/Mercury/Mars phase names in each frame.
+            validation error messages and phase names in each frame.
             Defaults to English when None.
 
     Yields:
@@ -103,11 +110,20 @@ def calculate_batch_earth_observations(
         venus_with_loc = get_body("venus", obs_time, earth_location)
         mercury_with_loc = get_body("mercury", obs_time, earth_location)
         mars_with_loc = get_body("mars", obs_time, earth_location)
-        # Get Venus, Mercury, and Mars at geocenter for phase calculations
-        # (no location - used for geocentric separation)
+        # Get outer planets (Jupiter, Saturn, Uranus, Neptune)
+        jupiter_with_loc = get_body("jupiter", obs_time, earth_location)
+        saturn_with_loc = get_body("saturn", obs_time, earth_location)
+        uranus_with_loc = get_body("uranus", obs_time, earth_location)
+        neptune_with_loc = get_body("neptune", obs_time, earth_location)
+        # Get Venus, Mercury, Mars, and outer planets at geocenter for phase/retrograde calculations
+        # (no location - used for geocentric separation and retrograde detection)
         venus_gcrs = get_body("venus", obs_time)
         mercury_gcrs = get_body("mercury", obs_time)
         mars_gcrs = get_body("mars", obs_time)
+        jupiter_gcrs = get_body("jupiter", obs_time)
+        saturn_gcrs = get_body("saturn", obs_time)
+        uranus_gcrs = get_body("uranus", obs_time)
+        neptune_gcrs = get_body("neptune", obs_time)
         # Compute Mars retrograde status from mars_gcrs heliocentric longitude
         # using finite differences (compare to previous frame's longitude)
         mars_heliocentric = mars_gcrs.transform_to(
@@ -132,6 +148,10 @@ def calculate_batch_earth_observations(
         venus_altaz = venus_with_loc.transform_to(altaz_frame)
         mercury_altaz = mercury_with_loc.transform_to(altaz_frame)
         mars_altaz = mars_with_loc.transform_to(altaz_frame)
+        jupiter_altaz = jupiter_with_loc.transform_to(altaz_frame)
+        saturn_altaz = saturn_with_loc.transform_to(altaz_frame)
+        uranus_altaz = uranus_with_loc.transform_to(altaz_frame)
+        neptune_altaz = neptune_with_loc.transform_to(altaz_frame)
         sun_data = _process_sun_position(
             sun_gcrs=sun,
             sun_altaz=sun_altaz,
@@ -176,6 +196,39 @@ def calculate_batch_earth_observations(
             location=location,
             locale=locale,
             retrograde_status=mars_retrograde_status
+        )
+        # Process outer planets (no phase calculations, just retrograde status)
+        jupiter_data = _process_jupiter_position(
+            jupiter_with_loc=jupiter_with_loc,
+            jupiter_altaz=jupiter_altaz,
+            jupiter_gcrs=jupiter_gcrs,
+            time=obs_time,
+            datetime_str=datetime_str,
+            location=location
+        )
+        saturn_data = _process_saturn_position(
+            saturn_with_loc=saturn_with_loc,
+            saturn_altaz=saturn_altaz,
+            saturn_gcrs=saturn_gcrs,
+            time=obs_time,
+            datetime_str=datetime_str,
+            location=location
+        )
+        uranus_data = _process_uranus_position(
+            uranus_with_loc=uranus_with_loc,
+            uranus_altaz=uranus_altaz,
+            uranus_gcrs=uranus_gcrs,
+            time=obs_time,
+            datetime_str=datetime_str,
+            location=location
+        )
+        neptune_data = _process_neptune_position(
+            neptune_with_loc=neptune_with_loc,
+            neptune_altaz=neptune_altaz,
+            neptune_gcrs=neptune_gcrs,
+            time=obs_time,
+            datetime_str=datetime_str,
+            location=location
         )
         phase_data = _process_moon_phase(
             sun=sun,
@@ -244,6 +297,46 @@ def calculate_batch_earth_observations(
                 "phase_angle": mars_data["phase_angle"],
                 "phase_name": mars_data["phase_name"],
                 "retrograde_status": mars_data["retrograde_status"]
+            },
+            "jupiter": {
+                "altitude": jupiter_data["altitude"],
+                "azimuth": jupiter_data["azimuth"],
+                "is_visible": jupiter_data["is_visible"],
+                "ra_degrees": jupiter_data["ra_degrees"],
+                "dec_degrees": jupiter_data["dec_degrees"]
+            },
+            "jupiter_data": {
+                "retrograde_status": jupiter_data["retrograde_status"]
+            },
+            "saturn": {
+                "altitude": saturn_data["altitude"],
+                "azimuth": saturn_data["azimuth"],
+                "is_visible": saturn_data["is_visible"],
+                "ra_degrees": saturn_data["ra_degrees"],
+                "dec_degrees": saturn_data["dec_degrees"]
+            },
+            "saturn_data": {
+                "retrograde_status": saturn_data["retrograde_status"]
+            },
+            "uranus": {
+                "altitude": uranus_data["altitude"],
+                "azimuth": uranus_data["azimuth"],
+                "is_visible": uranus_data["is_visible"],
+                "ra_degrees": uranus_data["ra_degrees"],
+                "dec_degrees": uranus_data["dec_degrees"]
+            },
+            "uranus_data": {
+                "retrograde_status": uranus_data["retrograde_status"]
+            },
+            "neptune": {
+                "altitude": neptune_data["altitude"],
+                "azimuth": neptune_data["azimuth"],
+                "is_visible": neptune_data["is_visible"],
+                "ra_degrees": neptune_data["ra_degrees"],
+                "dec_degrees": neptune_data["dec_degrees"]
+            },
+            "neptune_data": {
+                "retrograde_status": neptune_data["retrograde_status"]
             }
         }
         yield frame

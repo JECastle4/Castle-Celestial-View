@@ -436,6 +436,298 @@ class MarsPositionResponse(BaseModel):
     )
 
 
+class JupiterPositionRequest(BaseModel):
+    """Request model for Jupiter position calculation"""
+    date: str = Field(
+        ...,
+        description="Date in ISO format (YYYY-MM-DD)",
+        examples=["2026-02-01"]
+    )
+    time: str = Field(
+        ...,
+        description="Time in HH:MM:SS format",
+        examples=["12:30:45"]
+    )
+    latitude: float = Field(
+        ...,
+        ge=-90,
+        le=90,
+        description="Latitude in degrees (-90 to 90, negative=South)",
+        examples=[40.7128]
+    )
+    longitude: float = Field(
+        ...,
+        ge=-180,
+        le=180,
+        description="Longitude in degrees (-180 to 180, negative=West)",
+        examples=[-74.0060]
+    )
+    elevation: float = Field(
+        default=0.0,
+        description="Elevation above sea level in meters",
+        examples=[10.0]
+    )
+
+
+class JupiterPositionResponse(BaseModel):
+    """Response model for Jupiter position calculation"""
+    altitude: float = Field(
+        ...,
+        description="Jupiter's altitude in degrees (negative = below horizon)"
+    )
+    azimuth: float = Field(
+        ...,
+        description="Jupiter's azimuth in degrees (0=North, 90=East, 180=South, 270=West)"
+    )
+    is_visible: bool = Field(
+        ...,
+        description="Whether Jupiter is above the horizon"
+    )
+    retrograde_status: str = Field(
+        ...,
+        description="Jupiter's retrograde motion status (prograde or retrograde)"
+    )
+    ra_degrees: float = Field(
+        ...,
+        description="Jupiter's right ascension in degrees (topocentric, observer-dependent)"
+    )
+    dec_degrees: float = Field(
+        ...,
+        description="Jupiter's declination in degrees (topocentric, observer-dependent)"
+    )
+    julian_date: float = Field(
+        ...,
+        description="Julian Date (JD) for this calculation"
+    )
+    input_datetime: str = Field(
+        ...,
+        description="The input date and time that was processed"
+    )
+    location: LocationModel = Field(
+        ...,
+        description="The location used for the calculation"
+    )
+
+
+class SaturnPositionRequest(BaseModel):
+    """Request model for Saturn position calculation"""
+    date: str = Field(
+        ...,
+        description="Date in ISO format (YYYY-MM-DD)",
+        examples=["2026-02-01"]
+    )
+    time: str = Field(
+        ...,
+        description="Time in HH:MM:SS format",
+        examples=["12:30:45"]
+    )
+    latitude: float = Field(
+        ...,
+        ge=-90,
+        le=90,
+        description="Latitude in degrees (-90 to 90, negative=South)",
+        examples=[40.7128]
+    )
+    longitude: float = Field(
+        ...,
+        ge=-180,
+        le=180,
+        description="Longitude in degrees (-180 to 180, negative=West)",
+        examples=[-74.0060]
+    )
+    elevation: float = Field(
+        default=0.0,
+        description="Elevation above sea level in meters",
+        examples=[10.0]
+    )
+
+
+class SaturnPositionResponse(BaseModel):
+    """Response model for Saturn position calculation"""
+    altitude: float = Field(
+        ...,
+        description="Saturn's altitude in degrees (negative = below horizon)"
+    )
+    azimuth: float = Field(
+        ...,
+        description="Saturn's azimuth in degrees (0=North, 90=East, 180=South, 270=West)"
+    )
+    is_visible: bool = Field(
+        ...,
+        description="Whether Saturn is above the horizon"
+    )
+    retrograde_status: str = Field(
+        ...,
+        description="Saturn's retrograde motion status (prograde or retrograde)"
+    )
+    ra_degrees: float = Field(
+        ...,
+        description="Saturn's right ascension in degrees (topocentric, observer-dependent)"
+    )
+    dec_degrees: float = Field(
+        ...,
+        description="Saturn's declination in degrees (topocentric, observer-dependent)"
+    )
+    julian_date: float = Field(
+        ...,
+        description="Julian Date (JD) for this calculation"
+    )
+    input_datetime: str = Field(
+        ...,
+        description="The input date and time that was processed"
+    )
+    location: LocationModel = Field(
+        ...,
+        description="The location used for the calculation"
+    )
+
+
+class UranusPositionRequest(BaseModel):
+    """Request model for Uranus position calculation"""
+    date: str = Field(
+        ...,
+        description="Date in ISO format (YYYY-MM-DD)",
+        examples=["2026-02-01"]
+    )
+    time: str = Field(
+        ...,
+        description="Time in HH:MM:SS format",
+        examples=["12:30:45"]
+    )
+    latitude: float = Field(
+        ...,
+        ge=-90,
+        le=90,
+        description="Latitude in degrees (-90 to 90, negative=South)",
+        examples=[40.7128]
+    )
+    longitude: float = Field(
+        ...,
+        ge=-180,
+        le=180,
+        description="Longitude in degrees (-180 to 180, negative=West)",
+        examples=[-74.0060]
+    )
+    elevation: float = Field(
+        default=0.0,
+        description="Elevation above sea level in meters",
+        examples=[10.0]
+    )
+
+
+class UranusPositionResponse(BaseModel):
+    """Response model for Uranus position calculation"""
+    altitude: float = Field(
+        ...,
+        description="Uranus's altitude in degrees (negative = below horizon)"
+    )
+    azimuth: float = Field(
+        ...,
+        description="Uranus's azimuth in degrees (0=North, 90=East, 180=South, 270=West)"
+    )
+    is_visible: bool = Field(
+        ...,
+        description="Whether Uranus is above the horizon"
+    )
+    retrograde_status: str = Field(
+        ...,
+        description="Uranus's retrograde motion status (prograde or retrograde)"
+    )
+    ra_degrees: float = Field(
+        ...,
+        description="Uranus's right ascension in degrees (topocentric, observer-dependent)"
+    )
+    dec_degrees: float = Field(
+        ...,
+        description="Uranus's declination in degrees (topocentric, observer-dependent)"
+    )
+    julian_date: float = Field(
+        ...,
+        description="Julian Date (JD) for this calculation"
+    )
+    input_datetime: str = Field(
+        ...,
+        description="The input date and time that was processed"
+    )
+    location: LocationModel = Field(
+        ...,
+        description="The location used for the calculation"
+    )
+
+
+class NeptunePositionRequest(BaseModel):
+    """Request model for Neptune position calculation"""
+    date: str = Field(
+        ...,
+        description="Date in ISO format (YYYY-MM-DD)",
+        examples=["2026-02-01"]
+    )
+    time: str = Field(
+        ...,
+        description="Time in HH:MM:SS format",
+        examples=["12:30:45"]
+    )
+    latitude: float = Field(
+        ...,
+        ge=-90,
+        le=90,
+        description="Latitude in degrees (-90 to 90, negative=South)",
+        examples=[40.7128]
+    )
+    longitude: float = Field(
+        ...,
+        ge=-180,
+        le=180,
+        description="Longitude in degrees (-180 to 180, negative=West)",
+        examples=[-74.0060]
+    )
+    elevation: float = Field(
+        default=0.0,
+        description="Elevation above sea level in meters",
+        examples=[10.0]
+    )
+
+
+class NeptunePositionResponse(BaseModel):
+    """Response model for Neptune position calculation"""
+    altitude: float = Field(
+        ...,
+        description="Neptune's altitude in degrees (negative = below horizon)"
+    )
+    azimuth: float = Field(
+        ...,
+        description="Neptune's azimuth in degrees (0=North, 90=East, 180=South, 270=West)"
+    )
+    is_visible: bool = Field(
+        ...,
+        description="Whether Neptune is above the horizon"
+    )
+    retrograde_status: str = Field(
+        ...,
+        description="Neptune's retrograde motion status (prograde or retrograde)"
+    )
+    ra_degrees: float = Field(
+        ...,
+        description="Neptune's right ascension in degrees (topocentric, observer-dependent)"
+    )
+    dec_degrees: float = Field(
+        ...,
+        description="Neptune's declination in degrees (topocentric, observer-dependent)"
+    )
+    julian_date: float = Field(
+        ...,
+        description="Julian Date (JD) for this calculation"
+    )
+    input_datetime: str = Field(
+        ...,
+        description="The input date and time that was processed"
+    )
+    location: LocationModel = Field(
+        ...,
+        description="The location used for the calculation"
+    )
+
+
 class MoonPhaseRequest(BaseModel):
     """Request model for moon phase calculation"""
     date: str = Field(
@@ -635,6 +927,13 @@ class MarsPhaseData(BaseModel):
     )
 
 
+class OuterPlanetData(BaseModel):
+    """Outer planet (Jupiter, Saturn, Uranus, Neptune) data"""
+    retrograde_status: str = Field(
+        ..., description="Retrograde motion status (prograde or retrograde)"
+    )
+
+
 class ObservationFrame(BaseModel):
     """Single frame of observations"""
     datetime: str = Field(..., description="ISO datetime of the frame")
@@ -647,6 +946,14 @@ class ObservationFrame(BaseModel):
     mercury_phase: MercuryPhaseData = Field(..., description="Mercury phase information")
     mars: CelestialPosition = Field(..., description="Mars position")
     mars_phase: MarsPhaseData = Field(..., description="Mars phase information")
+    jupiter: CelestialPosition = Field(..., description="Jupiter position")
+    jupiter_data: OuterPlanetData = Field(..., description="Jupiter data (retrograde status)")
+    saturn: CelestialPosition = Field(..., description="Saturn position")
+    saturn_data: OuterPlanetData = Field(..., description="Saturn data (retrograde status)")
+    uranus: CelestialPosition = Field(..., description="Uranus position")
+    uranus_data: OuterPlanetData = Field(..., description="Uranus data (retrograde status)")
+    neptune: CelestialPosition = Field(..., description="Neptune position")
+    neptune_data: OuterPlanetData = Field(..., description="Neptune data (retrograde status)")
 
 
 class BatchMetadata(BaseModel):

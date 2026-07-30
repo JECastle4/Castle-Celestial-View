@@ -57,6 +57,30 @@ export const CAMERA_PRESETS: Record<string, CameraPreset> = {
     target: new THREE.Vector3(25.4, 0, 0),
   },
 
+  jupiter: {
+    name: 'Jupiter',
+    position: new THREE.Vector3(0, 8, 30),
+    target: new THREE.Vector3(52, 0, 0),
+  },
+
+  saturn: {
+    name: 'Saturn',
+    position: new THREE.Vector3(0, 10, 45),
+    target: new THREE.Vector3(95, 0, 0),
+  },
+
+  uranus: {
+    name: 'Uranus',
+    position: new THREE.Vector3(0, 15, 60),
+    target: new THREE.Vector3(192, 0, 0),
+  },
+
+  neptune: {
+    name: 'Neptune',
+    position: new THREE.Vector3(0, 20, 70),
+    target: new THREE.Vector3(301, 0, 0),
+  },
+
   // Special case: Earth and Moon subsystem view
   earthmoon: {
     name: 'Earth/Moon Subsystem',
@@ -137,8 +161,12 @@ export function calculateOptimalDefaultView(
     maxDistance = Math.max(maxDistance, distance);
   });
 
-  // Add body radii (approximate sum of all radii: 4.0 + 0.3 + 0.1 + 0.275 + 0.115 + 0.15 ≈ 5)
-  const radiusBuffer = 5;
+  // Add body radii (approximate sum of all radii: 5.0 + 0.3 + 0.1 + 0.275 + 0.115 + 0.16 ≈ 6)
+  // Note: Jupiter/Saturn/Uranus/Neptune are intentionally excluded from the default view's
+  // bounding sphere (see AstronomyScene.vue) since their orbital distances (52-301 units)
+  // would force the camera to zoom out so far that the inner solar system becomes tiny.
+  // Users reach the outer planets via the dedicated zoom buttons instead.
+  const radiusBuffer = 6;
   const boundingSphereRadius = maxDistance + radiusBuffer;
 
   // Calculate camera distance using FOV formula
@@ -179,6 +207,10 @@ export function calculateBodyViewPreset(
     venus: 20,
     earth: 12,
     moon: 11,
+    jupiter: 18,
+    saturn: 16,
+    uranus: 10,
+    neptune: 10,
   };
 
   const bodyNameLower = bodyName.toLowerCase();
