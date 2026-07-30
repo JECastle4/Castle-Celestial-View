@@ -1,7 +1,10 @@
 # tests/test_moon_rise_set_helpers.py
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent / 'research'))
+
+research_path = str((Path(__file__).parent.parent / 'research').resolve())
+if research_path not in sys.path:
+    sys.path.insert(0, research_path)
 from MoonRiseAndSet import moon_semidiameter, moon_target_altitude, find_altitude_crossings, moon_rise_set
 from astropy.coordinates import EarthLocation, get_body
 import astropy.units as u
