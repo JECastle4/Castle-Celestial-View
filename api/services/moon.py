@@ -1,10 +1,9 @@
 """Moon position calculation service."""
 
 from astropy.time import Time
-from astropy.coordinates import get_body, AltAz, EarthLocation
-import astropy.units as u
-from api.i18n import t
+from astropy.coordinates import get_body
 from api.models import ObservationDateTime, LocationModel
+from api.services.common_bodies import _setup_coordinates, _process_body_position
 
 
 def calculate_moon_position(
@@ -30,34 +29,18 @@ def calculate_moon_position(
     Raises:
         ValueError: If date/time format is invalid or coordinates out of range
     """
-    # Validate coordinates
-    if not -90 <= location.latitude <= 90:
-        raise ValueError(t('validation.latitudeRange', value=location.latitude))
-    if not -180 <= location.longitude <= 180:
-        raise ValueError(t('validation.longitudeRange', value=location.longitude))
-
-    # Combine date and time (ISO 8601 format)
-    datetime_str = f"{observation_time.date}T{observation_time.time}Z"
-
-    # Convert to astropy Time (assumes UTC)
-    time = Time(datetime_str.rstrip('Z'), format="isot", scale="utc")
-
-    # Create Earth location
-    earth_location = EarthLocation(
-        lat=location.latitude * u.deg, lon=location.longitude * u.deg,
-        height=location.elevation * u.m
+    obs_time, earth_location, altaz_frame, datetime_str = _setup_coordinates(
+        observation_time, location
     )
 
     # Get moon position in topocentric (observer-dependent) GCRS coordinates
     # Since earth_location is provided, this includes parallax based on observer location
-    moon_gcrs = get_body("moon", time, earth_location)
+    moon_gcrs = get_body("moon", obs_time, earth_location)
 
     # Convert to AltAz frame for the given location and time
-    # (pressure=0 to ignore atmospheric refraction for simplicity)
-    altaz_frame = AltAz(obstime=time, location=earth_location, pressure=0.0)
     moon_altaz = moon_gcrs.transform_to(altaz_frame)
 
-    return _process_moon_position(moon_gcrs, moon_altaz, time, datetime_str, location)
+    return _process_moon_position(moon_gcrs, moon_altaz, obs_time, datetime_str, location)
 
 
 def _process_moon_position(
@@ -81,31 +64,4 @@ def _process_moon_position(
     Returns:
         Dictionary with moon position data
     """
-    # Extract altitude and azimuth
-    altitude = float(moon_altaz.alt.deg)
-    azimuth = float(moon_altaz.az.deg)
-
-    # Determine visibility (above horizon means altitude > 0)
-    is_visible = bool(altitude > 0)
-
-    # Extract RA/Dec in GCRS frame (topocentric, observer-dependent)
-    # Moon coordinates from get_body('moon', obstime, location=earth_location) are
-    # topocentric and account for parallax based on observer location.
-    # GCRS is the standard celestial reference frame used by astropy
-    ra_degrees = float(moon_gcrs.ra.degree)
-    dec_degrees = float(moon_gcrs.dec.degree)
-
-    return {
-        "altitude": altitude,
-        "azimuth": azimuth,
-        "is_visible": is_visible,
-        "ra_degrees": ra_degrees,
-        "dec_degrees": dec_degrees,
-        "julian_date": float(time.jd),
-        "location": {
-            "latitude": location.latitude,
-            "longitude": location.longitude,
-            "elevation": location.elevation,
-        },
-        "input_datetime": datetime_str,
-    }
+    return _process_body_position(moon_altaz, moon_gcrs, time, datetime_str, location)
