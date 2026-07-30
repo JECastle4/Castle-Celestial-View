@@ -98,6 +98,8 @@ async def stream_batch_earth_observations(
                 if idx < frame_count:
                     yield f"event: frame\nid: {idx}\ndata: {json.dumps(item)}\n\n"
                 else:
+                    import sys
+                    print(f'[DEBUG Metadata] About to send metadata: {item}', file=sys.stderr, flush=True)
                     yield f"event: metadata\ndata: {json.dumps(item)}\n\n"
 
         return StreamingResponse(

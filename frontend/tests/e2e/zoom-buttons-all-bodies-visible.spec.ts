@@ -635,11 +635,15 @@ testWithPersistentPage.describe('Zoom Buttons with All Bodies Visible', () => {
     const panelText = await page.locator('.controls-panel').textContent();
     console.log('Current panel text:', panelText);
     
-    // Extract all relevant debug info
-    const dateMatch = panelText?.match(/(\d+\s+\w+\s+\d+)/);
-    const timeMatch = panelText?.match(/(\d+:\d+:\d+)/);
-    const frameMatch = panelText?.match(/Frame:\s*(\d+)\s*\/\s*(\d+)/);
+    // Extract frame counter from specific element to avoid textContent concatenation issues
+    const frameCounterText = await page.locator('.frame-counter').textContent();
+    const frameMatch = frameCounterText?.match(/Frame:\s*(\d+)\s*\/\s*(\d+)/);
     const currentFrameNum = frameMatch ? parseInt(frameMatch[1], 10) : 0;
+    
+    // Extract date/time from specific elements
+    const datetimeText = await page.locator('.datetime-info span').textContent();
+    const dateMatch = datetimeText?.match(/(\d+\s+\w+\s+\d+)/);
+    const timeMatch = datetimeText?.match(/(\d+:\d+:\d+)/);
     
     console.log(`[FrameDebug] Displayed date: ${dateMatch?.[1] || 'N/A'}`);
     console.log(`[FrameDebug] Displayed time: ${timeMatch?.[1] || 'N/A'}`);
