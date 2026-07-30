@@ -1,4 +1,7 @@
 # tests/test_MoonPhase.py
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent / 'research'))
 from MoonPhase import moon_phase, moon_phase_angle, moon_phase_name
 from astropy.time import Time
 import numpy as np

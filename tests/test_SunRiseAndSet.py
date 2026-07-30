@@ -1,4 +1,7 @@
 # tests/test_SunRiseAndSet.py
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent / 'research'))
 from SunRiseAndSet import sunrise, sunset
 from astropy.coordinates import EarthLocation
 import astropy.units as u
