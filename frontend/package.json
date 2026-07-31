@@ -1,6 +1,6 @@
 {
   "name": "astronomy-animation-frontend",
-  "version": "1.1.0",
+  "version": "1.1.0.1",
   "type": "module",
   "license": "MIT",
   "description": "A web application that generates animations of the sky and solar system based on user-specified parameters, using data from the Astronomy Animation API.",

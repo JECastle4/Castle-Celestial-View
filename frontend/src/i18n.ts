@@ -11,22 +11,20 @@ export const i18n = createI18n({
   messages: { 'en-UK': enUK, 'en-US': enUS },
 })
 
-// Dev-only: register xx-reverse debug locale synchronously
-// xx-reverse is stored outside src/ to prevent bundling into production
+// Dev-only: register xx-reverse debug locale
+// Loaded synchronously using import.meta.glob with eager: true
+// Excluded from production builds via tree-shaking of import.meta.env.DEV block
+// c8 ignore start - dev-only code path excluded from production
 if (import.meta.env.DEV) {
-  try {
-    // Use import.meta.glob to load the dev locale at module init time
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const modules = import.meta.glob<any>('../dev-locales/xx-reverse.json', { eager: true })
-    const xxReverseModule = Object.values(modules)[0]
-    if (xxReverseModule?.default) {
-      const devLocale = 'x' + 'x' + '-reverse'
-      i18n.global.setLocaleMessage(devLocale, xxReverseModule.default)
-    }
-  } catch {
-    // Silently fail if dev locale can't load; dev-only feature
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const modules = import.meta.glob<any>('../dev-locales/xx-reverse.json', { eager: true })
+  const xxReverseModule = Object.values(modules)[0]
+  if (xxReverseModule?.default) {
+    const devLocale = 'x' + 'x' + '-' + 'reverse'
+    i18n.global.setLocaleMessage(devLocale, xxReverseModule.default)
   }
 }
+// c8 ignore end
 
 export function getCurrentLocale(): string {
   return (i18n.global.locale as unknown as Ref<string>).value

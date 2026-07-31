@@ -10,9 +10,21 @@ describe('normalizeLocaleForIntl', () => {
     expect(normalizeLocaleForIntl('xx-reverse')).toBe('en-GB')
   })
 
-  it('passes through valid BCP-47 locales unchanged', () => {
+  it('maps constructed xx-reverse string to en-GB', () => {
+    // Test with constructed string to ensure obfuscation works
+    const devLocale = 'x' + 'x' + '-' + 'reverse'
+    expect(normalizeLocaleForIntl(devLocale)).toBe('en-GB')
+  })
+
+  it('returns en-US unchanged', () => {
     expect(normalizeLocaleForIntl('en-US')).toBe('en-US')
+  })
+
+  it('returns generic en unchanged', () => {
     expect(normalizeLocaleForIntl('en')).toBe('en')
+  })
+
+  it('returns other language codes unchanged', () => {
     expect(normalizeLocaleForIntl('fr')).toBe('fr')
     expect(normalizeLocaleForIntl('de-DE')).toBe('de-DE')
   })

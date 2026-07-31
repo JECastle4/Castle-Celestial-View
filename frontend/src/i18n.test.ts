@@ -30,6 +30,13 @@ describe('i18n module', () => {
     expect(Object.keys(messages).length).toBeGreaterThan(0);
   });
 
+  it('can get and set xx-reverse messages', async () => {
+    const { i18n } = await import('@/i18n');
+    const messages = i18n.global.getLocaleMessage('xx-reverse') as Record<string, unknown>;
+    expect(messages).toBeDefined();
+    expect(messages).not.toEqual({});
+  });
+
   it('can switch locale to xx-reverse', async () => {
     const { getCurrentLocale, setCurrentLocale } = await import('@/i18n');
     setCurrentLocale('xx-reverse');
