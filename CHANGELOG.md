@@ -56,6 +56,43 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versio
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-07-31
+
+### Added
+- Mercury: API endpoint and frontend animation with live position data
+- Venus: API endpoint and frontend animation with live position and glare magnitude data
+- Mars: API endpoint and frontend animation with live position and orbital phase data
+- Outer planets: Full support for Jupiter, Saturn, Uranus, and Neptune with API endpoints and frontend animations
+- Camera control system: Named camera positions for each celestial object with zoom and pan capabilities
+- Enhanced test coverage: E2E tests for all camera view positions and transitions
+
+### Changed
+- Refactored: Eliminated duplicate code blocks across planet/sun/moon astronomy services for improved maintainability
+- Reorganized: Research and development scripts moved to dedicated `research/` folder, excluded from coverage calculations
+- Improved: Test robustness against browser quirks (Firefox/WebKit) and timing-dependent snapshot tests
+- Updated: Python requirement from 3.11 to 3.14
+- Updated: Starlette requirement from >=1.0.1 to >=1.3.1
+- Updated: Numerous frontend dependencies and GitHub Actions versions
+
+### Fixed
+- E2E tests: Fixed reset animation state issues and improved frame synchronization for reliable screenshot captures
+- CI workflow: Corrected YAML encoding issues (em-dash, comparison operator symbols)
+- TypeScript: Resolved @typescript-eslint/parser peer dependency conflicts
+- Frontend: Fixed button ordering in header and A11y translation issues
+- Pylint: Moved `sys` import to module toplevel and corrected line length violations
+
+### Chores
+- Established pytest coverage threshold at 90% (`fail_under`) as hard minimum for code quality
+- Added comprehensive type hints and improved API documentation
+- Dependency management: Regular updates via Dependabot for npm, pip, and GitHub Actions
+
+### QA Attestation
+- **Automated tests**: All unit, integration, and E2E tests pass
+- **Security scan**: Bandit + pip-audit + npm audit — no known vulnerabilities
+- **Accessibility audit**: Manual and automated checks pass
+- **Licence audit**: No incompatible changes
+- **Production build verification**: Artifacts verified clean
+
 ---
 
 ## [1.0.2] - 2026-05-31

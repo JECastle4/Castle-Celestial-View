@@ -19,6 +19,7 @@ pytest
 - [ ] No new test failures introduced
 
 #### 2026-05-01 218 passed, 10 warnings in 11.57s
+
 |File                                      |Stmts |Miss  |Cover  | Missing                           |
 |------------------------------------------|------|------|-------|----------------------------------|
 |api\__init__.py                           |     0|      0|   100%||
@@ -34,6 +35,7 @@ pytest
 |api\services\sun.py                       |    20|      0|   100%||
 
 #### 2026-05-22 218 passed, 10 warnings in 11.00s
+
 |Name                                       |Stmts   |Miss  |Cover   |Missing|
 |------------------------------------------|------|------|-------|----------------------------------|
 |api\__init__.py                            |    0   |   0  | 100%||
@@ -52,46 +54,82 @@ pytest
 #### 2026-05-31 218 passed, 10 warnings in 13.91s
 Identical coverage to 2026-05-22
 
+#### 2026-07-31 552 passed. 5 deselected, 11 warnings in 50.27s
+
+|Name                                       |Stmts   |Miss  |Cover   |Missing|
+|------------------------------------------|--------|------|--------|--------|
+|api\__init__.py                              |  0      |0   |100%
+|api\i18n.py                                  | 64      |0   |100%
+|api\main.py                                  | 64      |4    |94%   55-57, 108
+|api\models.py                                |241      |0   |100%||
+|api\routes.py                                |171     |28    |84%   |111-117, 149-150, 193-194, 237-238, 378-379, 503, 510-511, 563, 570-571, 623, 630-631, 683, 690-691, 741-742, 799-800|
+|api\services\__init__.py                     |  0      |0   |100%||
+|api\services\batch_earth_observations.py     | 97      |3    |97%   |62, 67, 69|
+|api\services\common_bodies.py                | 47      |2    |96%   |45, 47|
+|api\services\dates.py                        | 10      |0   |100%||
+|api\services\inferior_planets.py             | 38      |1    |97%   |193|
+|api\services\jupiter.py                      | 12      ||0   |100%||
+|api\services\mars.py                         | 50      |2    |96%   |244, 247|
+|api\services\mercury.py                      |  7      |0   |100%||
+|api\services\moon.py                         | 11      |0   |100%||
+|api\services\moon_phase.py                   | 44      |0   |100%||
+|api\services\neptune.py                      | 12      |0   |100%||
+|api\services\outer_planets.py                | 31      |3    |90%   |50, 75-77|
+|api\services\saturn.py                       | 12      |0   |100%||
+|api\services\sun.py                          | 11      |0   |100%||
+|api\services\uranus.py                       | 12      |0   |100%||
+|api\services\venus.py                        |  7      |0   |100%||
+|api\utils.py                                 |  4      |0   |100%||
+|research\MoonPhase.py                        | 39      |2    |95%   |66, 70|
+|research\MoonRiseAndSet.py                   |144     |17    |88%   |166-168, 237-243, 247-253|
+|research\SunRiseAndSet.py                    | 87     |17    |80%   |164-166, 236-242, 246-252|
+
 ### Frontend (Vitest)
 
 ```bash
 cd frontend
 npm run test:coverage
 ```
+
 #### 2026-05-11
+
 |Passed    |Skipped        |
 |----------|---------------|
 | 151      | 22 (173)      |
 
 #### 2026-05-22
+
 |Passed    |Skipped        |
 |----------|---------------|
 | 151      | 22 (173)      |
 
 #### 2026-05-11 + 2026-05-22
-|File                  | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
-|----------------------|---------|----------|---------|---------|-------------------
-|All files             |     100 |    94.64 |     100 |     100 |                   
-| src                  |     100 |      100 |     100 |     100 |                   
-|  i18n.ts             |     100 |      100 |     100 |     100 |                   
-| src/composables      |     100 |      100 |     100 |     100 |                   
-|  useAstronomyData.ts |     100 |      100 |     100 |     100 |                   
-|src/locales          |     100 |      100 |     100 |     100 |                   
-|  en.json             |     100 |      100 |     100 |     100 |                   
-|  xx-reverse.json     |     100 |      100 |     100 |     100 |                   
-| src/services         |     100 |       90 |     100 |     100 |                   
-|  api.ts              |     100 |       90 |     100 |     100 | 70                
-| src/three/objects    |     100 |     90.9 |     100 |     100 |                   
-|  Earth.ts            |     100 |      100 |     100 |     100 |                   
-|  Moon.ts             |     100 |       90 |     100 |     100 | 18                
-|  Sun.ts              |     100 |       90 |     100 |     100 | 19                
+
+|File                  | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s |
+|----------------------|---------|----------|---------|---------|-------------------|
+|All files             |     100 |    94.64 |     100 |     100 |                   |
+| src                  |     100 |      100 |     100 |     100 |                   |
+|  i18n.ts             |     100 |      100 |     100 |     100 |                   |
+| src/composables      |     100 |      100 |     100 |     100 |                   |
+|  useAstronomyData.ts |     100 |      100 |     100 |     100 |                   |
+|src/locales          |     100 |      100 |     100 |     100 |                   |
+|  en.json             |     100 |      100 |     100 |     100 |                   |
+|  xx-reverse.json     |     100 |      100 |     100 |     100 |                   |
+| src/services         |     100 |       90 |     100 |     100 |                   |
+|  api.ts              |     100 |       90 |     100 |     100 | 70                |
+| src/three/objects    |     100 |     90.9 |     100 |     100 |                   |
+|  Earth.ts            |     100 |      100 |     100 |     100 |                   |
+|  Moon.ts             |     100 |       90 |     100 |     100 | 18                |
+|  Sun.ts              |     100 |       90 |     100 |     100 | 19                |
 
 #### 2026-05-31
+
 |Passed    |Skipped        |
 |----------|---------------|
 | 160      | 22 (182)      |
 
 #### 2026-05-31
+
 |File                  | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s |
 |----------------------|---------|----------|---------|---------|-------------------|
 |All files             |     100 |    95.08 |     100 |     100 |                   |
@@ -112,6 +150,50 @@ npm run test:coverage
 |  Sun.ts              |     100 |       90 |     100 |     100 | 19                |
 
 - [ ] All unit/component tests pass
+
+## 2026-07-31
+
+|File                  | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s |
+|----------------------|---------|----------|---------|---------|-------------------|
+|All files             |     100 |    92.43 |     100 |     100 |                   |
+| src                  |     100 |      100 |     100 |     100 |                   |
+|  i18n.ts             |     100 |      100 |     100 |     100 |                   |
+| src/components       |     100 |       84 |     100 |     100 |                   |
+|  Header.vue          |     100 |      100 |     100 |     100 |                   |
+|  PlanetCarousel.vue  |     100 |    81.81 |     100 |     100 | 52-61,79,96       |
+| src/composables      |     100 |      100 |     100 |     100 |                   |
+|  useAstronomyData.ts |     100 |      100 |     100 |     100 |                   |
+|  useToast.ts         |     100 |      100 |     100 |     100 |                   |
+| src/config           |     100 |      100 |     100 |     100 |                   |
+|  cameraPresets.ts    |     100 |      100 |     100 |     100 |                   |
+|  celestialBodies.ts  |     100 |      100 |     100 |     100 |                   |
+| src/locales          |     100 |      100 |     100 |     100 |                   |
+|  en-UK.json          |     100 |      100 |     100 |     100 |                   |
+|  en-US.json          |     100 |      100 |     100 |     100 |                   |
+|  xx-reverse.json     |     100 |      100 |     100 |     100 |                   |
+| src/services         |     100 |       90 |     100 |     100 |                   |
+|  api.ts              |     100 |       90 |     100 |     100 | 70                |
+| src/three            |     100 |      100 |     100 |     100 |                   |
+|  cameraAnimation.ts  |     100 |      100 |     100 |     100 |                   |
+| src/three/objects    |     100 |    91.17 |     100 |     100 |                   |
+|  Earth.ts            |     100 |      100 |     100 |     100 |                   |
+|  Jupiter.ts          |     100 |    91.66 |     100 |     100 | 24                |
+|  Mars.ts             |     100 |    91.66 |     100 |     100 | 24                |
+|  Mercury.ts          |     100 |       90 |     100 |     100 | 23                |
+|  Moon.ts             |     100 |       90 |     100 |     100 | 21                |
+|  Neptune.ts          |     100 |    91.66 |     100 |     100 | 24                |
+|  Saturn.ts           |     100 |    91.66 |     100 |     100 | 24                |
+|  Sun.ts              |     100 |       90 |     100 |     100 | 23                |
+|  Uranus.ts           |     100 |    91.66 |     100 |     100 | 24                |
+|  Venus.ts            |     100 |       90 |     100 |     100 | 21                |
+| src/utils            |     100 |      100 |     100 |     100 |                   |
+|  locale.ts           |     100 |      100 |     100 |     100 | |
+
+|Heading|Skipped|
+|-------|-------|
+|Test Files  23 passed | 1 skipped (24)|
+|      Tests  472 passed | 22 skipped (494)|
+|   Start at  20:49:09||
 
 ### End-to-End (Playwright)
 
@@ -135,6 +217,14 @@ Running 44 tests using 11 workers
 
 #### 2026-05-31
 Running 48 tests using 11 workers
+
+#### 2026-07-31 (from CI)
+
+|Heading|Time|Hash|
+|-------|----|----|
+|164 passed |(11.2m)| |
+|CI git ||1ee3e514a697aee0df83c2fbaf560f687b08a5bf|
+|Local git ||1ee3e514a697aee0df83c2fbaf560f687b08a5bf|
 
 ---
 
@@ -191,10 +281,10 @@ No known vulnerabilities found
 ---
 
 #### 2026-05-22
-npm audit                                                                             
+npm audit
 found 0 vulnerabilities
 
-andit -r api                                                                         
+bandit -r api
 [main]  INFO    profile include tests: None
 [main]  INFO    profile exclude tests: None
 [main]  INFO    cli include tests: None
@@ -224,6 +314,38 @@ Files skipped (0):
 pip-audit --skip-editable
 \ Collecting inputsWARNING: Ignoring invalid distribution ~vicorn (C:\Users\jecas\OneDrive\Documents\Programming\Python\.venv\Lib\site-packages)
 No known vulnerabilities found
+
+#### 2026-07-31
+
+npm audit
+5 high severity vulnerabilities
+bandit -r api
+[main]  INFO    profile include tests: None
+[main]  INFO    profile exclude tests: None
+[main]  INFO    cli include tests: None
+[main]  INFO    cli exclude tests: None
+[main]  INFO    running on Python 3.14.2
+Run started:2026-07-31 20:02:25.896944+00:00
+
+Test results:
+        No issues identified.
+
+Code scanned:
+        Total lines of code: 3482
+        Total lines skipped (#nosec): 0
+
+Run metrics:
+        Total issues (by severity):
+                Undefined: 0
+                Low: 0
+                Medium: 0
+                High: 0
+        Total issues (by confidence):
+                Undefined: 0
+                Low: 0
+                Medium: 0
+                High: 0
+Files skipped (0):
 
 ## 3. Accessibility Audit
 
@@ -261,10 +383,19 @@ Use one or more of the following to assist:
 **Evidence**: Screenshots or screen recordings of each view with the accessibility tool output. Attach to the GitHub Release or link to an external document.
 
 #### 2026-05-11
+
 0 Issues found on all views
+
 #### 2026-05-22
+
 0 Issues found on all views
+
 #### 2026-05-31
+
+0 Issues found on all views
+
+#### 2026-07-31
+
 0 Issues found on all views
 
 ---
