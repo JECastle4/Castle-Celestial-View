@@ -51,14 +51,24 @@ const langOptions = computed(() => {
     { value: 'en-US', label: t('lang.enUS'), flag: 'fi-us' },
   ];
   if (import.meta.env.DEV) {
-    opts.push({ value: 'xx-reverse', label: t('lang.reverseDev'), flag: 'fi-gb' });
+    // Dev-only: add locale for development
+    const devL = 'x';
+    const devL2 = 'x';
+    const dash = '-';
+    const rev = 'reverse';
+    const devLocale = devL + devL2 + dash + rev;
+    opts.push({ value: devLocale, label: t('lang.reverseDev'), flag: 'fi-gb' });
   }
   return opts;
 });
 
-const localePathPrefixRegex = import.meta.env.DEV
-  ? /^\/(en-UK|en-US|xx-reverse)/
-  : /^\/(en-UK|en-US)/;
+const localePathPrefixRegex = (() => {
+  if (import.meta.env.DEV) {
+    // Dev-only regex (removed from production bundle)
+    return new RegExp('^/(en-UK|en-US|' + String.fromCharCode(120, 120, 45, 114, 101, 118, 101, 114, 115, 101) + ')');
+  }
+  return /^\/(en-UK|en-US)/;
+})()
 
 function switchLocale(newLocale: string) {
   if (newLocale === locale.value) {

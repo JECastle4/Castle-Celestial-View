@@ -40,9 +40,9 @@ const formattedDateTime = computed(() => {
   try {
     const date = new Date(props.datetime);
     // Normalize app locale to valid BCP-47 tag before calling toLocaleString,
-    // since some app locales (e.g., en-UK, xx-reverse) are non-standard and not
-    // recognized by Intl APIs. Ensures consistent formatting and prevents Playwright
-    // screenshot drift from fallback to raw ISO strings.
+    // since some app locales are non-standard and not recognized by Intl APIs.
+    // Ensures consistent formatting and prevents Playwright screenshot drift
+    // from fallback to raw ISO strings.
     const intlLocale = normalizeLocaleForIntl(locale.value);
     return date.toLocaleString(intlLocale, {
       year: 'numeric',

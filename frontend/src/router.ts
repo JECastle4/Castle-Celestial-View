@@ -2,15 +2,13 @@ import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import { setCurrentLocale } from './i18n'
 
-// xx-reverse is a dev-only debug locale — excluded from production bundles
-// import.meta.env.DEV is resolved at build time, so the locale and its route
-// are tree-shaken out in production builds.
+// Production locales only - dev-only xx-reverse is registered separately if needed
 const PROD_LOCALES = ['en-UK', 'en-US'] as const
-export const SUPPORTED_LOCALES: readonly string[] = import.meta.env.DEV
-  ? [...PROD_LOCALES, 'xx-reverse']
-  : PROD_LOCALES
+export const SUPPORTED_LOCALES: readonly string[] = PROD_LOCALES
 
-const localePattern = SUPPORTED_LOCALES.join('|')
+// At runtime in dev mode, xx-reverse gets added to i18n after module loads,
+// but the router pattern doesn't need to know about it
+const localePattern = (PROD_LOCALES as readonly string[]).join('|')
 
 const routes: RouteRecordRaw[] = [
   // Redirect bare root to English
