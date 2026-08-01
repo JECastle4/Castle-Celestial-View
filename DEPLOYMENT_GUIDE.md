@@ -188,8 +188,12 @@ Before deploying to production, test the script on your development machine:
 3. **Download the deployment script to the server:**
    ```bash
    cd /home/deployuser
-   wget https://raw.githubusercontent.com/JECastle4/Castle-Celestial-View/main/scripts/deploy-production-release.sh
-   chmod +x deploy-production-release.sh
+   
+   # Download the deployment script from the repository
+   sudo curl -fsSL https://raw.githubusercontent.com/JECastle4/Castle-Celestial-View/main/scripts/deploy-production-release.sh \
+     -o deploy-production-release.sh
+   
+   sudo chmod +x deploy-production-release.sh
    ```
 
 4. **Run the deployment (with dry-run first):**
