@@ -1,0 +1,6 @@
+# Stability Audit Results (Ignored)
+results-*/
+*.json
+*.txt
+*.html
+audit-*.log
