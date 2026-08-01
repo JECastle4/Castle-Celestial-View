@@ -209,19 +209,18 @@ check_prerequisites() {
     fi
   done
 
-  # Verify services exist using systemctl status (more reliable)
-  if ! sudo systemctl status "$SERVICE_API" &>/dev/null; then
-    err "Systemd service not found or not accessible: $SERVICE_API"
-    err "Try: sudo systemctl status $SERVICE_API"
+  # Verify services exist by checking if the service files are loaded
+  if ! systemctl list-unit-files 2>/dev/null | grep -q "castle-celestial-api"; then
+    err "Systemd service not found: $SERVICE_API"
+    err "Expected: /etc/systemd/system/$SERVICE_API.service"
     missing=1
   else
     info "Systemd service found: $SERVICE_API"
   fi
 
   # Verify nginx exists
-  if ! sudo systemctl status nginx &>/dev/null; then
-    err "Systemd service not found or not accessible: nginx"
-    err "Try: sudo systemctl status nginx"
+  if ! systemctl list-unit-files 2>/dev/null | grep -q "nginx"; then
+    err "Systemd service not found: nginx"
     missing=1
   else
     info "Systemd service found: nginx"
