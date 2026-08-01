@@ -209,26 +209,20 @@ check_prerequisites() {
     fi
   done
 
-  # Verify services exist
-  if ! sudo systemctl list-unit-files 2>/dev/null | grep -q "^$SERVICE_API"; then
-    if ! sudo systemctl status "$SERVICE_API" &>/dev/null; then
-      err "Systemd service not found: $SERVICE_API"
-      missing=1
-    else
-      info "Systemd service found: $SERVICE_API"
-    fi
+  # Verify services exist using systemctl status (more reliable)
+  if ! sudo systemctl status "$SERVICE_API" &>/dev/null; then
+    err "Systemd service not found or not accessible: $SERVICE_API"
+    err "Try: sudo systemctl status $SERVICE_API"
+    missing=1
   else
     info "Systemd service found: $SERVICE_API"
   fi
 
-  # Verify nginx exists (manages frontend serving)
-  if ! sudo systemctl list-unit-files 2>/dev/null | grep -q "^nginx"; then
-    if ! sudo systemctl status nginx &>/dev/null; then
-      err "Systemd service not found: nginx (required for frontend)"
-      missing=1
-    else
-      info "Systemd service found: nginx"
-    fi
+  # Verify nginx exists
+  if ! sudo systemctl status nginx &>/dev/null; then
+    err "Systemd service not found or not accessible: nginx"
+    err "Try: sudo systemctl status nginx"
+    missing=1
   else
     info "Systemd service found: nginx"
   fi
