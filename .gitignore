@@ -40,14 +40,10 @@ phase2-test-results*.txt
 test_frame_count.py
 
 # Security scanning outputs (never commit - analysis only)
-bandit-report.json
-bandit-report*.json
-bandit-report*.txt
-bandit-report*.html
-pip-audit-report*
-pip-audit-output*
-pip-audit*.json
-pip-audit*.txt
+bandit*.json
+bandit*.txt
+bandit*.html
+pip-audit*
 audit-results*
 security-scan*
 phase2-results-*.json
