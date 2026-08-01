@@ -4,7 +4,7 @@ Main FastAPI application for Astronomy API
 import os
 import logging
 from astropy.utils import iers
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from api.routes import router
 from api.i18n import set_request_locale, SUPPORTED_LOCALES
@@ -67,6 +67,32 @@ app.add_middleware(
     allow_methods=["GET", "POST"],  # Only methods used by the API
     allow_headers=["Content-Type", "Accept"],
 )
+
+# Request size limit middleware to prevent DOS attacks
+# Default: 5 MB (configurable via MAX_REQUEST_SIZE_MB environment variable)
+MAX_REQUEST_SIZE_BYTES = int(os.getenv("MAX_REQUEST_SIZE_MB", "5")) * 1024 * 1024
+
+
+@app.middleware("http")
+async def request_size_limit_middleware(request: Request, call_next):
+    """Limit request body size to prevent DOS attacks.
+    
+    Checks Content-Length header and rejects oversized requests.
+    Limit is configurable via MAX_REQUEST_SIZE_MB environment variable (default: 5 MB).
+    """
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > MAX_REQUEST_SIZE_BYTES:
+        logger.warning(
+            "Request rejected: Content-Length %s exceeds limit of %s bytes from %s",
+            content_length,
+            MAX_REQUEST_SIZE_BYTES,
+            request.client.host if request.client else "unknown"
+        )
+        raise HTTPException(
+            status_code=413,
+            detail=f"Payload too large. Maximum size: {MAX_REQUEST_SIZE_BYTES // (1024*1024)} MB"
+        )
+    return await call_next(request)
 
 
 def _resolve_accept_language(header: str) -> str:
