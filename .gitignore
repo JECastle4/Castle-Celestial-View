@@ -39,6 +39,8 @@ playwright-report-prod/
 
 # Security scanning
 bandit-report.json
+phase2-results-*.json
+phase2-test-results-*.txt
 
 # IDE
 .vscode/
