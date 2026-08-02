@@ -1,0 +1,12 @@
+# Bandit configuration
+# Excludes directories that contain test, audit, and non-production code
+
+exclude_dirs:
+  - /tests
+  - /htmlcov
+  - /__pycache__
+  - /.venv
+  - /frontend
+  - /scripts/stability-audit
+  - /research
+  - /icon-generator

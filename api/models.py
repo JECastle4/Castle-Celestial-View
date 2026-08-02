@@ -1,8 +1,11 @@
 """
 Pydantic models for API request and response validation
 """
+# pylint: disable=too-many-lines
+import re
+from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class DateTimeRequest(BaseModel):
@@ -50,6 +53,56 @@ class ObservationDateTime(BaseModel):
         description="Time in HH:MM:SS format (optional, defaults to midnight)"
     )
 
+    @field_validator('date')
+    @classmethod
+    def validate_date_format(cls, v: str) -> str:
+        """Validate date is in YYYY-MM-DD format and is a valid date"""
+        if not isinstance(v, str):
+            raise ValueError("Date must be a string")
+
+        # Check format matches YYYY-MM-DD
+        if not re.match(r'^\d{4}-\d{2}-\d{2}$', v):
+            raise ValueError(f"Date must be in YYYY-MM-DD format, got '{v}'")
+
+        # Validate it's a real date
+        try:
+            datetime.strptime(v, "%Y-%m-%d")
+        except ValueError as e:
+            raise ValueError(f"Invalid date '{v}': {str(e)}") from e
+
+        return v
+
+    @field_validator('time')
+    @classmethod
+    def validate_time_format(cls, v: str) -> str:
+        """Validate time is in HH:MM:SS format with valid values"""
+        if not isinstance(v, str):
+            raise ValueError("Time must be a string")
+
+        # Check format matches HH:MM:SS
+        if not re.match(r'^\d{2}:\d{2}:\d{2}$', v):
+            raise ValueError(f"Time must be in HH:MM:SS format, got '{v}'")
+
+        # Validate hours, minutes, seconds are in valid ranges
+        parts = v.split(":")
+        try:
+            hour = int(parts[0])
+            minute = int(parts[1])
+            second = int(parts[2])
+
+            if hour < 0 or hour > 23:
+                raise ValueError(f"Hour must be 0-23, got {hour}")
+            if minute < 0 or minute > 59:
+                raise ValueError(f"Minute must be 0-59, got {minute}")
+            if second < 0 or second > 59:
+                raise ValueError(f"Second must be 0-59, got {second}")
+        except (IndexError, ValueError) as e:
+            raise ValueError(f"Invalid time '{v}': {str(e)}") from e
+
+        return v
+
+
+
 
 class TimeRange(BaseModel):
     """Domain model for a time range with multiple observation frames"""
@@ -67,6 +120,24 @@ class TimeRange(BaseModel):
         le=10000,
         description="Number of observation frames to generate"
     )
+
+    @model_validator(mode='after')
+    def validate_time_range(self) -> 'TimeRange':
+        """Validate that start time is before end time and they are not equal"""
+        start_dt = datetime.strptime(f"{self.start.date} {self.start.time}", "%Y-%m-%d %H:%M:%S")
+        end_dt = datetime.strptime(f"{self.end.date} {self.end.time}", "%Y-%m-%d %H:%M:%S")
+
+        if start_dt == end_dt:
+            raise ValueError("Start and end times must be different")
+
+        if start_dt > end_dt:
+            msg = f"Start time must be before end time. Start: {start_dt}, End: "
+            msg += f"{end_dt}"
+            raise ValueError(msg)
+
+        return self
+
+
 
 
 class SunPositionRequest(BaseModel):

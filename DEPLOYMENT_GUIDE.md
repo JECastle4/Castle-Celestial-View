@@ -101,6 +101,79 @@ sudo systemctl status castle-celestial-api
 
 ---
 
+## Step 1.5: Set Up nginx Reverse Proxy and Security Headers
+
+The nginx configuration provides reverse proxy support (forwarding `/api` to gunicorn), static file serving (frontend), and security hardening with recommended HTTP headers.
+
+The configuration is included in the repository at `scripts/castle-celestial.nginx.conf`.
+
+### Option A: Download from Repository (Recommended)
+
+On your production server:
+
+```bash
+# Download the nginx configuration file from the repository
+sudo curl -fsSL https://raw.githubusercontent.com/JECastle4/Castle-Celestial-View/main/scripts/castle-celestial.nginx.conf \
+  -o /etc/nginx/sites-available/castle-celestial
+
+# Enable the site by creating a symlink
+sudo ln -s /etc/nginx/sites-available/castle-celestial /etc/nginx/sites-enabled/castle-celestial
+
+# (Optional) Disable the default site if still enabled
+sudo rm /etc/nginx/sites-enabled/default 2>/dev/null || true
+
+# Test the configuration
+sudo nginx -t
+
+# Reload nginx to apply the configuration
+sudo systemctl reload nginx
+
+# Verify it's running
+sudo systemctl status nginx
+```
+
+### Security Headers Included
+
+The configuration implements production-grade security headers:
+
+- **HSTS** (HTTP Strict-Transport-Security) — Forces HTTPS for 1 year
+- **CSP** (Content-Security-Policy) — Restricts resources to same-origin, prevents XSS
+- **X-Frame-Options** — Blocks embedding in iframes (clickjacking prevention)
+- **X-Content-Type-Options** — Prevents MIME type sniffing
+- **Referrer-Policy** — Restricts referrer information leakage
+- **Permissions-Policy** — Disables unnecessary browser features (camera, microphone, etc.)
+- **TLS 1.2+** — Modern cipher suites only
+- **OCSP Stapling** — Certificate validation optimization
+
+### Customization
+
+Edit `/etc/nginx/sites-available/castle-celestial` to update:
+
+1. **Domain names** (line 17):
+   ```nginx
+   server_name your-domain.com www.your-domain.com;
+   ```
+
+2. **Certificate paths** (lines 21-22):
+   ```nginx
+   ssl_certificate /path/to/certificate.crt;
+   ssl_certificate_key /path/to/key.key;
+   ```
+
+3. **Request size limit** (line 73, should match API middleware):
+   ```nginx
+   client_max_body_size 5M;  # Must match MAX_REQUEST_SIZE_MB in api/main.py
+   ```
+
+After editing, test and reload:
+
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+---
+
 ## Step 2: Configure the Deployment Script
 
 Edit `scripts/deploy-production-release.sh` and update these variables at the top to match your server:

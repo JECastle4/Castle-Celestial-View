@@ -143,14 +143,14 @@ class TestBatchEarthObservationsRADec:
     
     def test_batch_error_end_before_start(self):
         """Test that error is raised if end time is before start time"""
-        time_range = TimeRange(
-            start=ObservationDateTime(date="2026-02-02", time="00:00:00"),
-            end=ObservationDateTime(date="2026-02-01", time="12:00:00"),
-            frame_count=3
-        )
-        location = LocationModel(latitude=0.0, longitude=0.0)
-        
-        with pytest.raises(ValueError, match="endTimeAfterStart|end.*after.*start"):
+        from pydantic import ValidationError
+        with pytest.raises(ValidationError, match="Start time must be before end time"):
+            time_range = TimeRange(
+                start=ObservationDateTime(date="2026-02-02", time="00:00:00"),
+                end=ObservationDateTime(date="2026-02-01", time="12:00:00"),
+                frame_count=3
+            )
+            location = LocationModel(latitude=0.0, longitude=0.0)
             list(calculate_batch_earth_observations(time_range, location))
     
     def test_batch_error_invalid_frame_count(self):

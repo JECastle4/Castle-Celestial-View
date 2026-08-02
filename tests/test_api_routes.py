@@ -768,8 +768,8 @@ class TestBatchEarthObservationsEndpoint:
             }
         )
         
-        assert response.status_code == 400
-        assert "end_datetime must be after start_datetime" in response.json()["detail"]
+        assert response.status_code == 422
+        assert "Start time must be before end time" in response.json()["detail"]
     
     def test_batch_equal_start_end(self):
         """Test batch request where start and end times are equal"""
@@ -786,8 +786,8 @@ class TestBatchEarthObservationsEndpoint:
             }
         )
         
-        assert response.status_code == 400
-        assert "end_datetime must be after start_datetime" in response.json()["detail"]
+        assert response.status_code == 422
+        assert "Start and end times must be different" in response.json()["detail"]
     
     def test_batch_invalid_latitude(self):
         """Test batch request with invalid latitude"""

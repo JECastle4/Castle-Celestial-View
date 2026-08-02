@@ -1,0 +1,9 @@
+paths-ignore:
+  - tests/
+  - scripts/stability-audit/
+  - research/
+  - htmlcov/
+  - icon-generator/
+  - frontend/
+  - '**/__pycache__'
+  - '**/.venv'

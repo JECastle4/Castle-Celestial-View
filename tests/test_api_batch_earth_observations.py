@@ -98,7 +98,8 @@ def test_frame_count_validation_too_low():
 
 def test_end_before_start_validation():
     """Test that end_datetime must be after start_datetime"""
-    with pytest.raises(ValueError, match="end_datetime must be after start_datetime"):
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError, match="Start time must be before end time"):
         time_range = TimeRange(
             start=ObservationDateTime(date="2024-01-02", time="12:00:00"),
             end=ObservationDateTime(date="2024-01-01", time="12:00:00"),
@@ -111,7 +112,8 @@ def test_end_before_start_validation():
 
 def test_equal_start_end_validation():
     """Test that start and end times cannot be equal"""
-    with pytest.raises(ValueError, match="end_datetime must be after start_datetime"):
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError, match="Start and end times must be different"):
         time_range = TimeRange(
             start=ObservationDateTime(date="2024-01-01", time="12:00:00"),
             end=ObservationDateTime(date="2024-01-01", time="12:00:00"),

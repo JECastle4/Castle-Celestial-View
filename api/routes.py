@@ -4,6 +4,7 @@ API routes for astronomy calculations
 import json
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
+from pydantic import ValidationError
 from api.i18n import get_i18n
 from api.models import (
     DateTimeRequest,
@@ -108,6 +109,12 @@ async def stream_batch_earth_observations(
                 "X-Accel-Buffering": "no",  # Disable buffering in nginx / proxy layers
             },
         )
+    except ValidationError as e:
+        # Pydantic validation errors should return 422
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid input: {str(e)}"
+        ) from e
     except ValueError as e:
         raise HTTPException(
             status_code=400,
@@ -791,6 +798,12 @@ async def get_batch_earth_observations(request: BatchEarthObservationsRequest):
             else:
                 metadata = item
         return BatchEarthObservationsResponse(frames=frames, metadata=metadata)
+    except ValidationError as e:
+        # Pydantic validation errors should return 422
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid input: {str(e)}"
+        ) from e
     except ValueError as e:
         raise HTTPException(
             status_code=400,

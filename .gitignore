@@ -36,9 +36,18 @@ htmlcov/
 .nox/
 playwright-report/
 playwright-report-prod/
+phase2-test-results*.txt
+test_frame_count.py
 
-# Security scanning
-bandit-report.json
+# Security scanning outputs (never commit - analysis only)
+bandit*.json
+bandit*.txt
+bandit*.html
+pip-audit*
+audit-results*
+security-scan*
+phase2-results-*.json
+phase2-test-results-*.txt
 
 # IDE
 .vscode/
