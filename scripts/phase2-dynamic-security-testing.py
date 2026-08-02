@@ -279,6 +279,8 @@ class SecurityTester:
             context = ssl.create_default_context()
             context.check_hostname = False
             context.verify_mode = ssl.CERT_NONE
+            # Disable insecure TLS versions - require TLSv1.2 or higher
+            context.minimum_version = ssl.TLSVersion.TLSv1_2
             
             # Get the target domain
             host = self.target.replace("https://", "").replace("http://", "")

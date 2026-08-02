@@ -798,6 +798,12 @@ async def get_batch_earth_observations(request: BatchEarthObservationsRequest):
             else:
                 metadata = item
         return BatchEarthObservationsResponse(frames=frames, metadata=metadata)
+    except ValidationError as e:
+        # Pydantic validation errors should return 422
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid input: {str(e)}"
+        ) from e
     except ValueError as e:
         raise HTTPException(
             status_code=400,

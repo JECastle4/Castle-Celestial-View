@@ -95,6 +95,9 @@ fi
 declare -a TESTS=(
     "test-boundaries.py"
     "test-error-handling.py"
+    "test-concurrency.py"
+    "test-astropy-limits.py"
+    "test-resource-safety.py"
 )
 
 TOTAL_PASSED=0
