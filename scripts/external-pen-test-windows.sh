@@ -81,9 +81,10 @@ echo ""
 
 for version in ssl3 tls1 tls1_1 tls1_2 tls1_3; do
     echo -n "$version: "
-    # Try to connect and check if we get any response
+    # Check if a valid cipher was negotiated (not NONE)
+    # If handshake failed or protocol not supported, Cipher will be (NONE)
     timeout 3 openssl s_client -connect "$TARGET:443" -"$version" </dev/null 2>&1 | \
-        grep -q "CONNECTED\|Cipher\|Protocol" && \
+        grep -q "Cipher is [A-Z]" && \
         echo "⚠️  SUPPORTED" || echo "✓ NOT supported"
 done
 echo ""
