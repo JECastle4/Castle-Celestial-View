@@ -51,7 +51,7 @@ python test-boundaries.py --target https://castlecelestialview.net
 - Extreme elevations (+10km, -1km)
 - Ancient dates (1900s)
 - Far future dates (2100+)
-- Frame count progression (10, 50, 100, 500, 1000, 5000, 10000)
+- Frame count progression (2, 10, 50, 100)
 
 **Success**: All boundary inputs return HTTP 200 with expected frames (or HTTP 422 if invalid)
 
@@ -112,8 +112,8 @@ python test-boundaries.py --target https://castlecelestialview.net
 **Purpose**: Verify API handles simultaneous requests safely.
 
 **Tests**:
-- 10 concurrent batch requests (frame_count=1000)
-- Mixed request types under load (70% single-point, 20% batch, 10% invalid)
+- 10 concurrent batch requests (frame_count=20)
+- Mixed batch request sizes under load (70% small: 5 frames, 20% large: 50 frames, 10% invalid)
 - Race condition detection (idempotency checks)
 - Concurrent request performance
 
