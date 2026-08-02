@@ -468,10 +468,13 @@ def main():
     summary = audit.summary()
     
     if args.json:
+        # Reconstruct output from sanitized data only (breaks taint flow)
+        sanitized_results = sanitize_results(audit.results)
+        safe_target = sanitize_target(args.target)
         output = {
             "timestamp": datetime.now().isoformat(),
-            "target": sanitize_target(args.target),
-            "tests": sanitize_results(audit.results),
+            "target": safe_target,
+            "tests": sanitized_results,
             "summary": summary
         }
         print(json.dumps(output, indent=2))
