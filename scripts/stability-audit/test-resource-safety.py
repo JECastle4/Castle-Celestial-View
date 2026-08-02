@@ -403,6 +403,8 @@ def main():
                     'https://[API]',
                     safe_result["message"]
                 )
+            # Remove timing data (may reveal performance patterns)
+            safe_result.pop("duration_sec", None)
             sanitized.append(safe_result)
         return sanitized
     
