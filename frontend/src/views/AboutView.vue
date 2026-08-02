@@ -53,6 +53,7 @@ const libraries = [
   { name: 'PyOpenGL-accelerate',   license: 'BSD-3-Clause', url: 'https://github.com/mcfletch/pyopengl/blob/master/license.txt' },
   { name: 'FastAPI',               license: 'MIT',          url: 'https://github.com/fastapi/fastapi/blob/master/LICENSE' },
   { name: 'Uvicorn',               license: 'BSD-3-Clause', url: 'https://github.com/encode/uvicorn/blob/master/LICENSE.md' },
+  { name: 'Starlette',             license: 'BSD-3-Clause', url: 'https://github.com/encode/starlette/blob/master/LICENSE.md' },
   { name: 'Pydantic',              license: 'MIT',          url: 'https://github.com/pydantic/pydantic/blob/main/LICENSE' },
   { name: 'Pillow',                license: 'HPND',         url: 'https://github.com/python-pillow/Pillow/blob/main/LICENSE' },
   { name: 'Pygments',              license: 'BSD-2-Clause', url: 'https://github.com/pygments/pygments/blob/master/LICENSE' },
