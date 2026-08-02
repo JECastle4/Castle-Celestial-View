@@ -1,7 +1,7 @@
 ═══════════════════════════════════════════════════════════════
 EXTERNAL PEN TEST - Castle Celestial View v1.1.1 (Windows)
 Target: castlecelestialview.net
-Date: Sun Aug  2 16:35:46 GMTST 2026
+Date: Sun Aug  2 17:28:44 GMTST 2026
 Platform: Windows Git Bash
 ═══════════════════════════════════════════════════════════════
 
@@ -22,7 +22,8 @@ PHASE 2: SSH SECURITY VERIFICATION
 ────────────────────────
 Command: ssh-keyscan -t rsa,ed25519 castlecelestialview.net
 
-SSH keys not retrieved
+castlecelestialview.net ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG5rWbnUSbqXU9QAGO8LCn46ybArXWGp8XpEMfRs9dtZ
+castlecelestialview.net ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDftiqewlKjxSXTMRfPOPTGJRXslxlShc621xX/qfHxDbsHF6Cj3hlME0OD6cmsU2N8xOiJi3XTrohIt3e7MrS6/oLx7/yrDinPXVuAkf4wNw76xkpAiWosjm/zIh1rSnIbG1yd/VsSP2x4Z8dAYwAtkZgZqqAQGMyxrI8t1hq5RNtMPk4h2WGzKZuV0D7JixWCav2yt22y6pk/i4JmhNkBDrCcI0iebDyBjWiSssFew4rgdgZNzmrX5a/r2gkJk6sYfRSWMdV2SepzqGXxs669nxKWj2oFsK/MtYGJkK98fNjGuMDV/VX3naH/qlOr/no8a5Z/Wjqsyl2B1jfnP0F8UJeJhLb0mDtUkLE9w9n/Cy74vCEtsbONkOwePiAOjx/uYq17nn5HKljNVdt9KTq1ckOBt2nkigumTjLHgOJ2+GBaPieppySFIUmFHvfwrmMzDFulo+qqtZs4ODlaFDhDQ0AxjEfkGZOv5HQluZlpb7fBunq2Dczwht+9BGaEwD0=
 
 Analysis: Check for modern key types (ed25519, rsa)
 
@@ -31,7 +32,6 @@ Analysis: Check for modern key types (ed25519, rsa)
 ─────────────────────────
 Attempting: ssh root@castlecelestialview.net (should be denied)
 
-ssh: connect to host castlecelestialview.net port 22: Connection timed out
 
 
 PHASE 3: TLS CERTIFICATE VERIFICATION
@@ -54,8 +54,8 @@ Chain verification:
 Testing each TLS version:
 
 ssl3: ✓ NOT supported
-tls1: ⚠️  SUPPORTED
-tls1_1: ⚠️  SUPPORTED
+tls1: ✓ NOT supported
+tls1_1: ✓ NOT supported
 tls1_2: ⚠️  SUPPORTED
 tls1_3: ⚠️  SUPPORTED
 

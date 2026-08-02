@@ -1,20 +1,27 @@
 #!/bin/bash
 # MANUAL DEPLOYMENT GUIDE - TLS 1.0/1.1 Security Fix
+# Updated: Config fixed (removed duplicate directives) and pushed to main
 # Run these commands directly on the production server via SSH
 
 echo "═══════════════════════════════════════════════════════════════"
 echo "MANUAL TLS 1.0/1.1 SECURITY FIX DEPLOYMENT"
+echo "Updated nginx config (no duplicate directives)"
 echo "═══════════════════════════════════════════════════════════════"
 echo ""
-echo "SSH to your production server:"
+echo "STATUS: nginx config has been FIXED and pushed to main"
+echo "  - Removed duplicate ssl_protocols directive"
+echo "  - Removed duplicate ssl_ciphers directive"
+echo "  - Removed conflicting 'include options-ssl-nginx.conf'"
+echo ""
+echo "SSH to your production server and run:"
 echo "  ssh deployuser@77.68.79.252"
 echo ""
-echo "Then run the following commands:"
+echo "Then paste the commands below:"
 echo ""
 echo "════════════════════════════════════════════════════════════════"
 echo ""
 cat << 'EOF'
-# Step 1: Download updated nginx config
+# Step 1: Download FIXED nginx config from GitHub
 cd /tmp
 curl -sSL 'https://raw.githubusercontent.com/JECastle4/Castle-Celestial-View/main/scripts/castle-celestial.nginx.conf' -o castle-celestial.new
 
@@ -27,39 +34,45 @@ sudo cp /etc/nginx/sites-available/celestial-view /etc/nginx/sites-available/cel
 echo "✓ Backed up current nginx config"
 echo ""
 
-# Step 3: Validate new configuration syntax
+# Step 3: Deploy new configuration
 sudo cp /tmp/castle-celestial.new /etc/nginx/sites-available/celestial-view
+echo "✓ Deployed new nginx config"
+echo ""
+
+# Step 4: Validate nginx configuration syntax
+echo "Validating nginx configuration..."
 sudo nginx -t
 
 # Check if syntax is valid
 if [ $? -eq 0 ]; then
-    echo "✓ Configuration syntax is valid"
+    echo "✓ Configuration syntax VALID - proceeding with reload"
+    echo ""
 else
-    echo "✗ Configuration has syntax errors!"
-    echo "  Restoring backup and exiting..."
+    echo "✗ Configuration has SYNTAX ERRORS!"
+    echo "  Rolling back to previous version..."
     sudo cp /etc/nginx/sites-available/celestial-view.backup.* /etc/nginx/sites-available/celestial-view
     sudo systemctl reload nginx
+    echo "  Rollback complete. Fix the config and try again."
     exit 1
 fi
-echo ""
 
-# Step 4: Reload nginx (apply new configuration)
-echo "Reloading nginx..."
+# Step 5: Reload nginx (apply new configuration)
+echo "Step 5: Reloading nginx..."
 sudo systemctl reload nginx
-echo "✓ nginx reloaded successfully"
+echo "✓ nginx reloaded successfully (no downtime)"
 echo ""
 
-# Step 5: Verify TLS configuration
-echo "Step 5: Verifying TLS Configuration"
+# Step 6: Verify TLS configuration
+echo "Step 6: Verifying TLS Configuration"
 echo "════════════════════════════════════"
 echo ""
 
 echo "Testing TLS 1.0 (should FAIL):"
-timeout 3 openssl s_client -connect localhost:443 -tls1 </dev/null 2>&1 | grep -i "alert\|fail" && echo "✓ TLS 1.0 BLOCKED" || echo "⚠️  TLS 1.0 still accessible"
+timeout 3 openssl s_client -connect localhost:443 -tls1 </dev/null 2>&1 | grep -i "alert\|fail" && echo "✓ TLS 1.0 BLOCKED" || echo "⚠️  TLS 1.0 still accessible - check config"
 echo ""
 
 echo "Testing TLS 1.1 (should FAIL):"
-timeout 3 openssl s_client -connect localhost:443 -tls1_1 </dev/null 2>&1 | grep -i "alert\|fail" && echo "✓ TLS 1.1 BLOCKED" || echo "⚠️  TLS 1.1 still accessible"
+timeout 3 openssl s_client -connect localhost:443 -tls1_1 </dev/null 2>&1 | grep -i "alert\|fail" && echo "✓ TLS 1.1 BLOCKED" || echo "⚠️  TLS 1.1 still accessible - check config"
 echo ""
 
 echo "Testing TLS 1.2 (should SUCCEED):"
@@ -71,13 +84,13 @@ timeout 3 openssl s_client -connect localhost:443 -tls1_3 </dev/null 2>&1 | grep
 echo ""
 
 echo "════════════════════════════════════════════════════════════════"
-echo "DEPLOYMENT COMPLETE"
+echo "DEPLOYMENT COMPLETE ✓"
 echo "════════════════════════════════════════════════════════════════"
 echo ""
 echo "Summary:"
-echo "  ✓ nginx config updated with TLS 1.2+ enforcement"
-echo "  ✓ nginx reloaded (no downtime)"
-echo "  ✓ Backup saved to: /etc/nginx/sites-available/celestial-view.backup.*"
+echo "  ✓ nginx config updated with TLS 1.2+ ONLY enforcement"
+echo "  ✓ nginx reloaded without downtime"
+echo "  ✓ Backup saved: /etc/nginx/sites-available/celestial-view.backup.*"
 echo ""
 echo "Rollback (if needed):"
 echo "  sudo cp /etc/nginx/sites-available/celestial-view.backup.YYYYMMDD-HHMMSS /etc/nginx/sites-available/celestial-view"
@@ -89,14 +102,30 @@ EOF
 echo ""
 echo "════════════════════════════════════════════════════════════════"
 echo ""
-echo "AFTER DEPLOYMENT:"
+echo "AFTER DEPLOYMENT (Run from your local machine):"
 echo ""
 echo "1. Run external pen test from your local machine:"
-echo "   bash scripts/external-pen-test-windows.sh"
+echo "   bash scripts/external-pen-test-windows.sh 77.68.79.252"
 echo ""
-echo "2. Verify TLS 1.0/1.1 are blocked:"
-echo "   - Should show: tls1: ✓ NOT supported"
-echo "   - Should show: tls1_1: ✓ NOT supported"
-echo "   - Should show: tls1_2: ⚠️ SUPPORTED (correct)"
-echo "   - Should show: tls1_3: ⚠️ SUPPORTED (correct)"
+echo "2. Verify results show:"
+echo "   - tls1: ✓ NOT supported"
+echo "   - tls1_1: ✓ NOT supported"
+echo "   - tls1_2: ⚠️ SUPPORTED (correct)"
+echo "   - tls1_3: ⚠️ SUPPORTED (correct)"
+echo ""
+echo "3. If all checks pass:"
+echo "   - Push changes to GitHub:"
+echo "     git add scripts/castle-celestial.nginx.conf"
+echo "     git commit -m 'Security: TLS 1.0/1.1 disabled, enforce TLS 1.2+ only (Issue #206)'"
+echo "     git push origin main"
+echo ""
+echo "   - Tag the release:"
+echo "     git tag -a v1.1.1-patch1 -m 'Security patch: TLS 1.0/1.1 disabled'"
+echo "     git push origin v1.1.1-patch1"
+echo ""
+echo "   - Update Issue #206:"
+echo "     https://github.com/JECastle4/Castle-Celestial-View/issues/206"
+echo "     Document TLS 1.0/1.1 vulnerability (discovered via external pen testing)"
+echo "     Link to EXTERNAL_PEN_TEST_CRITICAL_FINDINGS.md"
+echo "     Mark as RESOLVED"
 echo ""
