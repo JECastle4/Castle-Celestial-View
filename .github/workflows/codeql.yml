@@ -8,6 +8,10 @@ on:
   schedule:
     - cron: '0 0 * * 0'  # Weekly scan
 
+permissions:
+  contents: read
+  security-events: write  # Needed for uploading SARIF results
+
 jobs:
   codeql:
     name: CodeQL Scan
