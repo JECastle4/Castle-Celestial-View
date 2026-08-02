@@ -393,6 +393,13 @@ def main():
         sanitized = []
         for result in results:
             safe_result = result.copy()
+            # Redact location coordinates from test names
+            if safe_result.get("test"):
+                safe_result["test"] = re.sub(
+                    r'\(.*?(?:latitude|longitude|coord|°).*?\)',
+                    '(coordinates redacted)',
+                    safe_result["test"]
+                )
             # Remove full error details - only keep type
             if safe_result.get("error"):
                 safe_result["error"] = {
