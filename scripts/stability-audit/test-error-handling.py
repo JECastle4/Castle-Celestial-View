@@ -490,11 +490,15 @@ def main():
         return 1
     
     if args.json:
+        # Reconstruct output from sanitized data only (breaks taint flow)
+        sanitized_results = sanitize_results(audit.results)
+        sanitized_issues = sanitize_critical_issues(audit.critical_issues)
+        safe_target = sanitize_target(args.target)
         output = {
             "timestamp": datetime.now().isoformat(),
-            "target": sanitize_target(args.target),
-            "results": sanitize_results(audit.results),
-            "critical_issues": sanitize_critical_issues(audit.critical_issues)
+            "target": safe_target,
+            "results": sanitized_results,
+            "critical_issues": sanitized_issues
         }
         print(json.dumps(output, indent=2))
     else:
