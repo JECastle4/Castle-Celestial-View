@@ -426,6 +426,40 @@ def main():
         import re
         return re.sub(r'https?://[^/]+', 'https://[API]', url)
     
+    # Sanitize results for output (avoid exposing sensitive test data)
+    def sanitize_results(results):
+        """Remove sensitive details from test results before logging."""
+        import re
+        sanitized = []
+        for result in results:
+            safe_result = result.copy()
+            # Remove full error details - only keep type
+            if safe_result.get("error"):
+                safe_result["error"] = {
+                    "type": safe_result["error"].get("type", "Unknown"),
+                    "message": "Error occurred (details redacted)"
+                }
+            # Remove detailed test output which may contain sensitive response data
+            if safe_result.get("details"):
+                safe_result["details"] = "(details redacted)"
+            # Redact message if it contains URLs or sensitive info
+            if safe_result.get("message"):
+                safe_result["message"] = re.sub(
+                    r'https?://[^\s]+',
+                    'https://[API]',
+                    safe_result["message"]
+                )
+            sanitized.append(safe_result)
+        return sanitized
+    
+    def sanitize_critical_issues(issues):
+        """Redact URLs and sensitive info from critical issues."""
+        import re
+        return [
+            re.sub(r'https?://[^\s]+', 'https://[API]', issue)
+            for issue in issues
+        ]
+    
     if not args.json:
         print(f"\n{'='*70}")
         print("  ERROR HANDLING AUDIT")
@@ -450,8 +484,8 @@ def main():
         output = {
             "timestamp": datetime.now().isoformat(),
             "target": sanitize_target(args.target),
-            "results": audit.results,
-            "critical_issues": audit.critical_issues
+            "results": sanitize_results(audit.results),
+            "critical_issues": sanitize_critical_issues(audit.critical_issues)
         }
         print(json.dumps(output, indent=2))
     else:
