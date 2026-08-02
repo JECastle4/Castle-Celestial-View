@@ -398,6 +398,12 @@ def main():
                         help="Output results as JSON")
     args = parser.parse_args()
     
+    # Sanitize target for output (avoid exposing production URLs)
+    def sanitize_target(url):
+        """Replace sensitive parts of URL for logging."""
+        import re
+        return re.sub(r'https?://[^/]+', 'https://[API]', url)
+    
     audit = ConcurrencyAudit(
         target=args.target,
         timeout=args.timeout,
@@ -421,7 +427,7 @@ def main():
     if args.json:
         output = {
             "timestamp": datetime.now().isoformat(),
-            "target": args.target,
+            "target": sanitize_target(args.target),
             "tests": audit.results,
             "summary": summary
         }

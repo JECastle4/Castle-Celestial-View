@@ -380,10 +380,16 @@ def main():
                        help="JSON output only")
     args = parser.parse_args()
     
+    # Sanitize target for output (avoid exposing production URLs)
+    def sanitize_target(url):
+        """Replace sensitive parts of URL for logging."""
+        import re
+        return re.sub(r'https?://[^/]+', 'https://[API]', url)
+    
     if not args.json:
         print(f"\n{'='*70}")
         print("  BOUNDARY CONDITION AUDIT")
-        print(f"  Target: {args.target}")
+        print(f"  Target: {sanitize_target(args.target)}")
         print(f"{'='*70}")
     
     audit = BoundaryAudit(
@@ -403,7 +409,7 @@ def main():
     if args.json:
         output = {
             "timestamp": datetime.now().isoformat(),
-            "target": args.target,
+            "target": sanitize_target(args.target),
             "results": audit.results,
             "critical_issues": audit.critical_issues
         }
