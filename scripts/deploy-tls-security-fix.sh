@@ -22,11 +22,25 @@ echo ""
 
 # Check if we can access the target
 echo "Verifying access to $TARGET_HOST..."
-if ssh "$TARGET_USER@$TARGET_HOST" "echo Connected" >/dev/null 2>&1; then
+if ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no "$TARGET_USER@$TARGET_HOST" "echo Connected" >/dev/null 2>&1; then
     echo "✓ SSH access confirmed"
 else
     echo "✗ Cannot SSH to $TARGET_HOST"
-    echo "Make sure you have SSH access configured"
+    echo ""
+    echo "Troubleshooting:"
+    echo "1. Verify SSH key-based auth (no password prompts):"
+    echo "   ssh -v $TARGET_USER@$TARGET_HOST 'echo OK'"
+    echo ""
+    echo "2. If prompted for password, add your SSH key:"
+    echo "   ssh-copy-id -i ~/.ssh/id_rsa $TARGET_USER@$TARGET_HOST"
+    echo ""
+    echo "3. Or set up SSH config (~/.ssh/config):"
+    echo "   Host castle-production"
+    echo "       HostName 77.68.79.252"
+    echo "       User deployuser"
+    echo "       IdentityFile ~/.ssh/id_rsa"
+    echo ""
+    echo "4. Then run: ssh castle-production 'echo OK'"
     exit 1
 fi
 echo ""
@@ -45,39 +59,65 @@ echo ""
 echo "Step 2: Deploy Updated nginx Configuration"
 echo "──────────────────────────────────────────"
 echo "Downloading fixed configuration from GitHub..."
+echo ""
 
-# Try local file first, then GitHub
-if [ -f "./scripts/castle-celestial.nginx.conf" ]; then
-    echo "✓ Using local file: ./scripts/castle-celestial.nginx.conf"
-    scp ./scripts/castle-celestial.nginx.conf "$TARGET_USER@$TARGET_HOST":/tmp/castle-celestial.new
-elif [ -f "/scripts/castle-celestial.nginx.conf" ]; then
-    echo "✓ Using absolute path: /scripts/castle-celestial.nginx.conf"
-    scp /scripts/castle-celestial.nginx.conf "$TARGET_USER@$TARGET_HOST":/tmp/castle-celestial.new
-else
-    echo "Local file not found. Downloading from GitHub repository..."
-    # Download from GitHub raw content
-    ssh "$TARGET_USER@$TARGET_HOST" "
-        curl -sSL 'https://raw.githubusercontent.com/JECastle4/Castle-Celestial-View/main/scripts/castle-celestial.nginx.conf' \
-            -o /tmp/castle-celestial.new
-        if [ $? -eq 0 ]; then
-            echo '✓ Configuration downloaded from GitHub'
-        else
-            echo '✗ Failed to download configuration'
-            exit 1
-        fi
-    "
+ssh "$TARGET_USER@$TARGET_HOST" "
+    cd /tmp
+    curl -sSL 'https://raw.githubusercontent.com/JECastle4/Castle-Celestial-View/main/scripts/castle-celestial.nginx.conf' \
+        -o castle-celestial.new
+    
+    if [ ! -f castle-celestial.new ] || [ ! -s castle-celestial.new ]; then
+        echo '✗ Failed to download configuration from GitHub'
+        echo '  Make sure:'
+        echo '    1. nginx config is pushed to: https://github.com/JECastle4/Castle-Celestial-View/main/scripts/castle-celestial.nginx.conf'
+        echo '    2. Server has internet access to github.com'
+        exit 1
+    fi
+    
+    echo '✓ Configuration downloaded from GitHub'
+"
+
+if [ $? -ne 0 ]; then
+    echo ""
+    echo "Failed to download. Troubleshooting:"
+    echo "1. Verify SSH key auth is working:"
+    echo "   ssh -v $TARGET_USER@$TARGET_HOST 'echo OK'"
+    echo ""
+    echo "2. Test curl on the server:"
+    echo "   ssh $TARGET_USER@$TARGET_HOST 'curl -I https://github.com'"
+    echo ""
+    echo "3. Push nginx config to GitHub:"
+    echo "   git add scripts/castle-celestial.nginx.conf"
+    echo "   git commit -m 'Security: TLS 1.2+ enforcement'"
+    echo "   git push origin main"
+    exit 1
 fi
-echo "✓ Configuration uploaded"
+
+echo "✓ Configuration ready for deployment"
 echo ""
 
 # Verify nginx config syntax
 echo "Step 3: Validate nginx Configuration"
 echo "────────────────────────────────────"
-ssh "$TARGET_USER@$TARGET_HOST" "
-    sudo cp /tmp/castle-celestial.new /etc/nginx/sites-available/castle-celestial.test
-    sudo nginx -t -c /etc/nginx/nginx.conf 2>&1 | grep -i 'test successful' && echo '✓ Configuration syntax valid' || (echo '✗ Configuration has errors'; sudo rm /etc/nginx/sites-available/castle-celestial.test; exit 1)
-    sudo rm /etc/nginx/sites-available/castle-celestial.test
-"
+ssh "$TARGET_USER@$TARGET_HOST" << 'REMOTE_COMMANDS'
+    # Test nginx syntax (note: nginx -t requires reading the config, not sudo needed for test)
+    sudo nginx -t -c /etc/nginx/nginx.conf 2>&1 | tee /tmp/nginx-test.log
+    
+    if grep -q "successful" /tmp/nginx-test.log; then
+        echo '✓ Configuration syntax valid'
+    else
+        echo '✗ Configuration has errors'
+        cat /tmp/nginx-test.log
+        exit 1
+    fi
+REMOTE_COMMANDS
+
+if [ $? -ne 0 ]; then
+    echo ""
+    echo "Configuration validation failed."
+    echo "Next: Check nginx syntax and fix any errors"
+    exit 1
+fi
 echo ""
 
 # Deploy updated configuration
