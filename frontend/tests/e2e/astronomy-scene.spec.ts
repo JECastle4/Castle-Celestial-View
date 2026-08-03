@@ -844,6 +844,57 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
     const animationControlsAfterScreenshot = page.locator('.animation-controls');
     await expect(animationControlsAfterScreenshot).toBeVisible({ timeout: 5000 });
   });
+
+  /**
+   * TEST 13: Click New Query button and verify focus restoration (Issue #220)
+   * Tests that keyboard focus is restored to the latitude input after clearing data
+   * This validates fix for: https://github.com/JECastle4/Castle-Celestial-View/issues/220
+   */
+  testWithPersistentPage('13. Click New Query and verify focus is restored to latitude input', { timeout: 90000 }, async ({ page }) => {
+    // Stabilize page before proceeding
+    await stabilizePage(page, 8000, true);
+    
+    // Verify page state: animation controls should be visible (from previous test)
+    const animationControls = page.locator('.animation-controls');
+    await expect(animationControls).toBeVisible({ timeout: 10000 });
+    
+    // Find the New Query button
+    const newQueryButton = page.getByRole('button', { name: 'New Query' });
+    await expect(newQueryButton).toBeVisible({ timeout: 5000 });
+    
+    // Click New Query button
+    console.log('[Test 13] Clicking New Query button...');
+    await newQueryButton.click();
+    
+    // Wait for DOM to update (v-if toggles animation controls visibility)
+    await page.waitForTimeout(300);
+    
+    // Verify animation controls are now hidden
+    await expect(animationControls).not.toBeVisible({ timeout: 5000 });
+    
+    // Verify input form is now visible (the inverse state)
+    const inputForm = page.locator('.input-form');
+    await expect(inputForm).toBeVisible({ timeout: 5000 });
+    
+    // **CRITICAL ASSERTION FOR ISSUE #220**: 
+    // Verify that focus has been restored to the latitude input, NOT to <body>
+    // This is the core fix for the accessibility violation (W3C WAI-ARIA, WCAG 2.2 SC 2.4.3)
+    const activeElementId = await page.evaluate(() => {
+      const elem = document.activeElement as HTMLElement;
+      return elem?.id || elem?.tagName || 'unknown';
+    });
+    
+    console.log(`[Test 13] Active element after New Query: ${activeElementId}`);
+    
+    // Assert that focus is on the latitude input (id="latitude"), not on body
+    expect(activeElementId).toBe('latitude');
+    
+    // Verify the latitude input is indeed focused and has focus ring visible
+    const latitudeInput = page.locator('#latitude');
+    await expect(latitudeInput).toBeFocused();
+    
+    console.log('[Test 13] ✅ Focus correctly restored to latitude input (issue #220 verified)');
+  });
 });
 
 test.describe('Astronomy Scene - Initial Load', () => {
