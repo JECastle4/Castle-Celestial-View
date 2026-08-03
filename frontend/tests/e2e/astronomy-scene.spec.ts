@@ -866,10 +866,8 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
     console.log('[Test 13] Clicking New Query button...');
     await newQueryButton.click();
     
-    // Wait for DOM to update (v-if toggles animation controls visibility)
-    await page.waitForTimeout(300);
-    
     // Verify animation controls are now hidden
+    // (visibility assertion auto-waits for DOM updates via v-if toggle)
     await expect(animationControls).not.toBeVisible({ timeout: 5000 });
     
     // Verify input form is now visible (the inverse state)
@@ -889,7 +887,7 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
     // Assert that focus is on the latitude input (id="latitude"), not on body
     expect(activeElementId).toBe('latitude');
     
-    // Verify the latitude input is indeed focused and has focus ring visible
+    // Verify the latitude input has focus
     const latitudeInput = page.locator('#latitude');
     await expect(latitudeInput).toBeFocused();
     
