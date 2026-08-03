@@ -46,6 +46,7 @@
           <label for="latitude">{{ t('forms.labels.latitude') }}:</label>
           <input 
             id="latitude"
+            ref="latitudeInputRef"
             v-model.number="params.latitude" 
             type="number" 
               step="0.1"
@@ -384,6 +385,8 @@ const selectedBodyId = ref('sun');
 
 // Canvas reference
 const canvasRef = ref<HTMLCanvasElement | null>(null);
+// Template refs for focus management (issue #220)
+const latitudeInputRef = ref<HTMLInputElement | null>(null);
 // API data
 const { data, loading, error, hasData, frameCount, fetchBatchObservationsSSE, cancelSSE, clearData: clearApiData, sseProgress, sseExpectedFrameCount, sseFrames, dismissSuccessToast } = useAstronomyData();
   // Animation state
@@ -989,6 +992,14 @@ function clearData() {
   uranus = null;
   neptune = null;
   earth = null;
+  
+  // Restore focus to latitude input after DOM updates (fixes issue #220)
+  // When clearData() hides animation controls and shows form, focus should move
+  // to a logical location rather than falling to <body>.
+  // See: https://www.w3.org/WAI/ARIA/apg/practices/keyboard-interface/#discernibleandpredictablekeyboardfocus
+  nextTick(() => {
+    latitudeInputRef.value?.focus();
+  });
 }
 
 // Window resize event handler
