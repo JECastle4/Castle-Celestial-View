@@ -34,6 +34,8 @@ from api.models import (
     ObservationDateTime,
     LocationModel,
     TimeRange,
+    AstronomicalEventsRequest,
+    AstronomicalEventsResponse,
 )
 from api.services.dates import calculate_day_of_week
 from api.services.sun import calculate_sun_position
@@ -47,6 +49,7 @@ from api.services.uranus import calculate_uranus_position
 from api.services.neptune import calculate_neptune_position
 from api.services.moon_phase import calculate_moon_phase
 from api.services.batch_earth_observations import calculate_batch_earth_observations
+from api.services.astronomical_events import get_astronomical_events
 
 
 router = APIRouter()
@@ -813,4 +816,51 @@ async def get_batch_earth_observations(request: BatchEarthObservationsRequest):
         raise HTTPException(
             status_code=500,
             detail=f"Error calculating batch observations: {str(e)}"
+        ) from e
+
+
+@router.post(
+    "/astronomical-events",
+    response_model=AstronomicalEventsResponse,
+    tags=["astronomical-events"],
+    summary="Find new/full moons and eclipses in a date range",
+    description="""
+    Finds all new and full moons within a date range and classifies each as an
+    eclipse (TOTAL, PARTIAL, ANNULAR, or PENUMBRAL) where applicable, using the
+    Moon's ecliptic latitude at conjunction/opposition as a fast pre-filter and
+    precise shadow-cone geometry (refined to the instant of greatest eclipse) for
+    classification.
+
+    Geocentric-only (not observer-specific). Eclipse contact times, when computed,
+    describe when the eclipse begins/ends as seen from somewhere on Earth (solar)
+    or the penumbral/umbral shadow boundary crossings (lunar) - not times for a
+    specific observer location.
+
+    - **start_date** / **end_date**: Date range (YYYY-MM-DD), inclusive
+    - **page** / **page_size**: Pagination controls
+    - **include_contact_times**: Whether to compute eclipse contact times
+    - **event_types**: Optional filter - 'new_moon', 'full_moon', or omit for both
+    """
+)
+async def get_astronomical_events_route(request: AstronomicalEventsRequest):
+    """Find new/full moons and classify eclipses within a date range."""
+    try:
+        result = get_astronomical_events(
+            start_date_str=request.start_date,
+            end_date_str=request.end_date,
+            page=request.page,
+            page_size=request.page_size,
+            include_contact_times=request.include_contact_times,
+            event_types=request.event_types,
+        )
+        return AstronomicalEventsResponse(**result)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid input: {str(e)}"
+        ) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error calculating astronomical events: {str(e)}"
         ) from e
