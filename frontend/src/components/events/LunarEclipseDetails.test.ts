@@ -4,12 +4,12 @@ import LunarEclipseDetails from './LunarEclipseDetails.vue';
 import type { AstronomicalEvent } from '@/types/api.types';
 
 const baseEvent: AstronomicalEvent = {
-  event_type: 'full_moon',
+  event_type: 'Full Moon',
   date: '2025-09-07 18:11:42.600',
   julian_date: 2460925.257,
   moon_ecl_lat_deg: -0.1,
   eclipse_occurs: true,
-  eclipse_type: 'TOTAL',
+  eclipse_type: 'Total',
   greatest_eclipse_time: '2025-09-07 18:11:42.600',
   umbral_magnitude: 1.3635,
   penumbral_magnitude: 2.4123,

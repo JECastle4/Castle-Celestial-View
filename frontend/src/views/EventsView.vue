@@ -10,17 +10,39 @@
       <h1>{{ t('events.title') }}</h1>
       <p class="events-description">{{ t('events.description') }}</p>
 
-      <DateRangePicker
-        class="date-range-panel"
-        :initialStartDate="startDate"
-        :initialEndDate="endDate"
-        @update:dates="onDateRangeSelected"
-      />
+      <div class="search-container">
+        <div class="search-left">
+          <DateRangePicker
+            class="date-range-panel"
+            :initialStartDate="startDate"
+            :initialEndDate="endDate"
+            @update:dates="onDateRangeSelected"
+          />
 
-      <button type="button" class="search-btn" :disabled="loading" @click="search">
-        <i class="fa fa-magnifying-glass" aria-hidden="true" style="margin-right: 0.5em;"></i>
-        {{ t('events.search') }}
-      </button>
+          <button type="button" class="search-btn" :disabled="loading" @click="search">
+            <i class="fa fa-magnifying-glass" aria-hidden="true" style="margin-right: 0.5em;"></i>
+            {{ t('events.search') }}
+          </button>
+        </div>
+
+        <div class="search-right">
+          <div class="parameters-panel">
+            <h3>{{ t('events.searchParameters') }}</h3>
+            <div class="parameter-item">
+              <span class="parameter-label">{{ t('forms.labels.startDate') }}:</span>
+              <span class="parameter-value">{{ formatDisplayDate(startDate) }}</span>
+            </div>
+            <div class="parameter-item">
+              <span class="parameter-label">{{ t('forms.labels.endDate') }}:</span>
+              <span class="parameter-value">{{ formatDisplayDate(endDate) }}</span>
+            </div>
+            <div v-if="hasSearched" class="parameter-item">
+              <span class="parameter-label">{{ t('events.resultsFound') }}:</span>
+              <span class="parameter-value">{{ pagination?.total_events || 0 }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div v-if="loading" class="loading">
         <div class="progress-label">
@@ -35,6 +57,9 @@
       <div v-if="error" class="error">{{ error }}</div>
 
       <template v-if="!loading && !error">
+        <div v-if="events.length" class="events-table-header">
+          <p class="utc-notice">{{ t('events.allTimesUTC') }}</p>
+        </div>
         <ul v-if="events.length" class="event-list">
           <EventListItem
             v-for="ev in events"
@@ -102,6 +127,15 @@ function toDateString(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
+function formatDisplayDate(dateString: string): string {
+  try {
+    const date = new Date(dateString + 'T00:00:00Z');
+    return date.toLocaleDateString(locale.value, { year: 'numeric', month: 'short', day: 'numeric' });
+  } catch {
+    return dateString;
+  }
+}
+
 function onDateRangeSelected(dates: { start: Date; end: Date }) {
   startDate.value = toDateString(dates.start);
   endDate.value = toDateString(dates.end);
@@ -142,6 +176,73 @@ function search() {
 .events-description {
   color: #aaa;
   margin-bottom: 1.5rem;
+}
+
+.search-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin-bottom: 2rem;
+  align-items: start;
+}
+
+.search-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.date-range-panel {
+  margin-bottom: 1rem;
+}
+
+.search-right {
+  display: flex;
+  flex-direction: column;
+}
+
+.parameters-panel {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  padding: 1rem;
+  color: #ddd;
+}
+
+.parameters-panel h3 {
+  margin: 0 0 1rem 0;
+  font-size: 0.95em;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.parameter-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+  font-size: 0.9em;
+}
+
+.parameter-item:last-child {
+  margin-bottom: 0;
+}
+
+.parameter-label {
+  color: #aaa;
+  margin-right: 1rem;
+}
+
+.parameter-value {
+  color: #fff;
+  font-weight: 500;
+  text-align: right;
+}
+
+@media (max-width: 960px) {
+  .search-container {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
 }
 
 .search-btn {
@@ -200,6 +301,17 @@ function search() {
 .empty-state {
   color: #aaa;
   padding: 1rem 0;
+}
+
+.events-table-header {
+  margin-bottom: 1rem;
+}
+
+.utc-notice {
+  color: #999;
+  font-size: 0.9em;
+  margin: 0;
+  padding: 0;
 }
 
 .event-list {

@@ -7,8 +7,8 @@ describe('EventListItem', () => {
     const wrapper = mount(EventListItem, {
       props: {
         date: '2025-09-21 19:54:00.000',
-        eventType: 'new_moon',
-        eclipseType: 'NONE',
+        eventType: 'New Moon',
+        eclipseType: 'No Eclipse',
         eclipseOccurs: false,
       },
     });
@@ -22,8 +22,8 @@ describe('EventListItem', () => {
     const wrapper = mount(EventListItem, {
       props: {
         date: '2025-09-07 18:11:42.600',
-        eventType: 'full_moon',
-        eclipseType: 'TOTAL',
+        eventType: 'Full Moon',
+        eclipseType: 'Total',
         eclipseOccurs: true,
       },
     });
@@ -37,8 +37,8 @@ describe('EventListItem', () => {
     const wrapper = mount(EventListItem, {
       props: {
         date: '2025-09-07 18:11:42.600',
-        eventType: 'full_moon',
-        eclipseType: 'TOTAL',
+        eventType: 'Full Moon',
+        eclipseType: 'Total',
         eclipseOccurs: true,
       },
       slots: {
