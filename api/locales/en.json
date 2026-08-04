@@ -40,7 +40,13 @@
   "events": {
     "eventTypes": {
       "newMoon": "New Moon",
-      "fullMoon": "Full Moon"
+      "fullMoon": "Full Moon",
+      "solarTotal": "Solar Total",
+      "solarPartial": "Solar Partial",
+      "solarAnnular": "Solar Annular",
+      "lunarTotal": "Lunar Total",
+      "lunarPartial": "Lunar Partial",
+      "lunarPenumbral": "Lunar Penumbral"
     },
     "eclipseTypes": {
       "NONE": "No Eclipse",
