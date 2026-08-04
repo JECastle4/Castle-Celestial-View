@@ -207,5 +207,42 @@
 			"framesPerDay": "frames/day",
 			"totalFrames": "total frames"
 		}
+	},
+	"events": {
+		"title": "Astronomical Events",
+		"description": "Search for new moons, full moons, and eclipses within a date range.",
+		"search": "Search",
+		"searching": "Searching for events...",
+		"eventsReceived": "({count} received so far)",
+		"noResults": "No events found in the selected date range.",
+		"pageOf": "Page {page} of {total}",
+		"eclipseTypes": {
+			"NONE": "No Eclipse",
+			"PARTIAL": "Partial",
+			"TOTAL": "Total",
+			"ANNULAR": "Annular",
+			"PENUMBRAL": "Penumbral"
+		},
+		"lunar": {
+			"greatestEclipse": "Greatest Eclipse",
+			"umbralMagnitude": "Umbral Magnitude",
+			"penumbralMagnitude": "Penumbral Magnitude",
+			"contactTimes": "Contact Times",
+			"p1": "P1 (Penumbral Eclipse Begins)",
+			"u1": "U1 (Partial Eclipse Begins)",
+			"u2": "U2 (Total Eclipse Begins)",
+			"u3": "U3 (Total Eclipse Ends)",
+			"u4": "U4 (Partial Eclipse Ends)",
+			"p4": "P4 (Penumbral Eclipse Ends)"
+		},
+		"solar": {
+			"greatestEclipse": "Greatest Eclipse",
+			"sizeRatio": "Size Ratio",
+			"contactTimes": "Contact Times",
+			"eclipseBegins": "Eclipse Begins",
+			"centralPhaseBegins": "Central Phase Begins",
+			"centralPhaseEnds": "Central Phase Ends",
+			"eclipseEnds": "Eclipse Ends"
+		}
 	}
 }

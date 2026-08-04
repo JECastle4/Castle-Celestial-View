@@ -1,6 +1,6 @@
 import { API_CONFIG, API_ENDPOINTS } from './config';
 export { API_CONFIG };
-import type { BatchEarthObservationsResponse } from '@/types/api.types';
+import type { AstronomicalEventsResponse, BatchEarthObservationsResponse } from '@/types/api.types';
 import { getCurrentLocale } from '@/i18n';
 
 /**
@@ -29,6 +29,15 @@ export interface BatchObservationsParams {
   elevation?: number;
 }
 
+export interface AstronomicalEventsParams {
+  start_date: string;
+  end_date: string;
+  page?: number;
+  page_size?: number;
+  include_contact_times?: boolean;
+  event_types?: ('new_moon' | 'full_moon')[];
+}
+
 export class AstronomyApiClient {
   private baseUrl: string;
   private timeout: number;
@@ -45,7 +54,20 @@ export class AstronomyApiClient {
     params: BatchObservationsParams
   ): Promise<BatchEarthObservationsResponse> {
     const url = `${this.baseUrl}${API_ENDPOINTS.batchEarthObservations}?lang=${getCurrentLocale()}`;
+    return this.postJson<BatchEarthObservationsResponse>(url, params);
+  }
 
+  /**
+   * Find new/full moons in a date range and classify any eclipses
+   */
+  async getAstronomicalEvents(
+    params: AstronomicalEventsParams
+  ): Promise<AstronomicalEventsResponse> {
+    const url = `${this.baseUrl}${API_ENDPOINTS.astronomicalEvents}?lang=${getCurrentLocale()}`;
+    return this.postJson<AstronomicalEventsResponse>(url, params);
+  }
+
+  private async postJson<T>(url: string, body: unknown): Promise<T> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
@@ -56,7 +78,7 @@ export class AstronomyApiClient {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(params),
+        body: JSON.stringify(body),
         signal: controller.signal,
       });
 
@@ -93,6 +115,7 @@ export class AstronomyApiClient {
 
 export interface AstronomyApi {
   getBatchEarthObservations(params: BatchObservationsParams): Promise<BatchEarthObservationsResponse>;
+  getAstronomicalEvents(params: AstronomicalEventsParams): Promise<AstronomicalEventsResponse>;
 }
 
 // Export singleton instance

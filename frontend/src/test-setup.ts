@@ -1,4 +1,5 @@
 import { config } from '@vue/test-utils'
+import { createRouter, createMemoryHistory } from 'vue-router'
 import { i18n } from './i18n'
 import { vi } from 'vitest'
 
@@ -68,7 +69,16 @@ vi.mock('./three/objects/Label3D', () => {
   }
 })
 
-config.global.plugins = [i18n]
+config.global.plugins = [
+  i18n,
+  createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/', component: { template: '<div />' } },
+      { path: '/:pathMatch(.*)*', component: { template: '<div />' } },
+    ],
+  }),
+]
 
 // Suppress Three.js warnings about mock objects in tests
 // The Label3D mock in tests isn't a true THREE.Object3D, which causes console warnings

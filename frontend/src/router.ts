@@ -28,6 +28,11 @@ const routes: RouteRecordRaw[] = [
     path: `/:locale(${localePattern})/about`,
     component: () => import('./views/AboutView.vue'),
   },
+  // Astronomical events (eclipses, oppositions, transits) under locale prefix
+  {
+    path: `/:locale(${localePattern})/events`,
+    component: () => import('./views/EventsView.vue'),
+  },
   // Catch-all: redirect unknown paths to English
   {
     path: '/:pathMatch(.*)*',
