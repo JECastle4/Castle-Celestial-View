@@ -260,7 +260,7 @@ describe('useAstronomyData', () => {
   });
 
   it('should successfully fetch batch observations', async () => {
-    const mockApi = { getBatchEarthObservations: vi.fn().mockResolvedValueOnce(mockResponse) };
+    const mockApi = { getBatchEarthObservations: vi.fn().mockResolvedValueOnce(mockResponse), getAstronomicalEvents: vi.fn() };
 
     const { data, loading, error, hasData, frameCount, fetchBatchObservations } = useAstronomyData(mockApi);
 
@@ -295,7 +295,7 @@ describe('useAstronomyData', () => {
       frames: [mockResponse.frames[0]],
       metadata: { ...mockResponse.metadata, frame_count: 1 },
     };
-    const mockApi = { getBatchEarthObservations: vi.fn().mockResolvedValueOnce(singleFrameResponse) };
+    const mockApi = { getBatchEarthObservations: vi.fn().mockResolvedValueOnce(singleFrameResponse), getAstronomicalEvents: vi.fn() };
 
     const { data, fetchBatchObservations } = useAstronomyData(mockApi);
 
@@ -312,7 +312,7 @@ describe('useAstronomyData', () => {
 
   it('should handle ApiError correctly', async () => {
     const apiError = new ApiError(400, 'Bad Request', 'Invalid parameters');
-    const mockApi = { getBatchEarthObservations: vi.fn().mockRejectedValueOnce(apiError) };
+    const mockApi = { getBatchEarthObservations: vi.fn().mockRejectedValueOnce(apiError), getAstronomicalEvents: vi.fn() };
 
     const { data, loading, error, hasData, fetchBatchObservations } = useAstronomyData(mockApi);
 
@@ -336,7 +336,7 @@ describe('useAstronomyData', () => {
 
   it('should handle generic Error correctly', async () => {
     const genericError = new Error('Network failure');
-    const mockApi = { getBatchEarthObservations: vi.fn().mockRejectedValueOnce(genericError) };
+    const mockApi = { getBatchEarthObservations: vi.fn().mockRejectedValueOnce(genericError), getAstronomicalEvents: vi.fn() };
 
     const { error, fetchBatchObservations } = useAstronomyData(mockApi);
 
@@ -354,7 +354,7 @@ describe('useAstronomyData', () => {
   });
 
   it('should handle unknown error type', async () => {
-    const mockApi = { getBatchEarthObservations: vi.fn().mockRejectedValueOnce('string error') };
+    const mockApi = { getBatchEarthObservations: vi.fn().mockRejectedValueOnce('string error'), getAstronomicalEvents: vi.fn() };
 
     const { error, fetchBatchObservations } = useAstronomyData(mockApi);
 
@@ -385,7 +385,7 @@ describe('useAstronomyData', () => {
   });
 
   it('should update frameCount when data changes', async () => {
-    const mockApi = { getBatchEarthObservations: vi.fn().mockResolvedValueOnce(mockResponse) };
+    const mockApi = { getBatchEarthObservations: vi.fn().mockResolvedValueOnce(mockResponse), getAstronomicalEvents: vi.fn() };
 
     const { frameCount, fetchBatchObservations } = useAstronomyData(mockApi);
 

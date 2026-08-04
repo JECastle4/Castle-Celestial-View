@@ -163,6 +163,41 @@ def build_astronomical_event(event, include_contact_times=True):
     return result
 
 
+def validate_date_range(start_date_str, end_date_str):
+    """
+    Parse and validate a requested date range.
+
+    Args:
+        start_date_str, end_date_str: 'YYYY-MM-DD' date strings
+
+    Returns:
+        tuple: (start_time, end_time) as astropy Time objects; end_time is
+        end_date_str + 1 day so it is inclusive of the whole end_date.
+
+    Raises:
+        ValueError: if the date range is invalid or too large
+    """
+    start_time = Time(start_date_str, scale='utc')
+    end_time = Time(end_date_str, scale='utc') + 1 * u.day  # inclusive of end_date
+
+    if end_time <= start_time:
+        raise ValueError("end_date must be after start_date")
+
+    if (end_time - start_time).to(u.day).value > MAX_RANGE_DAYS:
+        raise ValueError(f"Date range too large (max {MAX_RANGE_DAYS} days)")
+
+    return start_time, end_time
+
+
+def _filter_by_event_types(raw_events, event_types):
+    """Filter raw {'time', 'phase'} events down to the requested event_types."""
+    if not event_types:
+        return raw_events
+    wanted_phase = {'new_moon': 'new', 'full_moon': 'full'}
+    allowed_phases = {wanted_phase[et] for et in event_types if et in wanted_phase}
+    return [e for e in raw_events if e['phase'] in allowed_phases]
+
+
 def get_astronomical_events(
     start_date_str,
     end_date_str,
@@ -189,21 +224,10 @@ def get_astronomical_events(
     Raises:
         ValueError: if the date range is invalid or too large
     """
-    start_time = Time(start_date_str, scale='utc')
-    end_time = Time(end_date_str, scale='utc') + 1 * u.day  # inclusive of end_date
-
-    if end_time <= start_time:
-        raise ValueError("end_date must be after start_date")
-
-    if (end_time - start_time).to(u.day).value > MAX_RANGE_DAYS:
-        raise ValueError(f"Date range too large (max {MAX_RANGE_DAYS} days)")
+    start_time, end_time = validate_date_range(start_date_str, end_date_str)
 
     raw_events = find_new_full_moons(start_time, end_time)
-
-    if event_types:
-        wanted_phase = {'new_moon': 'new', 'full_moon': 'full'}
-        allowed_phases = {wanted_phase[et] for et in event_types if et in wanted_phase}
-        raw_events = [e for e in raw_events if e['phase'] in allowed_phases]
+    raw_events = _filter_by_event_types(raw_events, event_types)
 
     total = len(raw_events)
     start_idx = (page - 1) * page_size
@@ -225,4 +249,58 @@ def get_astronomical_events(
             'total_events': total,
             'total_pages': total_pages,
         },
+    }
+
+
+def stream_astronomical_events(
+    start_date_str,
+    end_date_str,
+    page_size=10,
+    include_contact_times=True,
+    event_types=None,
+):
+    """
+    Generator variant of get_astronomical_events for SSE streaming.
+
+    The new/full moon search (find_new_full_moons) runs once up front - it is
+    vectorized and comparatively fast. The expensive per-event work (eclipse
+    classification, contact times) is then done page by page, yielding each
+    page as soon as it is ready so a client can display progress instead of
+    waiting for the entire date range to be processed.
+
+    Args:
+        start_date_str, end_date_str: 'YYYY-MM-DD' date strings
+        page_size: number of events per page
+        include_contact_times: whether to compute contact times for eclipse events
+        event_types: optional iterable of {'new_moon', 'full_moon'} to filter by;
+            None/empty means all types
+
+    Yields:
+        dict: {'page': int, 'events': [...]} for each page, in order
+        dict: {'page_size': int, 'total_events': int, 'total_pages': int} once, last
+
+    Raises:
+        ValueError: if the date range is invalid or too large
+    """
+    start_time, end_time = validate_date_range(start_date_str, end_date_str)
+
+    raw_events = find_new_full_moons(start_time, end_time)
+    raw_events = _filter_by_event_types(raw_events, event_types)
+
+    total = len(raw_events)
+    total_pages = max(1, (total + page_size - 1) // page_size)
+
+    for page in range(1, total_pages + 1):
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        page_events = [
+            build_astronomical_event(e, include_contact_times=include_contact_times)
+            for e in raw_events[start_idx:end_idx]
+        ]
+        yield {'page': page, 'events': page_events}
+
+    yield {
+        'page_size': page_size,
+        'total_events': total,
+        'total_pages': total_pages,
     }

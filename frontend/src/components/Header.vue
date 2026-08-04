@@ -4,10 +4,20 @@
       <h1 class="app-title">{{ t('app.title') }}</h1>
     </div>
     <nav class="mode-switcher" :aria-label="t('app.modes.ariaLabel')">
-      <button class="mode-btn active" aria-current="page">
+      <button
+        class="mode-btn"
+        :class="{ active: currentMode === 'solarSystem' }"
+        :aria-current="currentMode === 'solarSystem' ? 'page' : undefined"
+        @click="selectMode('solarSystem')"
+      >
         {{ t('app.modes.solarSystem') }}
       </button>
-      <button class="mode-btn" disabled :title="t('app.modes.comingSoon')">
+      <button
+        class="mode-btn"
+        :class="{ active: currentMode === 'eclipses' }"
+        :aria-current="currentMode === 'eclipses' ? 'page' : undefined"
+        @click="selectMode('eclipses')"
+      >
         {{ t('app.modes.eclipses') }}
       </button>
       <button class="mode-btn" disabled :title="t('app.modes.comingSoon')">
@@ -30,14 +40,22 @@ import PlanetCarousel from './PlanetCarousel.vue';
 
 const { t } = useI18n();
 
-defineProps<{
+withDefaults(defineProps<{
   hasData: boolean;
   selectedBody: string;
-}>();
+  currentMode?: 'solarSystem' | 'eclipses';
+}>(), {
+  currentMode: 'solarSystem',
+});
 
 const emit = defineEmits<{
   'update:selectedBody': [bodyId: string];
+  'select-mode': [mode: 'solarSystem' | 'eclipses'];
 }>();
+
+function selectMode(mode: 'solarSystem' | 'eclipses') {
+  emit('select-mode', mode);
+}
 </script>
 
 <style scoped>

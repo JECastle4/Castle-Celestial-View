@@ -84,6 +84,40 @@ export interface BatchEarthObservationsResponse {
   metadata: BatchMetadata;
 }
 
+// Astronomical Events (Issue 141 - new/full moons + eclipse detection)
+export type AstronomicalEventType = 'new_moon' | 'full_moon';
+export type EclipseType = 'NONE' | 'PARTIAL' | 'TOTAL' | 'ANNULAR' | 'PENUMBRAL';
+
+// Lunar keys: p1/u1/u2/u3/u4/p4. Solar keys: eclipse_begins/central_phase_begins/
+// central_phase_ends/eclipse_ends. Values are ISO time strings.
+export type EclipseContactTimes = Record<string, string>;
+
+export interface AstronomicalEvent {
+  event_type: AstronomicalEventType;
+  date: string;
+  julian_date: number;
+  moon_ecl_lat_deg: number;
+  eclipse_occurs: boolean;
+  eclipse_type: EclipseType;
+  greatest_eclipse_time: string | null;
+  umbral_magnitude: number | null;
+  penumbral_magnitude: number | null;
+  size_ratio: number | null;
+  contact_times: EclipseContactTimes | null;
+}
+
+export interface PaginationInfo {
+  page: number;
+  page_size: number;
+  total_events: number;
+  total_pages: number;
+}
+
+export interface AstronomicalEventsResponse {
+  events: AstronomicalEvent[];
+  pagination: PaginationInfo;
+}
+
 // Configuration
 export interface ApiConfig {
   baseUrl: string;

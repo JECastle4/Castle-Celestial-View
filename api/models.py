@@ -1085,7 +1085,7 @@ class AstronomicalEventsRequest(BaseModel):
 
     @field_validator('start_date', 'end_date')
     @classmethod
-    def validate_date_format(cls, v: str, info) -> str:
+    def validate_date_format(cls, v: str) -> str:
         """Validate date is in YYYY-MM-DD format and is a valid date (Issue 206)"""
         if not isinstance(v, str):
             raise ValueError("Date must be a string")
