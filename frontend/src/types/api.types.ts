@@ -85,8 +85,9 @@ export interface BatchEarthObservationsResponse {
 }
 
 // Astronomical Events (Issue 141 - new/full moons + eclipse detection)
-export type AstronomicalEventType = 'new_moon' | 'full_moon';
-export type EclipseType = 'NONE' | 'PARTIAL' | 'TOTAL' | 'ANNULAR' | 'PENUMBRAL';
+// event_type and eclipse_type are translated strings returned by the API
+export type AstronomicalEventType = string;
+export type EclipseType = string;
 
 // Lunar keys: p1/u1/u2/u3/u4/p4. Solar keys: eclipse_begins/central_phase_begins/
 // central_phase_ends/eclipse_ends. Values are ISO time strings.

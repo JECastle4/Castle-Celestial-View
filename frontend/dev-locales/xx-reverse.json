@@ -191,6 +191,27 @@
       "cancelled": ".dellecnac loot tnemecalp niP"
     }
   },
+  "events": {
+    "title": "stnevE lacimonomtsA",
+    "description": ".egnar etad a nihtiw sesillicse dna snoomefluf ,snoommodne rof hcraeS",
+    "search": "hcraeS",
+    "searching": "...stneveserofeb hcraesS",
+    "eventsReceived": ")raf os deveicser {count}(",
+    "noResults": ".egnar etad detceles eht ni dnuof stneveson",
+    "allTimesUTC": ")emiT lasrevinU detanidroO( CTP ni era semit llA",
+    "pageOf": "{latot} fo egaP {egap}",
+    "searchParameters": "seretemaraP hcraeS",
+    "resultsFound": "dnuoF stluseR",
+    "eclipseTypes": {
+      "NONE": "eseilcxE oN",
+      "PARTIAL": "laitraP",
+      "TOTAL": "latoT",
+      "ANNULAR": "ralunnA",
+      "PENUMBRAL": "larbumuneP"
+    },
+    "contactTimes": "semitT tcatnoc",
+    "eclipseOccurs": "serusrocc eseiclxe"
+  },
   "ui": {
     "status": {
       "loading": "...gnidaoL",

@@ -13,12 +13,12 @@ vi.mock('vue-router', async () => {
 
 function makeEvent(overrides: Partial<Record<string, unknown>> = {}) {
   return {
-    event_type: 'full_moon',
+    event_type: 'Full Moon',
     date: '2025-09-07 18:11:42.600',
     julian_date: 2460925.257,
     moon_ecl_lat_deg: -0.1,
     eclipse_occurs: true,
-    eclipse_type: 'TOTAL',
+    eclipse_type: 'Total',
     greatest_eclipse_time: '2025-09-07 18:11:42.600',
     umbral_magnitude: 1.36,
     penumbral_magnitude: 2.4,
@@ -30,12 +30,12 @@ function makeEvent(overrides: Partial<Record<string, unknown>> = {}) {
 
 const fullMoonEvent = makeEvent();
 const newMoonEvent = makeEvent({
-  event_type: 'new_moon',
+  event_type: 'New Moon',
   date: '2025-09-21 19:54:00.000',
   julian_date: 2460939.33,
   moon_ecl_lat_deg: 0.2,
   eclipse_occurs: false,
-  eclipse_type: 'NONE',
+  eclipse_type: 'No Eclipse',
   greatest_eclipse_time: null,
   umbral_magnitude: null,
   penumbral_magnitude: null,

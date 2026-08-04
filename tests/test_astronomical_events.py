@@ -15,12 +15,12 @@ client = TestClient(app)
 
 # (date, event_type, expected eclipse_type)
 KNOWN_ECLIPSES = [
-    ("2025-09-07", "full_moon", "TOTAL"),
-    ("2025-09-21", "new_moon", "PARTIAL"),
-    ("2026-02-17", "new_moon", "ANNULAR"),
-    ("2026-03-03", "full_moon", "TOTAL"),
-    ("2026-08-12", "new_moon", "TOTAL"),
-    ("2026-08-28", "full_moon", "PARTIAL"),
+    ("2025-09-07", "Full Moon", "Total"),
+    ("2025-09-21", "New Moon", "Partial"),
+    ("2026-02-17", "New Moon", "Annular"),
+    ("2026-03-03", "Full Moon", "Total"),
+    ("2026-08-12", "New Moon", "Total"),
+    ("2026-08-28", "Full Moon", "Partial"),
 ]
 
 # Full ~13-month window containing all 6 known eclipses above. This is by far
@@ -62,12 +62,12 @@ def test_service_finds_known_eclipses(full_range_result):
 
 
 def test_service_non_eclipse_events_marked_none(full_range_result):
-    """Non-eclipse new/full moons should classify as NONE with eclipse_occurs False."""
+    """Non-eclipse new/full moons should classify as No Eclipse with eclipse_occurs False."""
     known_dates = {d for d, _, _ in KNOWN_ECLIPSES}
     non_eclipse_events = [e for e in full_range_result["events"] if e["date"][:10] not in known_dates]
     assert len(non_eclipse_events) > 0
     for event in non_eclipse_events:
-        assert event["eclipse_type"] == "NONE"
+        assert event["eclipse_type"] == "No Eclipse"
         assert event["eclipse_occurs"] is False
 
 
@@ -98,7 +98,7 @@ def test_service_event_type_filter():
         include_contact_times=False,
     )
     assert len(result["events"]) > 0
-    assert all(e["event_type"] == "full_moon" for e in result["events"])
+    assert all(e["event_type"] == "Full Moon" for e in result["events"])
 
 
 def test_service_invalid_date_range_raises():
@@ -134,8 +134,8 @@ def test_route_basic_request():
     assert resp.status_code == 200
     data = resp.json()
     assert data["pagination"]["total_events"] == 1
-    assert data["events"][0]["eclipse_type"] == "TOTAL"
-    assert data["events"][0]["event_type"] == "full_moon"
+    assert data["events"][0]["eclipse_type"] == "Total"
+    assert data["events"][0]["event_type"] == "Full Moon"
 
 
 def test_route_invalid_date_format_returns_422():
@@ -256,7 +256,7 @@ def test_route_stream_basic_request():
     metadata = json.loads(metadata_events[0].split("data: ", 1)[1])
     assert metadata['total_events'] == len(all_events)
     assert any(
-        ev['date'][:10] == '2025-09-07' and ev['eclipse_type'] == 'TOTAL'
+        ev['date'][:10] == '2025-09-07' and ev['eclipse_type'] == 'Total'
         for ev in all_events
     )
 
@@ -318,4 +318,4 @@ def test_route_stream_event_types_filter():
     for e in page_events:
         data = json.loads(e.split("data: ", 1)[1])
         for ev in data['events']:
-            assert ev['event_type'] == 'new_moon'
+            assert ev['event_type'] == 'New Moon'

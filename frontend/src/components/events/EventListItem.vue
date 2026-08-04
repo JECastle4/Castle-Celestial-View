@@ -38,7 +38,7 @@ const props = defineProps<{
   eclipseOccurs: boolean;
 }>();
 
-const { t, locale } = useI18n();
+const { locale } = useI18n();
 const expanded = ref(false);
 const detailsId = `event-details-${++instanceCounter}`;
 
@@ -52,13 +52,9 @@ const formattedDate = computed(() => {
   }).format(parsed);
 });
 
-const eventTypeLabel = computed(() =>
-  props.eventType === 'full_moon'
-    ? t('astronomy.phaseNames.fullMoon')
-    : t('astronomy.phaseNames.newMoon')
-);
+const eventTypeLabel = computed(() => props.eventType);
 
-const eclipseTypeLabel = computed(() => t(`events.eclipseTypes.${props.eclipseType}`));
+const eclipseTypeLabel = computed(() => props.eclipseType);
 
 const eclipseBadgeClass = computed(() => `eclipse-badge-${props.eclipseType.toLowerCase()}`);
 </script>

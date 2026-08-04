@@ -4,12 +4,12 @@ import SolarEclipseDetails from './SolarEclipseDetails.vue';
 import type { AstronomicalEvent } from '@/types/api.types';
 
 const baseEvent: AstronomicalEvent = {
-  event_type: 'new_moon',
+  event_type: 'New Moon',
   date: '2026-02-17 12:12:00.000',
   julian_date: 2461088.0,
   moon_ecl_lat_deg: -0.05,
   eclipse_occurs: true,
-  eclipse_type: 'ANNULAR',
+  eclipse_type: 'Annular',
   greatest_eclipse_time: '2026-02-17 12:12:00.000',
   umbral_magnitude: null,
   penumbral_magnitude: null,

@@ -847,7 +847,7 @@ async def get_batch_earth_observations(request: BatchEarthObservationsRequest):
     - **event_types**: Optional filter - 'new_moon', 'full_moon', or omit for both
     """
 )
-async def get_astronomical_events_route(request: AstronomicalEventsRequest):
+async def get_astronomical_events_route(request: AstronomicalEventsRequest, lang: Optional[str] = Query(None)):
     """Find new/full moons and classify eclipses within a date range."""
     try:
         result = get_astronomical_events(
@@ -857,6 +857,7 @@ async def get_astronomical_events_route(request: AstronomicalEventsRequest):
             page_size=request.page_size,
             include_contact_times=request.include_contact_times,
             event_types=request.event_types,
+            locale=lang,
         )
         return AstronomicalEventsResponse(**result)
     except ValueError as e:
@@ -894,6 +895,7 @@ async def stream_astronomical_events_route(
     page_size: int = Query(10, ge=1, le=100),
     include_contact_times: bool = Query(True),
     event_types: Optional[list[str]] = Query(None),
+    lang: Optional[str] = Query(None),
 ):
     """Stream new/full moon events with eclipse classification via SSE."""
     try:
@@ -917,6 +919,7 @@ async def stream_astronomical_events_route(
                 page_size=page_size,
                 include_contact_times=include_contact_times,
                 event_types=event_types,
+                locale=lang,
             )
             for item in gen:
                 if 'events' in item:
