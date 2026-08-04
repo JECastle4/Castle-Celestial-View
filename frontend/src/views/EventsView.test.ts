@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import EventsView from './EventsView.vue';
+import AppHeader from '@/components/Header.vue';
 
 const pushMock = vi.fn();
 vi.mock('vue-router', async () => {
@@ -208,5 +209,217 @@ describe('EventsView', () => {
     const source = instances[0];
     expect(source.url).toContain('start_date=2027-01-01');
     expect(source.url).toContain('end_date=2027-06-01');
+  });
+
+  it('displays formatted dates in the parameters panel', async () => {
+    const wrapper = mount(EventsView);
+    await flushPromises();
+
+    const parametersPanel = wrapper.find('.parameters-panel');
+    expect(parametersPanel.text()).toContain('Search Parameters');
+    const parameterItems = wrapper.findAll('.parameter-item');
+    expect(parameterItems.length).toBeGreaterThan(0);
+  });
+
+  it('correctly identifies and renders lunar eclipse events', async () => {
+    const wrapper = mount(EventsView);
+    await flushPromises();
+
+    await wrapper.find('.search-btn').trigger('click');
+    await flushPromises();
+
+    const source = instances[0];
+    const lunarEvent = makeEvent({ event_type: 'Lunar Total', eclipse_occurs: true });
+    source.emit('page', { page: 1, events: [lunarEvent] });
+    source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+    await flushPromises();
+
+    const eventItems = wrapper.findAll('.event-item');
+    expect(eventItems.length).toBe(1);
+    // Verify the event-type is displayed
+    expect(eventItems[0].text()).toContain('Lunar Total');
+  });
+
+  it('correctly identifies and renders solar eclipse events', async () => {
+    const wrapper = mount(EventsView);
+    await flushPromises();
+
+    await wrapper.find('.search-btn').trigger('click');
+    await flushPromises();
+
+    const source = instances[0];
+    const solarEvent = makeEvent({ event_type: 'Solar Total', eclipse_occurs: true });
+    source.emit('page', { page: 1, events: [solarEvent] });
+    source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+    await flushPromises();
+
+    const eventItems = wrapper.findAll('.event-item');
+    expect(eventItems.length).toBe(1);
+    // Verify the event-type is displayed
+    expect(eventItems[0].text()).toContain('Solar Total');
+  });
+
+  it('correctly identifies and renders full moon events', async () => {
+    const wrapper = mount(EventsView);
+    await flushPromises();
+
+    await wrapper.find('.search-btn').trigger('click');
+    await flushPromises();
+
+    const source = instances[0];
+    const fullMoon = makeEvent({ event_type: 'Full Moon', eclipse_occurs: false, eclipse_type: 'No Eclipse' });
+    source.emit('page', { page: 1, events: [fullMoon] });
+    source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+    await flushPromises();
+
+    const eventItems = wrapper.findAll('.event-item');
+    expect(eventItems.length).toBe(1);
+    // Verify the event-type is displayed
+    expect(eventItems[0].text()).toContain('Full Moon');
+  });
+
+  it('correctly identifies and renders new moon events', async () => {
+    const wrapper = mount(EventsView);
+    await flushPromises();
+
+    await wrapper.find('.search-btn').trigger('click');
+    await flushPromises();
+
+    const source = instances[0];
+    const newMoon = makeEvent({ event_type: 'New Moon', eclipse_occurs: false });
+    source.emit('page', { page: 1, events: [newMoon] });
+    source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+    await flushPromises();
+
+    const eventItems = wrapper.findAll('.event-item');
+    expect(eventItems.length).toBe(1);
+    // Verify the event-type is displayed
+    expect(eventItems[0].text()).toContain('New Moon');
+  });
+
+  it('expands eclipse event details when clicked', async () => {
+    const wrapper = mount(EventsView);
+    await flushPromises();
+
+    await wrapper.find('.search-btn').trigger('click');
+    await flushPromises();
+
+    const source = instances[0];
+    const lunarEvent = makeEvent({ event_type: 'Lunar Total', eclipse_occurs: true });
+    source.emit('page', { page: 1, events: [lunarEvent] });
+    source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+    await flushPromises();
+
+    const eventButton = wrapper.find('.event-summary');
+    expect(eventButton.exists()).toBe(true);
+    
+    await eventButton.trigger('click');
+    await flushPromises();
+
+    const eventDetails = wrapper.find('.event-details');
+    expect(eventDetails.exists()).toBe(true);
+  });
+
+  it('shows pagination controls when multiple pages exist', async () => {
+    const wrapper = mount(EventsView);
+    await flushPromises();
+
+    await wrapper.find('.search-btn').trigger('click');
+    await flushPromises();
+
+    const source = instances[0];
+    source.emit('page', { page: 1, events: [fullMoonEvent] });
+    source.emit('metadata', { page_size: 10, total_events: 20, total_pages: 2 });
+    await flushPromises();
+
+    expect(wrapper.find('.pagination').exists()).toBe(true);
+    expect(wrapper.findAll('.pagination button')).toHaveLength(2);
+  });
+
+  it('displays results count in parameters panel after search', async () => {
+    const wrapper = mount(EventsView);
+    await flushPromises();
+
+    await wrapper.find('.search-btn').trigger('click');
+    await flushPromises();
+
+    const source = instances[0];
+    source.emit('page', { page: 1, events: [fullMoonEvent, newMoonEvent] });
+    source.emit('metadata', { page_size: 10, total_events: 2, total_pages: 1 });
+    await flushPromises();
+
+    const parametersPanel = wrapper.find('.parameters-panel');
+    expect(parametersPanel.text()).toContain('Results Found');
+    expect(parametersPanel.text()).toContain('2');
+  });
+
+  it('handles multiple search queries in sequence', async () => {
+    const wrapper = mount(EventsView);
+    await flushPromises();
+
+    // First search
+    await wrapper.find('.search-btn').trigger('click');
+    await flushPromises();
+
+    let source = instances[0];
+    source.emit('page', { page: 1, events: [fullMoonEvent] });
+    source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+    await flushPromises();
+
+    expect(wrapper.findAll('.event-item')).toHaveLength(1);
+
+    // Update date range
+    const dateRangePicker = wrapper.findComponent({ name: 'DateRangePicker' });
+    await dateRangePicker.vm.$emit('update:dates', {
+      start: new Date('2026-01-01T00:00:00Z'),
+      end: new Date('2026-12-31T00:00:00Z'),
+    });
+    await flushPromises();
+
+    // Second search
+    await wrapper.find('.search-btn').trigger('click');
+    await flushPromises();
+
+    source = instances[1];
+    source.emit('page', { page: 1, events: [newMoonEvent] });
+    source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+    await flushPromises();
+
+    expect(wrapper.findAll('.event-item')).toHaveLength(1);
+    expect(instances).toHaveLength(2);
+  });
+
+  it('handles invalid date strings gracefully', async () => {
+    const wrapper = mount(EventsView);
+    await flushPromises();
+
+    await wrapper.find('.search-btn').trigger('click');
+    await flushPromises();
+
+    const source = instances[0];
+    // Create an event with invalid date format to test the catch block
+    const invalidDateEvent = makeEvent({ date: 'invalid-date-string' });
+    source.emit('page', { page: 1, events: [invalidDateEvent] });
+    source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+    await flushPromises();
+
+    const eventItems = wrapper.findAll('.event-item');
+    expect(eventItems.length).toBe(1);
+    // Event should still render even with invalid date
+    expect(wrapper.findAll('.event-item').length).toBeGreaterThan(0);
+  });
+
+  it('does not navigate when eclipse mode is selected', async () => {
+    pushMock.mockClear();
+    const wrapper = mount(EventsView);
+    await flushPromises();
+
+    // Simulate AppHeader emitting select-mode event with 'eclipses'
+    const header = wrapper.findComponent(AppHeader);
+    await header.vm.$emit('select-mode', 'eclipses');
+    await flushPromises();
+
+    // Should not navigate away from eclipses view
+    expect(pushMock).not.toHaveBeenCalled();
   });
 });

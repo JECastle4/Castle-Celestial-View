@@ -40,7 +40,13 @@
   "events": {
     "eventTypes": {
       "newMoon": "nooM weN",
-      "fullMoon": "nooM lluF"
+      "fullMoon": "nooM lluF",
+      "solarTotal": "latoT raloS",
+      "solarPartial": "laitraP raloS",
+      "solarAnnular": "ralunnA raloS",
+      "lunarTotal": "latoT ranul",
+      "lunarPartial": "laitraP ranul",
+      "lunarPenumbral": "larbumeP ranul"
     },
     "eclipseTypes": {
       "NONE": "esillcxE oN",

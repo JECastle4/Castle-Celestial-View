@@ -66,10 +66,9 @@
             :key="ev.date"
             :date="ev.date"
             :eventType="ev.event_type"
-            :eclipseType="ev.eclipse_type"
             :eclipseOccurs="ev.eclipse_occurs"
           >
-            <LunarEclipseDetails v-if="ev.event_type === 'full_moon'" :event="ev" />
+            <LunarEclipseDetails v-if="isLunarEvent(ev)" :event="ev" />
             <SolarEclipseDetails v-else :event="ev" />
           </EventListItem>
         </ul>
@@ -153,6 +152,12 @@ function search() {
     end_date: endDate.value,
     page_size: PAGE_SIZE,
   });
+}
+
+function isLunarEvent(event: any): boolean {
+  // Check if event_type contains "Lunar" (eclipse) or "Full" (non-eclipse full moon)
+  const eventTypeLower = event.event_type.toLowerCase();
+  return eventTypeLower.includes('lunar') || eventTypeLower.includes('full');
 }
 </script>
 

@@ -9,14 +9,12 @@
       @click="expanded = !expanded"
     >
       <span class="event-date">{{ formattedDate }}</span>
-      <span class="event-type">{{ eventTypeLabel }}</span>
-      <span class="eclipse-badge" :class="eclipseBadgeClass">{{ eclipseTypeLabel }}</span>
+      <span class="event-type">{{ eventType }}</span>
       <i class="fa" :class="expanded ? 'fa-chevron-up' : 'fa-chevron-down'" aria-hidden="true"></i>
     </button>
     <div v-else class="event-summary event-summary-static">
       <span class="event-date">{{ formattedDate }}</span>
-      <span class="event-type">{{ eventTypeLabel }}</span>
-      <span class="eclipse-badge eclipse-badge-none">{{ eclipseTypeLabel }}</span>
+      <span class="event-type">{{ eventType }}</span>
     </div>
     <div v-if="eclipseOccurs && expanded" :id="detailsId" class="event-details">
       <slot />
@@ -27,14 +25,13 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import type { AstronomicalEventType, EclipseType } from '@/types/api.types';
+import type { AstronomicalEventType } from '@/types/api.types';
 
 let instanceCounter = 0;
 
 const props = defineProps<{
   date: string;
   eventType: AstronomicalEventType;
-  eclipseType: EclipseType;
   eclipseOccurs: boolean;
 }>();
 
@@ -51,12 +48,6 @@ const formattedDate = computed(() => {
     timeStyle: 'short',
   }).format(parsed);
 });
-
-const eventTypeLabel = computed(() => props.eventType);
-
-const eclipseTypeLabel = computed(() => props.eclipseType);
-
-const eclipseBadgeClass = computed(() => `eclipse-badge-${props.eclipseType.toLowerCase()}`);
 </script>
 
 <style scoped>
@@ -102,42 +93,9 @@ const eclipseBadgeClass = computed(() => `eclipse-badge-${props.eclipseType.toLo
 
 .event-type {
   flex: 0 0 auto;
+  text-align: right;
+  min-width: 120px;
   color: #aaa;
-}
-
-.eclipse-badge {
-  flex: 0 0 auto;
-  padding: 0.15rem 0.6rem;
-  border-radius: 999px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-.eclipse-badge-none {
-  background: #333;
-  color: #999;
-}
-
-.eclipse-badge-partial {
-  background: #5c4200;
-  color: #ffd580;
-}
-
-.eclipse-badge-total {
-  background: #4a0e0e;
-  color: #ff9d9d;
-}
-
-.eclipse-badge-annular {
-  background: #003a5c;
-  color: #8fd3ff;
-}
-
-.eclipse-badge-penumbral {
-  background: #2e2e50;
-  color: #c3c3ff;
 }
 
 .event-details {

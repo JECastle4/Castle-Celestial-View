@@ -847,7 +847,10 @@ async def get_batch_earth_observations(request: BatchEarthObservationsRequest):
     - **event_types**: Optional filter - 'new_moon', 'full_moon', or omit for both
     """
 )
-async def get_astronomical_events_route(request: AstronomicalEventsRequest, lang: Optional[str] = Query(None)):
+async def get_astronomical_events_route(
+    request: AstronomicalEventsRequest,
+    lang: Optional[str] = Query(None)
+):
     """Find new/full moons and classify eclipses within a date range."""
     try:
         result = get_astronomical_events(

@@ -128,7 +128,11 @@ def build_astronomical_event(event, include_contact_times=True, locale=None):
     _t = get_i18n(locale).get
 
     result = {
-        'event_type': _t('events.eventTypes.fullMoon') if is_lunar else _t('events.eventTypes.newMoon'),
+        'event_type': (
+            _t('events.eventTypes.fullMoon')
+            if is_lunar
+            else _t('events.eventTypes.newMoon')
+        ),
         'date': time_obj.iso,
         'julian_date': float(time_obj.jd),
         'moon_ecl_lat_deg': round(float(moon_lat), 4),
@@ -154,16 +158,24 @@ def build_astronomical_event(event, include_contact_times=True, locale=None):
         result['umbral_magnitude'] = type_info['umbral_magnitude']
         result['penumbral_magnitude'] = type_info['penumbral_magnitude']
         result['eclipse_occurs'] = type_info['eclipse_type'] != 'NONE'
-        if result['eclipse_occurs'] and include_contact_times:
-            result['contact_times'] = calculate_lunar_contact_times(greatest_time)
+        if result['eclipse_occurs']:
+            # Set event_type to combined semantic type (e.g., "Lunar Total")
+            eclipse_type_name = eclipse_type_code[0].upper() + eclipse_type_code[1:].lower()
+            result['event_type'] = _t(f'events.eventTypes.lunar{eclipse_type_name}')
+            if include_contact_times:
+                result['contact_times'] = calculate_lunar_contact_times(greatest_time)
     else:
         type_info = classify_solar_eclipse_type(greatest_time)
         eclipse_type_code = type_info['eclipse_type']
         result['eclipse_type'] = _t(f'events.eclipseTypes.{eclipse_type_code}')
         result['size_ratio'] = type_info['size_ratio']
         result['eclipse_occurs'] = type_info['eclipse_type'] != 'NONE'
-        if result['eclipse_occurs'] and include_contact_times:
-            result['contact_times'] = calculate_solar_contact_times(greatest_time)
+        if result['eclipse_occurs']:
+            # Set event_type to combined semantic type (e.g., "Solar Total")
+            eclipse_type_name = eclipse_type_code[0].upper() + eclipse_type_code[1:].lower()
+            result['event_type'] = _t(f'events.eventTypes.solar{eclipse_type_name}')
+            if include_contact_times:
+                result['contact_times'] = calculate_solar_contact_times(greatest_time)
 
     return result
 
