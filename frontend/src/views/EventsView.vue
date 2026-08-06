@@ -95,6 +95,7 @@
         </button>
       </div>
     </section>
+    <AppFooter />
   </main>
 </template>
 
@@ -104,6 +105,7 @@ import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { useAstronomicalEvents } from '@/composables/useAstronomicalEvents';
 import AppHeader from '@/components/Header.vue';
+import AppFooter from '@/components/Footer.vue';
 import EventListItem from '@/components/events/EventListItem.vue';
 import LunarEclipseDetails from '@/components/events/LunarEclipseDetails.vue';
 import SolarEclipseDetails from '@/components/events/SolarEclipseDetails.vue';
@@ -175,7 +177,9 @@ function isLunarEvent(event: any): boolean {
   max-width: 720px;
   width: 100%;
   margin: 0 auto;
-  padding: 1.5rem 1rem 3rem 1rem;
+  padding: 1.5rem 1rem 1.5rem 1rem;
+  flex: 1;
+  overflow-y: auto;
 }
 
 .events-description {
