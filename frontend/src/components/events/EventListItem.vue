@@ -38,6 +38,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { normalizeLocaleForIntl } from '@/utils/locale';
 import type { AstronomicalEventType } from '@/types/api.types';
 
 let instanceCounter = 0;
@@ -65,7 +66,8 @@ const formattedDate = computed(() => {
   // Backend returns astropy Time.iso strings: "YYYY-MM-DD HH:MM:SS.sss" (UTC, space-separated)
   const parsed = new Date(`${props.date.replace(' ', 'T')}Z`);
   if (Number.isNaN(parsed.getTime())) return props.date;
-  return new Intl.DateTimeFormat(locale.value, {
+  const intlLocale = normalizeLocaleForIntl(locale.value);
+  return new Intl.DateTimeFormat(intlLocale, {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(parsed);
