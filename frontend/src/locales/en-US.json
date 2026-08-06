@@ -215,10 +215,12 @@
 		"searching": "Searching for events...",
 		"eventsReceived": "({count} received so far)",
 		"noResults": "No events found in the selected date range.",
-		"allTimesUTC": "All times are in UTC (Coordinated Universal Time)",
+		"allTimesLocal": "All times are in your local time zone",
 		"pageOf": "Page {page} of {total}",
 		"searchParameters": "Search Parameters",
 		"resultsFound": "Results Found",
+		"noEclipse": "No Eclipse",
+		"eclipseDetails": "Eclipse Details",
 		"eclipseTypes": {
 			"NONE": "No Eclipse",
 			"PARTIAL": "Partial",

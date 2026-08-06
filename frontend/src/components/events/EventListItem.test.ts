@@ -13,9 +13,13 @@ describe('EventListItem', () => {
       },
     });
 
-    expect(wrapper.find('button.event-summary').exists()).toBe(false);
-    expect(wrapper.find('.event-summary-static').exists()).toBe(true);
+    const btn = wrapper.find('button.event-summary');
+    expect(btn.exists()).toBe(true);
+    expect(btn.classes()).toContain('event-summary-static');
+    expect(btn.attributes('aria-label')).toBe('No Eclipse');
     expect(wrapper.text()).toContain('New Moon');
+    // Check that a circle icon is rendered for non-eclipse items
+    expect(wrapper.find('i.fa-circle').exists()).toBe(true);
   });
 
   it('renders an expandable button when an eclipse occurs', () => {

@@ -1,12 +1,12 @@
 <template>
-  <div class="events-view">
+  <main class="events-view">
     <AppHeader
       :hasData="false"
       selectedBody=""
       currentMode="eclipses"
       @select-mode="onSelectMode"
     />
-    <div class="events-content">
+    <section class="events-content">
       <h1>{{ t('events.title') }}</h1>
       <p class="events-description">{{ t('events.description') }}</p>
 
@@ -27,7 +27,7 @@
 
         <div class="search-right">
           <div class="parameters-panel">
-            <h3>{{ t('events.searchParameters') }}</h3>
+            <h2>{{ t('events.searchParameters') }}</h2>
             <div class="parameter-item">
               <span class="parameter-label">{{ t('forms.labels.startDate') }}:</span>
               <span class="parameter-value">{{ formatDisplayDate(startDate) }}</span>
@@ -58,7 +58,7 @@
 
       <template v-if="!loading && !error">
         <div v-if="events.length" class="events-table-header">
-          <p class="utc-notice">{{ t('events.allTimesUTC') }}</p>
+          <p class="utc-notice">{{ t('events.allTimesLocal') }}</p>
         </div>
         <ul v-if="events.length" class="event-list">
           <EventListItem
@@ -94,8 +94,8 @@
           {{ t('buttons.next') }}
         </button>
       </div>
-    </div>
-  </div>
+    </section>
+  </main>
 </template>
 
 <script setup lang="ts">
@@ -213,7 +213,7 @@ function isLunarEvent(event: any): boolean {
   color: #ddd;
 }
 
-.parameters-panel h3 {
+.parameters-panel h2 {
   margin: 0 0 1rem 0;
   font-size: 0.95em;
   color: #fff;
@@ -313,7 +313,7 @@ function isLunarEvent(event: any): boolean {
 }
 
 .utc-notice {
-  color: #999;
+  color: #d4d4d4;
   font-size: 0.9em;
   margin: 0;
   padding: 0;
