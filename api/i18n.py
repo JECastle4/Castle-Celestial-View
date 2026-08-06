@@ -11,6 +11,9 @@ from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
+# Whitelist of allowed locales to prevent path traversal
+ALLOWED_LOCALES = {'en', 'es', 'fr', 'de', 'it', 'pt', 'ja', 'zh', 'ko', 'ru'}
+
 
 class I18n:
     """Manages localization for the API."""
@@ -20,32 +23,30 @@ class I18n:
         self.locale = self._load_locale(locale)
 
     def _get_locale_path(self, locale: str) -> Path:
-        """Get the path to a locale JSON file."""
+        """Get the path to a locale JSON file.
+        
+        Only allows locales from the whitelist to prevent path traversal attacks.
+        """
+        if locale not in ALLOWED_LOCALES:
+            raise ValueError(f"Unsupported locale: {locale}")
         locales_dir = Path(__file__).parent / 'locales'
-        # Validate locale to prevent path traversal attacks
-        if not locale or not all(c.isalnum() or c in '_-' for c in locale):
-            raise ValueError(f"Invalid locale format: {locale}")
-        locale_path = (locales_dir / f'{locale}.json').resolve()
-        # Ensure the resolved path is within the locales directory
-        if not str(locale_path).startswith(str(locales_dir.resolve())):
-            raise ValueError(f"Attempted path traversal with locale: {locale}")
-        return locale_path
+        # Safe to use locale directly since it's from the whitelist
+        return locales_dir / f'{locale}.json'
 
     def _load_locale(self, locale: str) -> str:
         """Load translations for a given locale. Returns the resolved locale."""
-        try:
-            locale_path = self._get_locale_path(locale)
-        except ValueError as e:
+        # Use whitelist-based validation
+        if locale not in ALLOWED_LOCALES:
             if locale != 'en':
-                # Fallback to English if locale is invalid
-                logger.warning("Invalid locale '%s': %s, falling back to 'en'", locale, str(e))
+                logger.warning("Unsupported locale '%s', falling back to 'en'", locale)
                 return self._load_locale('en')
-            raise
+            raise ValueError(f"Default locale 'en' must be in ALLOWED_LOCALES")
+
+        locale_path = self._get_locale_path(locale)
 
         if not locale_path.exists():
             if locale != 'en':
-                # Fallback to English if locale doesn't exist
-                logger.warning("Locale '%s' not found, falling back to 'en'", locale)
+                logger.warning("Locale file not found for '%s', falling back to 'en'", locale)
                 return self._load_locale('en')
             raise FileNotFoundError(f"Default locale file not found: {locale_path}")
 
