@@ -2,21 +2,23 @@
   <dl class="eclipse-details">
     <div v-if="event.greatest_eclipse_time" class="detail-row">
       <dt>{{ t('events.solar.greatestEclipse') }}</dt>
-      <dd>{{ formatTime(event.greatest_eclipse_time) }}</dd>
+      <dd :aria-label="`${t('events.solar.greatestEclipse')}: ${formatTime(event.greatest_eclipse_time)}`">{{ formatTime(event.greatest_eclipse_time) }}</dd>
     </div>
     <div v-if="event.size_ratio != null" class="detail-row">
       <dt>{{ t('events.solar.sizeRatio') }}</dt>
       <dd>{{ event.size_ratio.toFixed(4) }}</dd>
     </div>
+  </dl>
 
-    <template v-if="event.contact_times">
-      <h3 class="details-heading">{{ t('events.solar.contactTimes') }}</h3>
+  <template v-if="event.contact_times">
+    <h3 class="details-heading">{{ t('events.solar.contactTimes') }}</h3>
+    <dl class="eclipse-details">
       <div v-for="key in contactKeys" :key="key" class="detail-row">
         <dt>{{ t(`events.solar.${labelKey(key)}`) }}</dt>
-        <dd>{{ formatTime(event.contact_times[key]) }}</dd>
+        <dd :aria-label="`${t(`events.solar.${labelKey(key)}`)}:${formatTime(event.contact_times[key])}`">{{ formatTime(event.contact_times[key]) }}</dd>
       </div>
-    </template>
-  </dl>
+    </dl>
+  </template>
 </template>
 
 <script setup lang="ts">

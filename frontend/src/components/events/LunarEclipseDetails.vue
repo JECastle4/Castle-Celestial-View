@@ -2,7 +2,7 @@
   <dl class="eclipse-details">
     <div v-if="event.greatest_eclipse_time" class="detail-row">
       <dt>{{ t('events.lunar.greatestEclipse') }}</dt>
-      <dd>{{ formatTime(event.greatest_eclipse_time) }}</dd>
+      <dd :aria-label="`${t('events.lunar.greatestEclipse')}: ${formatTime(event.greatest_eclipse_time)}`">{{ formatTime(event.greatest_eclipse_time) }}</dd>
     </div>
     <div v-if="event.umbral_magnitude != null" class="detail-row">
       <dt>{{ t('events.lunar.umbralMagnitude') }}</dt>
@@ -12,15 +12,17 @@
       <dt>{{ t('events.lunar.penumbralMagnitude') }}</dt>
       <dd>{{ event.penumbral_magnitude.toFixed(4) }}</dd>
     </div>
+  </dl>
 
-    <template v-if="event.contact_times">
-      <h3 class="details-heading">{{ t('events.lunar.contactTimes') }}</h3>
+  <template v-if="event.contact_times">
+    <h3 class="details-heading">{{ t('events.lunar.contactTimes') }}</h3>
+    <dl class="eclipse-details">
       <div v-for="key in contactKeys" :key="key" class="detail-row">
         <dt>{{ t(`events.lunar.${key}`) }}</dt>
-        <dd>{{ formatTime(event.contact_times[key]) }}</dd>
+        <dd :aria-label="`${t(`events.lunar.${key}`)}: ${formatTime(event.contact_times[key])}`">{{ formatTime(event.contact_times[key]) }}</dd>
       </div>
-    </template>
-  </dl>
+    </dl>
+  </template>
 </template>
 
 <script setup lang="ts">
