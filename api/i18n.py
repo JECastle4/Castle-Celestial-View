@@ -22,11 +22,25 @@ class I18n:
     def _get_locale_path(self, locale: str) -> Path:
         """Get the path to a locale JSON file."""
         locales_dir = Path(__file__).parent / 'locales'
-        return locales_dir / f'{locale}.json'
+        # Validate locale to prevent path traversal attacks
+        if not locale or not all(c.isalnum() or c in '_-' for c in locale):
+            raise ValueError(f"Invalid locale format: {locale}")
+        locale_path = (locales_dir / f'{locale}.json').resolve()
+        # Ensure the resolved path is within the locales directory
+        if not str(locale_path).startswith(str(locales_dir.resolve())):
+            raise ValueError(f"Attempted path traversal with locale: {locale}")
+        return locale_path
 
     def _load_locale(self, locale: str) -> str:
         """Load translations for a given locale. Returns the resolved locale."""
-        locale_path = self._get_locale_path(locale)
+        try:
+            locale_path = self._get_locale_path(locale)
+        except ValueError as e:
+            if locale != 'en':
+                # Fallback to English if locale is invalid
+                logger.warning("Invalid locale '%s': %s, falling back to 'en'", locale, str(e))
+                return self._load_locale('en')
+            raise
 
         if not locale_path.exists():
             if locale != 'en':
