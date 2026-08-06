@@ -104,6 +104,7 @@ onBeforeUnmount(() => {
   color: #bbb;
   font-size: 0.7rem;
   position: relative;
+  min-height: 2rem;
 }
 
 .footer-lang-menu {

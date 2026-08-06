@@ -167,8 +167,8 @@ function isLunarEvent(event: any): boolean {
 .events-view {
   display: flex;
   flex-direction: column;
-  width: 100vw;
-  min-height: 100dvh;
+  width: 100%;
+  min-height: 100vh;
   background: #121212;
   color: #fff;
 }

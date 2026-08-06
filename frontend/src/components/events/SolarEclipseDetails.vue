@@ -25,6 +25,7 @@
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { AstronomicalEvent } from '@/types/api.types';
+import { normalizeLocaleForIntl } from '@/utils/locale';
 
 const props = defineProps<{
   event: AstronomicalEvent;
@@ -61,7 +62,8 @@ function formatTime(value: string): string {
   // Backend returns astropy Time.iso strings: "YYYY-MM-DD HH:MM:SS.sss" (UTC, space-separated)
   const parsed = new Date(`${value.replace(' ', 'T')}Z`);
   if (Number.isNaN(parsed.getTime())) return value;
-  return new Intl.DateTimeFormat(locale.value, { timeStyle: 'medium' }).format(parsed);
+  const intlLocale = normalizeLocaleForIntl(locale.value);
+  return new Intl.DateTimeFormat(intlLocale, { timeStyle: 'medium', timeZone: 'UTC' }).format(parsed);
 }
 </script>
 

@@ -24,21 +24,24 @@ def reverse_strings(obj):
 
 
 if __name__ == '__main__':
-    repo_root = Path(__file__).resolve().parent
+    repo_root = Path(__file__).resolve().parent.parent
     input_path = repo_root / 'frontend' / 'src' / 'locales' / 'en-UK.json'
     output_path = repo_root / 'frontend' / 'src' / 'locales' / 'xx-reverse.json'
-    # Note: API locales are stored with lowercase names (en-uk.json, en-us.json)
-    # to match the lowercased identifiers from the middleware.
+    dev_output_path = repo_root / 'frontend' / 'dev-locales' / 'xx-reverse.json'
 
     with open(input_path, 'r', encoding='utf-8') as f:
         en_data = json.load(f)
 
     xx_reverse = reverse_strings(en_data)
 
+    # Write to both production and dev locations
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(xx_reverse, f, ensure_ascii=False, indent=2)
+    
+    with open(dev_output_path, 'w', encoding='utf-8') as f:
+        json.dump(xx_reverse, f, ensure_ascii=False, indent=2)
 
-    print('✓ Created xx-reverse.json with reversed strings')
+    print('✓ Created xx-reverse.json in both src/locales/ and dev-locales/')
     print('Sample reversals:')
     print(f'  "Load Data" → "{xx_reverse["buttons"]["loadData"]}"')
     print(f'  "Latitude" → "{xx_reverse["forms"]["labels"]["latitude"]}"')

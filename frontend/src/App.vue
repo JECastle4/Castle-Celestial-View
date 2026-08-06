@@ -33,6 +33,10 @@ html, body, #app {
   overflow: hidden;
 }
 
+html {
+  scrollbar-gutter: stable;
+}
+
 .app-layout {
   display: flex;
   flex-direction: column;

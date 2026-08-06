@@ -44,16 +44,16 @@
       "solarTotal": "latoT raloS",
       "solarPartial": "laitraP raloS",
       "solarAnnular": "ralunnA raloS",
-      "lunarTotal": "latoT ranul",
-      "lunarPartial": "laitraP ranul",
-      "lunarPenumbral": "larbumeP ranul"
+      "lunarTotal": "latoT ranuL",
+      "lunarPartial": "laitraP ranuL",
+      "lunarPenumbral": "larbmuneP ranuL"
     },
     "eclipseTypes": {
-      "NONE": "esillcxE oN",
+      "NONE": "espilcE oN",
       "TOTAL": "latoT",
       "PARTIAL": "laitraP",
       "ANNULAR": "ralunnA",
-      "PENUMBRAL": "larbumuneP"
+      "PENUMBRAL": "larbmuneP"
     }
   },
   "validation": {
