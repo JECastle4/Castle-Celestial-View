@@ -12,7 +12,7 @@ from typing import Any, Dict, Optional
 logger = logging.getLogger(__name__)
 
 # Whitelist of allowed locales to prevent path traversal
-ALLOWED_LOCALES = {'en', 'es', 'fr', 'de', 'it', 'pt', 'ja', 'zh', 'ko', 'ru'}
+ALLOWED_LOCALES = {'en', 'en-uk', 'en-us', 'xx-reverse'}
 
 
 class I18n:
