@@ -26,12 +26,17 @@ class I18n:
         """Get the path to a locale JSON file.
         
         Only allows locales from the whitelist to prevent path traversal attacks.
+        Additionally verifies the resolved path is within the locales directory.
         """
         if locale not in ALLOWED_LOCALES:
             raise ValueError(f"Unsupported locale: {locale}")
         locales_dir = Path(__file__).parent / 'locales'
-        # Safe to use locale directly since it's from the whitelist
-        return locales_dir / f'{locale}.json'
+        locale_path = (locales_dir / f'{locale}.json').resolve()
+        # Verify the resolved path is within the locales directory to prevent path traversal
+        locales_dir_resolved = locales_dir.resolve()
+        if not str(locale_path).startswith(str(locales_dir_resolved)):
+            raise ValueError(f"Path traversal attempt detected: {locale}")
+        return locale_path
 
     def _load_locale(self, locale: str) -> str:
         """Load translations for a given locale. Returns the resolved locale."""
@@ -40,7 +45,7 @@ class I18n:
             if locale != 'en':
                 logger.warning("Unsupported locale '%s', falling back to 'en'", locale)
                 return self._load_locale('en')
-            raise ValueError(f"Default locale 'en' must be in ALLOWED_LOCALES")
+            raise ValueError("Default locale 'en' must be in ALLOWED_LOCALES")
 
         locale_path = self._get_locale_path(locale)
 
