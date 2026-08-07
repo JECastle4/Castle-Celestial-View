@@ -7,12 +7,42 @@ import logging
 import threading
 from contextvars import ContextVar
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional, cast
 
 logger = logging.getLogger(__name__)
 
-# Whitelist of allowed locales to prevent path traversal
-ALLOWED_LOCALES = {'en', 'en-uk', 'en-us', 'xx-reverse'}
+# Whitelist of allowed locales to prevent path traversal.
+# The Literal alias lets static analysis (CodeQL) prove that any value typed
+# as SupportedLocale can only be one of these fixed, non-attacker-controlled
+# strings — it is never built from raw user input.
+SupportedLocale = Literal['en', 'en-uk', 'en-us', 'xx-reverse']
+ALLOWED_LOCALES: frozenset[str] = frozenset(('en', 'en-uk', 'en-us', 'xx-reverse'))
+
+
+def _to_supported_locale(locale: str) -> SupportedLocale:
+    """Validate *locale* against the whitelist and narrow its type.
+
+    Raises ValueError for anything not in ALLOWED_LOCALES. This is the single
+    choke point where untrusted input is converted into the closed
+    SupportedLocale type before it can be used to look up a locale file.
+    """
+    if locale not in ALLOWED_LOCALES:
+        raise ValueError(f"Unsupported locale: {locale}")
+    return cast(SupportedLocale, locale)
+
+
+_LOCALES_DIR = Path(__file__).parent / 'locales'
+
+# Statically-defined paths, one per whitelisted locale. Filenames are fixed
+# string literals, never built by concatenating the request-controlled locale
+# value, so there is no path-injection/traversal surface regardless of what
+# string an attacker sends — an unrecognized locale simply isn't a key here.
+_LOCALE_FILE_PATHS: Dict[SupportedLocale, Path] = {
+    'en': _LOCALES_DIR / 'en.json',
+    'en-uk': _LOCALES_DIR / 'en-uk.json',
+    'en-us': _LOCALES_DIR / 'en-us.json',
+    'xx-reverse': _LOCALES_DIR / 'xx-reverse.json',
+}
 
 
 class I18n:
@@ -24,19 +54,12 @@ class I18n:
 
     def _get_locale_path(self, locale: str) -> Path:
         """Get the path to a locale JSON file.
-        
-        Only allows locales from the whitelist to prevent path traversal attacks.
-        Additionally verifies the resolved path is within the locales directory.
+
+        Validates *locale* against the whitelist, then looks up the
+        corresponding path from the static _LOCALE_FILE_PATHS table.
         """
-        if locale not in ALLOWED_LOCALES:
-            raise ValueError(f"Unsupported locale: {locale}")
-        locales_dir = Path(__file__).parent / 'locales'
-        locale_path = (locales_dir / f'{locale}.json').resolve()
-        # Verify the resolved path is within the locales directory to prevent path traversal
-        locales_dir_resolved = locales_dir.resolve()
-        if not str(locale_path).startswith(str(locales_dir_resolved)):
-            raise ValueError(f"Path traversal attempt detected: {locale}")
-        return locale_path
+        validated = _to_supported_locale(locale)
+        return _LOCALE_FILE_PATHS[validated]
 
     def _load_locale(self, locale: str) -> str:
         """Load translations for a given locale. Returns the resolved locale."""

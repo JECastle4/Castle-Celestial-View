@@ -1127,14 +1127,25 @@ class AstronomicalEventsRequest(BaseModel):
 
 class AstronomicalEvent(BaseModel):
     """A single new/full moon event, with eclipse classification if applicable"""
-    event_type: str = Field(..., description="'new_moon' or 'full_moon'")
+    event_type: str = Field(
+        ...,
+        description="Translated, locale-dependent event label (e.g. 'New Moon', "
+                     "'Full Moon', 'Lunar Total', 'Solar Annular')"
+    )
+    is_lunar: bool = Field(
+        ...,
+        description="Locale-independent discriminator: true for full-moon/lunar-eclipse "
+                     "events, false for new-moon/solar-eclipse events. Use this (not "
+                     "event_type/eclipse_type, which are translated) for branching logic."
+    )
     date: str = Field(..., description="ISO datetime of the new/full moon instant")
     julian_date: float = Field(..., description="Julian Date of the new/full moon instant")
     moon_ecl_lat_deg: float = Field(..., description="Moon's ecliptic latitude in degrees")
     eclipse_occurs: bool = Field(..., description="Whether an eclipse occurs")
     eclipse_type: str = Field(
         ...,
-        description="NONE, PARTIAL, TOTAL, ANNULAR, or PENUMBRAL"
+        description="Translated, locale-dependent eclipse classification (e.g. "
+                     "'No Eclipse', 'Partial', 'Total', 'Annular', 'Penumbral')"
     )
     greatest_eclipse_time: Optional[str] = Field(
         None,

@@ -7,6 +7,7 @@ const mockResponse: AstronomicalEventsResponse = {
   events: [
     {
       event_type: 'Full Moon',
+      is_lunar: true,
       date: '2025-09-07 18:11:42.600',
       julian_date: 2460925.257,
       moon_ecl_lat_deg: -0.1,
@@ -123,7 +124,7 @@ describe('useAstronomicalEvents SSE', () => {
     };
   }
 
-  const eventA = { event_type: 'New Moon', date: '2025-01-01 00:00:00.000', julian_date: 1, moon_ecl_lat_deg: 1, eclipse_occurs: false, eclipse_type: 'No Eclipse', greatest_eclipse_time: null, umbral_magnitude: null, penumbral_magnitude: null, size_ratio: null, contact_times: null };
+  const eventA = { event_type: 'New Moon', is_lunar: false, date: '2025-01-01 00:00:00.000', julian_date: 1, moon_ecl_lat_deg: 1, eclipse_occurs: false, eclipse_type: 'No Eclipse', greatest_eclipse_time: null, umbral_magnitude: null, penumbral_magnitude: null, size_ratio: null, contact_times: null };
   const eventB = { ...eventA, date: '2025-02-01 00:00:00.000' };
 
   it('collects events across pages and resolves on metadata', async () => {

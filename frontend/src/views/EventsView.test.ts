@@ -15,6 +15,7 @@ vi.mock('vue-router', async () => {
 function makeEvent(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     event_type: 'Full Moon',
+    is_lunar: true,
     date: '2025-09-07 18:11:42.600',
     julian_date: 2460925.257,
     moon_ecl_lat_deg: -0.1,
@@ -32,6 +33,7 @@ function makeEvent(overrides: Partial<Record<string, unknown>> = {}) {
 const fullMoonEvent = makeEvent();
 const newMoonEvent = makeEvent({
   event_type: 'New Moon',
+  is_lunar: false,
   date: '2025-09-21 19:54:00.000',
   julian_date: 2460939.33,
   moon_ecl_lat_deg: 0.2,
@@ -229,7 +231,7 @@ describe('EventsView', () => {
     await flushPromises();
 
     const source = instances[0];
-    const lunarEvent = makeEvent({ event_type: 'Lunar Total', eclipse_occurs: true });
+    const lunarEvent = makeEvent({ event_type: 'Lunar Total', is_lunar: true, eclipse_occurs: true });
     source.emit('page', { page: 1, events: [lunarEvent] });
     source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
     await flushPromises();
@@ -248,7 +250,7 @@ describe('EventsView', () => {
     await flushPromises();
 
     const source = instances[0];
-    const solarEvent = makeEvent({ event_type: 'Solar Total', eclipse_occurs: true });
+    const solarEvent = makeEvent({ event_type: 'Solar Total', is_lunar: false, eclipse_occurs: true });
     source.emit('page', { page: 1, events: [solarEvent] });
     source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
     await flushPromises();
@@ -267,7 +269,7 @@ describe('EventsView', () => {
     await flushPromises();
 
     const source = instances[0];
-    const fullMoon = makeEvent({ event_type: 'Full Moon', eclipse_occurs: false, eclipse_type: 'No Eclipse' });
+    const fullMoon = makeEvent({ event_type: 'Full Moon', is_lunar: true, eclipse_occurs: false, eclipse_type: 'No Eclipse' });
     source.emit('page', { page: 1, events: [fullMoon] });
     source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
     await flushPromises();
@@ -286,7 +288,7 @@ describe('EventsView', () => {
     await flushPromises();
 
     const source = instances[0];
-    const newMoon = makeEvent({ event_type: 'New Moon', eclipse_occurs: false });
+    const newMoon = makeEvent({ event_type: 'New Moon', is_lunar: false, eclipse_occurs: false });
     source.emit('page', { page: 1, events: [newMoon] });
     source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
     await flushPromises();
@@ -305,7 +307,7 @@ describe('EventsView', () => {
     await flushPromises();
 
     const source = instances[0];
-    const lunarEvent = makeEvent({ event_type: 'Lunar Total', eclipse_occurs: true });
+    const lunarEvent = makeEvent({ event_type: 'Lunar Total', is_lunar: true, eclipse_occurs: true });
     source.emit('page', { page: 1, events: [lunarEvent] });
     source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
     await flushPromises();

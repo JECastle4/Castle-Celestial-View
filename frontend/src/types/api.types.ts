@@ -90,11 +90,15 @@ export type AstronomicalEventType = string;
 export type EclipseType = string;
 
 // Lunar keys: p1/u1/u2/u3/u4/p4. Solar keys: eclipse_begins/central_phase_begins/
-// central_phase_ends/eclipse_ends. Values are ISO time strings.
-export type EclipseContactTimes = Record<string, string>;
+// central_phase_ends/eclipse_ends. Values are ISO time strings, or null when that
+// particular contact doesn't occur.
+export type EclipseContactTimes = Record<string, string | null>;
 
 export interface AstronomicalEvent {
   event_type: AstronomicalEventType;
+  // Locale-independent discriminator for lunar vs. solar; event_type/eclipse_type
+  // are translated display strings and must not be used for branching logic.
+  is_lunar: boolean;
   date: string;
   julian_date: number;
   moon_ecl_lat_deg: number;

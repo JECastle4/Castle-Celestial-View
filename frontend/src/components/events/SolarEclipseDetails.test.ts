@@ -5,6 +5,7 @@ import type { AstronomicalEvent } from '@/types/api.types';
 
 const baseEvent: AstronomicalEvent = {
   event_type: 'New Moon',
+  is_lunar: false,
   date: '2026-02-17 12:12:00.000',
   julian_date: 2461088.0,
   moon_ecl_lat_deg: -0.05,

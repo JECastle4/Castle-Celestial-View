@@ -6,7 +6,7 @@
       :class="{ 'event-summary-static': !eclipseOccurs }"
       :aria-expanded="eclipseOccurs ? expanded : false"
       :aria-controls="eclipseOccurs ? detailsId : undefined"
-      :aria-label="eclipseOccurs ? undefined : t('events.noEclipse')"
+      :aria-label="eclipseOccurs ? undefined : `${formattedDate} - ${eventType}. ${t('events.noEclipse')}`"
       @click="eclipseOccurs && (expanded = !expanded)"
     >
       <span class="event-date" :aria-label="formattedDate">{{ formattedDate }}</span>
