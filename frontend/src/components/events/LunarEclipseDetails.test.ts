@@ -5,6 +5,7 @@ import type { AstronomicalEvent } from '@/types/api.types';
 
 const baseEvent: AstronomicalEvent = {
   event_type: 'Full Moon',
+  is_lunar: true,
   date: '2025-09-07 18:11:42.600',
   julian_date: 2460925.257,
   moon_ecl_lat_deg: -0.1,

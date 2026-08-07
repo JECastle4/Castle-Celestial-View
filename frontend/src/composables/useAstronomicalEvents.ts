@@ -21,6 +21,9 @@ export function useAstronomicalEvents(api: AstronomyApi = astronomyApi) {
   const sseEventCount = ref(0);
 
   let currentEventSource: EventSource | null = null;
+  // Rejects the in-flight fetchEventsSSE() promise; set while a search is
+  // running so cancelSSE() can settle it instead of leaving it pending forever.
+  let currentSseReject: ((reason: Error) => void) | null = null;
   // Full result set from the last SSE search, kept client-side so page
   // navigation after a search doesn't need another round trip.
   let allSseEvents: AstronomicalEvent[] = [];
@@ -64,6 +67,7 @@ export function useAstronomicalEvents(api: AstronomyApi = astronomyApi) {
     const pageSize = params.page_size ?? 10;
 
     return new Promise<void>((resolve, reject) => {
+      currentSseReject = reject;
       const query = new URLSearchParams();
       query.set('start_date', params.start_date);
       query.set('end_date', params.end_date);
@@ -97,6 +101,7 @@ export function useAstronomicalEvents(api: AstronomyApi = astronomyApi) {
         hasSearched.value = true;
         eventSource.close();
         currentEventSource = null;
+        currentSseReject = null;
         resolve();
       });
 
@@ -106,6 +111,7 @@ export function useAstronomicalEvents(api: AstronomyApi = astronomyApi) {
         hasSearched.value = true;
         eventSource.close();
         currentEventSource = null;
+        currentSseReject = null;
         reject(new Error('SSE connection error'));
       };
     });
@@ -117,6 +123,8 @@ export function useAstronomicalEvents(api: AstronomyApi = astronomyApi) {
       currentEventSource = null;
       loading.value = false;
       error.value = t('errors.cancelled');
+      currentSseReject?.(new Error('Cancelled by user'));
+      currentSseReject = null;
     }
   }
 

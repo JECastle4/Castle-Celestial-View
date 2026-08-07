@@ -133,6 +133,9 @@ def build_astronomical_event(event, include_contact_times=True, locale=None):
             if is_lunar
             else _t('events.eventTypes.newMoon')
         ),
+        # Locale-independent discriminator for lunar vs. solar; event_type/eclipse_type
+        # below are translated display strings and must not be used for branching logic.
+        'is_lunar': is_lunar,
         'date': time_obj.iso,
         'julian_date': float(time_obj.jd),
         'moon_ecl_lat_deg': round(float(moon_lat), 4),

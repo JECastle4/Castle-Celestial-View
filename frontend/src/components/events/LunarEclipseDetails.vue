@@ -19,7 +19,7 @@
     <dl class="eclipse-details">
       <div v-for="key in contactKeys" :key="key" class="detail-row">
         <dt>{{ t(`events.lunar.${key}`) }}</dt>
-        <dd :aria-label="`${t(`events.lunar.${key}`)}: ${formatTime(event.contact_times[key])}`">{{ formatTime(event.contact_times[key]) }}</dd>
+        <dd :aria-label="`${t(`events.lunar.${key}`)}: ${formatTime(event.contact_times[key]!)}`">{{ formatTime(event.contact_times[key]!) }}</dd>
       </div>
     </dl>
   </template>
