@@ -2,6 +2,7 @@
 API routes for astronomy calculations
 """
 import json
+from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
@@ -34,6 +35,8 @@ from api.models import (
     ObservationDateTime,
     LocationModel,
     TimeRange,
+    AstronomicalEventsRequest,
+    AstronomicalEventsResponse,
 )
 from api.services.dates import calculate_day_of_week
 from api.services.sun import calculate_sun_position
@@ -47,6 +50,11 @@ from api.services.uranus import calculate_uranus_position
 from api.services.neptune import calculate_neptune_position
 from api.services.moon_phase import calculate_moon_phase
 from api.services.batch_earth_observations import calculate_batch_earth_observations
+from api.services.astronomical_events import (
+    get_astronomical_events,
+    stream_astronomical_events,
+    validate_date_range,
+)
 
 
 router = APIRouter()
@@ -813,4 +821,135 @@ async def get_batch_earth_observations(request: BatchEarthObservationsRequest):
         raise HTTPException(
             status_code=500,
             detail=f"Error calculating batch observations: {str(e)}"
+        ) from e
+
+
+@router.post(
+    "/astronomical-events",
+    response_model=AstronomicalEventsResponse,
+    tags=["astronomical-events"],
+    summary="Find new/full moons and eclipses in a date range",
+    description="""
+    Finds all new and full moons within a date range and classifies each as an
+    eclipse (TOTAL, PARTIAL, ANNULAR, or PENUMBRAL) where applicable, using the
+    Moon's ecliptic latitude at conjunction/opposition as a fast pre-filter and
+    precise shadow-cone geometry (refined to the instant of greatest eclipse) for
+    classification.
+
+    Geocentric-only (not observer-specific). Eclipse contact times, when computed,
+    describe when the eclipse begins/ends as seen from somewhere on Earth (solar)
+    or the penumbral/umbral shadow boundary crossings (lunar) - not times for a
+    specific observer location.
+
+    - **start_date** / **end_date**: Date range (YYYY-MM-DD), inclusive
+    - **page** / **page_size**: Pagination controls
+    - **include_contact_times**: Whether to compute eclipse contact times
+    - **event_types**: Optional filter - 'new_moon', 'full_moon', or omit for both
+    """
+)
+def get_astronomical_events_route(
+    request: AstronomicalEventsRequest,
+    lang: Optional[str] = Query(None)
+):
+    """Find new/full moons and classify eclipses within a date range."""
+    try:
+        result = get_astronomical_events(
+            start_date_str=request.start_date,
+            end_date_str=request.end_date,
+            page=request.page,
+            page_size=request.page_size,
+            include_contact_times=request.include_contact_times,
+            event_types=request.event_types,
+            locale=lang,
+        )
+        return AstronomicalEventsResponse(**result)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid input: {str(e)}"
+        ) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error calculating astronomical events: {str(e)}"
+        ) from e
+
+
+@router.get(
+    "/astronomical-events-stream",
+    tags=["astronomical-events", "sse"],
+    summary="Stream new/full moons and eclipses in a date range (SSE)",
+    description="""
+    Streams the same search as POST /astronomical-events using Server-Sent Events
+    (SSE), so a client can show live progress instead of waiting for the entire
+    date range to be processed. Results are paginated as in the POST endpoint;
+    each page is sent as a separate 'page' SSE event, followed by a final
+    'metadata' event with pagination totals.
+
+    - **start_date** / **end_date**: Date range (YYYY-MM-DD), inclusive
+    - **page_size**: Number of events per page (1-100)
+    - **include_contact_times**: Whether to compute eclipse contact times
+    - **event_types**: Optional filter - 'new_moon', 'full_moon', repeat param for both
+    """
+)
+def stream_astronomical_events_route(
+    start_date: str = Query(...),
+    end_date: str = Query(...),
+    page_size: int = Query(10, ge=1, le=100),
+    include_contact_times: bool = Query(True),
+    event_types: Optional[list[str]] = Query(None),
+    lang: Optional[str] = Query(None),
+):
+    """Stream new/full moon events with eclipse classification via SSE."""
+    try:
+        # Validate input the same way as the POST endpoint (raises
+        # ValidationError -> 422), plus the date-range-size check (raises
+        # ValueError -> 400), before the stream starts - so bad requests fail
+        # fast instead of erroring out mid-stream.
+        AstronomicalEventsRequest(
+            start_date=start_date,
+            end_date=end_date,
+            page_size=page_size,
+            include_contact_times=include_contact_times,
+            event_types=event_types,
+        )
+        validate_date_range(start_date, end_date)
+
+        def event_generator():
+            gen = stream_astronomical_events(
+                start_date_str=start_date,
+                end_date_str=end_date,
+                page_size=page_size,
+                include_contact_times=include_contact_times,
+                event_types=event_types,
+                locale=lang,
+            )
+            for item in gen:
+                if 'events' in item:
+                    yield f"event: page\ndata: {json.dumps(item)}\n\n"
+                else:
+                    yield f"event: metadata\ndata: {json.dumps(item)}\n\n"
+
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",  # Disable buffering in nginx / proxy layers
+            },
+        )
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid input: {str(e)}"
+        ) from e
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid input: {str(e)}"
+        ) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error streaming astronomical events: {str(e)}"
         ) from e

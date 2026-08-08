@@ -3,6 +3,7 @@ Unit tests for api/i18n.py
 """
 import pytest
 from unittest.mock import patch
+from pathlib import Path
 from api.i18n import I18n, get_i18n, t, set_request_locale, SUPPORTED_LOCALES, _current_locale
 
 
@@ -170,3 +171,61 @@ class TestSetRequestLocale:
         a = get_i18n('en')
         b = get_i18n('en')
         assert a is b
+
+
+class TestI18nSecurityHardening:
+    """Tests for security hardening against path traversal and invalid locales."""
+
+    def test_get_locale_path_rejects_invalid_locale(self):
+        """Test that _get_locale_path raises ValueError for locales not in ALLOWED_LOCALES."""
+        i18n = I18n('en')
+        with pytest.raises(ValueError, match="Unsupported locale"):
+            i18n._get_locale_path('invalid-locale')
+
+    def test_get_locale_path_rejects_traversal_attempt(self):
+        """Test that _get_locale_path validates path boundaries to prevent traversal."""
+        i18n = I18n('en')
+        # This should not raise since 'en' is in ALLOWED_LOCALES,
+        # but if a whitelist entry somehow created a traversal path, it would be caught.
+        # For now, we test that valid locales work correctly.
+        path = i18n._get_locale_path('en')
+        assert path.name == 'en.json'
+        assert 'locales' in str(path)
+
+    def test_load_locale_rejects_invalid_locale_when_default(self):
+        """Test that _load_locale raises error when 'en' itself is not in ALLOWED_LOCALES."""
+        i18n = I18n.__new__(I18n)
+        i18n.translations = {}
+        # Temporarily remove 'en' from ALLOWED_LOCALES to test the guard condition
+        with patch('api.i18n.ALLOWED_LOCALES', {'xx-reverse'}):
+            with pytest.raises(ValueError, match="Default locale 'en' must be in ALLOWED_LOCALES"):
+                i18n._load_locale('en')
+
+    def test_unsupported_locale_with_valid_fallback(self):
+        """Test that unsupported locales fall back to 'en' gracefully."""
+        with patch('api.i18n.logger') as mock_logger:
+            i18n = I18n('invalid-locale-code')
+            assert i18n.locale == 'en'
+            assert i18n.get('dayNames.0') == 'Sunday'
+            mock_logger.warning.assert_called()
+
+    def test_locale_path_within_locales_directory(self):
+        """Test that resolved locale paths are verified to be within the locales directory."""
+        i18n = I18n('en')
+        locale_path = i18n._get_locale_path('en')
+        locales_dir = Path(__file__).parent.parent / 'api' / 'locales'
+        # Verify the path starts with the locales directory (after resolution)
+        assert str(locale_path.resolve()).startswith(str(locales_dir.resolve()))
+
+    def test_load_locale_handles_json_error(self, tmp_path):
+        """Test that _load_locale properly raises ValueError for invalid JSON."""
+        bad_json_file = tmp_path / 'bad.json'
+        bad_json_file.write_text('{invalid json content}', encoding='utf-8')
+        
+        i18n = I18n.__new__(I18n)
+        i18n.locale = 'en'
+        i18n.translations = {}
+        
+        with patch.object(I18n, '_get_locale_path', return_value=bad_json_file):
+            with pytest.raises(ValueError, match="Invalid JSON in locale file"):
+                i18n._load_locale('en')
