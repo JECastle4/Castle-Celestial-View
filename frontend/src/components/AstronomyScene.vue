@@ -252,8 +252,8 @@
 .astronomy-scene {
   display: flex;
   flex-direction: column;
-  width: 100vw;
-  height: 100dvh;
+  width: 100%;
+  height: 100%;
 }
 
 /* Layout for full-width map and fixed right panel */

@@ -847,7 +847,7 @@ async def get_batch_earth_observations(request: BatchEarthObservationsRequest):
     - **event_types**: Optional filter - 'new_moon', 'full_moon', or omit for both
     """
 )
-async def get_astronomical_events_route(
+def get_astronomical_events_route(
     request: AstronomicalEventsRequest,
     lang: Optional[str] = Query(None)
 ):
@@ -892,7 +892,7 @@ async def get_astronomical_events_route(
     - **event_types**: Optional filter - 'new_moon', 'full_moon', repeat param for both
     """
 )
-async def stream_astronomical_events_route(
+def stream_astronomical_events_route(
     start_date: str = Query(...),
     end_date: str = Query(...),
     page_size: int = Query(10, ge=1, le=100),
