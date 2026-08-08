@@ -6,6 +6,7 @@ eclipse records for 2025-2026 during implementation.
 """
 import json
 import pytest
+from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from api.main import app
@@ -324,3 +325,50 @@ def test_route_stream_event_types_filter():
         for ev in data['events']:
             # New moon events should be "New Moon" (non-eclipse) or "Solar *" (eclipse)
             assert "New Moon" in ev['event_type'] or "Solar" in ev['event_type']
+
+
+def test_route_get_astronomical_events_value_error_handling():
+    """Test ValueError exception handling in GET astronomical-events endpoint."""
+    with patch("api.routes.get_astronomical_events") as mock_get:
+        mock_get.side_effect = ValueError("Test calculation error")
+
+        resp = client.post("/api/v1/astronomical-events", json={
+            "start_date": NARROW_RANGE_START,
+            "end_date": NARROW_RANGE_END,
+        })
+
+        assert resp.status_code == 400
+        assert "Invalid input" in resp.json()["detail"]
+
+
+def test_route_get_astronomical_events_unexpected_error_handling():
+    """Test unexpected exception handling in GET astronomical-events endpoint."""
+    with patch("api.routes.get_astronomical_events") as mock_get:
+        mock_get.side_effect = RuntimeError("Unexpected error")
+
+        resp = client.post("/api/v1/astronomical-events", json={
+            "start_date": NARROW_RANGE_START,
+            "end_date": NARROW_RANGE_END,
+        })
+
+        assert resp.status_code == 500
+        assert "Error calculating astronomical events" in resp.json()["detail"]
+
+
+def test_route_stream_astronomical_events_unexpected_error_handling():
+    """Test unexpected exception handling in stream astronomical-events endpoint.
+    
+    Errors during route handler execution (before StreamingResponse is returned)
+    are caught by the route's exception handlers. Errors during streaming iteration
+    happen after response is sent and are handled by the streaming middleware.
+    """
+    with patch("api.routes.validate_date_range") as mock_validate:
+        mock_validate.side_effect = RuntimeError("Unexpected validation error")
+
+        resp = client.get("/api/v1/astronomical-events-stream", params={
+            "start_date": NARROW_RANGE_START,
+            "end_date": NARROW_RANGE_END,
+        })
+
+        assert resp.status_code == 500
+        assert "Error streaming astronomical events" in resp.json()["detail"]

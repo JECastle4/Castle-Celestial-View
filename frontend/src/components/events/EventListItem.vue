@@ -70,6 +70,7 @@ const formattedDate = computed(() => {
   return new Intl.DateTimeFormat(intlLocale, {
     dateStyle: 'medium',
     timeStyle: 'short',
+    timeZone: 'UTC',
   }).format(parsed);
 });
 </script>
