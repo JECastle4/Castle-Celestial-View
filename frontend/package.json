@@ -40,9 +40,9 @@
     "@emnapi/runtime": "^1.11.3",
     "@playwright/test": "^1.62.1",
     "@types/jest-axe": "^3.5.9",
-    "@types/node": "^26.1.2",
+    "@types/node": "^26.2.0",
     "@types/three": "^0.185.4",
-    "@typescript-eslint/parser": "^8.65.0",
+    "@typescript-eslint/parser": "^8.67.0",
     "@vitejs/plugin-vue": "^6.0.8",
     "@vitest/coverage-v8": "^4.1.11",
     "@vitest/ui": "^4.0.18",
@@ -51,10 +51,10 @@
     "eslint-plugin-vuejs-accessibility": "^2.6.0",
     "happy-dom": "^20.11.2",
     "jest-axe": "^11.0.0",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "vite": "^8.2.1",
     "vitest": "^4.0.18",
     "vue-eslint-parser": "^10.4.1",
-    "vue-tsc": "^3.3.9"
+    "vue-tsc": "^3.3.10"
   }
 }
