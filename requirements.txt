@@ -21,4 +21,4 @@ starlette>=1.6.0
 # click: PYSEC-2026-2132 fixed in 8.3.3
 click>=8.4.2
 # msgpack: GHSA-6v7p-g79w-8964 fixed in 1.2.1
-msgpack>=1.2.1
+msgpack>=1.2.2
