@@ -21,8 +21,8 @@ from api.services.eclipse_detection import (
     find_greatest_eclipse_time,
     classify_lunar_eclipse_type,
     classify_solar_eclipse_type,
-    LUNAR_ECLIPSE_THRESHOLD,
-    SOLAR_ECLIPSE_THRESHOLD,
+    LUNAR_ECLIPSE_LATITUDE_LIMIT,
+    SOLAR_ECLIPSE_LATITUDE_LIMIT,
 )
 from api.services.eclipse_contact_times import (
     calculate_lunar_contact_times,
@@ -106,7 +106,7 @@ def find_new_full_moons(start_time, end_time, sample_interval_hours=SAMPLE_INTER
             t_event = _bisect_zero(_full_moon_signal, sample_times[i - 1], sample_times[i])
             events.append({'time': t_event, 'phase': 'full'})
 
-    events = [e for e in events if start_time <= e['time'] <= end_time]
+    events = [e for e in events if start_time <= e['time'] < end_time]
     events.sort(key=lambda e: e['time'].jd)
     return events
 
@@ -116,14 +116,20 @@ def build_astronomical_event(event, include_contact_times=True, locale=None):
     Given a {'time', 'phase'} entry from find_new_full_moons, build the full event
     dict: moon ecliptic latitude/threshold check, eclipse classification (if any),
     optionally contact times, and translate event_type/eclipse_type using locale.
+    
+    PRE-FILTER: Checks if Moon's ecliptic latitude is within threshold for potential
+    eclipse. Only if this pre-filter passes do we proceed to expensive shadow geometry
+    calculations. This is geometrically sound: eclipses can only occur when the Moon
+    is close to the ecliptic plane (where the Sun resides).
     """
     time_obj = event['time']
     phase = event['phase']
     is_lunar = phase == 'full'
-    threshold = LUNAR_ECLIPSE_THRESHOLD if is_lunar else SOLAR_ECLIPSE_THRESHOLD
+    latitude_limit = LUNAR_ECLIPSE_LATITUDE_LIMIT if is_lunar else SOLAR_ECLIPSE_LATITUDE_LIMIT
 
     moon_lat = get_moon_ecliptic_latitude(time_obj)
-    within_threshold = abs(moon_lat) < threshold
+    # PRE-FILTER: Is Moon close enough to ecliptic plane for eclipse?
+    within_threshold = abs(moon_lat) < latitude_limit
 
     _t = get_i18n(locale).get
 

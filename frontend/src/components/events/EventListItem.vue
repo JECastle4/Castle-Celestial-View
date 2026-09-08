@@ -1,23 +1,23 @@
 <template>
   <li class="event-item">
+    <!-- All rows: interactive buttons for keyboard/screen-reader accessibility.
+         Only eclipse rows expand on click; non-eclipse rows are readable but non-functional.
+         This ensures all new/full moon events are discoverable by all users. -->
     <button
       type="button"
       class="event-summary"
-      :class="{ 'event-summary-static': !eclipseOccurs }"
-      :aria-expanded="eclipseOccurs ? expanded : false"
+      :aria-expanded="eclipseOccurs && expanded"
       :aria-controls="eclipseOccurs ? detailsId : undefined"
-      :aria-label="eclipseOccurs ? undefined : `${formattedDate} - ${eventType}. ${t('events.noEclipse')}`"
       @click="eclipseOccurs && (expanded = !expanded)"
     >
-      <span class="event-date" :aria-label="formattedDate">{{ formattedDate }}</span>
+      <span class="event-date">{{ formattedDate }}</span>
       <span class="event-type">{{ eventType }}</span>
+      <span v-if="!eclipseOccurs" class="event-type-suffix">{{ t('events.noEclipse') }}</span>
       <i
-        v-if="eclipseOccurs"
         class="fa"
-        :class="expanded ? 'fa-chevron-up' : 'fa-chevron-down'"
+        :class="eclipseOccurs ? (expanded ? 'fa-chevron-up' : 'fa-chevron-down') : 'fa-circle no-eclipse-indicator'"
         aria-hidden="true"
       ></i>
-      <i v-else class="fa fa-circle no-eclipse-indicator" aria-hidden="true"></i>
     </button>
     <div
       v-if="eclipseOccurs && expanded"
@@ -70,7 +70,6 @@ const formattedDate = computed(() => {
   return new Intl.DateTimeFormat(intlLocale, {
     dateStyle: 'medium',
     timeStyle: 'short',
-    timeZone: 'UTC',
   }).format(parsed);
 });
 </script>
@@ -95,27 +94,32 @@ const formattedDate = computed(() => {
   border: none;
   color: #fff;
   font-size: 0.95rem;
-  cursor: pointer;
   text-align: left;
 }
 
-.event-summary:not(.event-summary-static):hover {
+button.event-summary {
+  cursor: pointer;
+}
+
+button.event-summary:hover {
   background: #262626;
 }
 
-.event-summary:focus-visible {
+button.event-summary:focus-visible {
   outline: 2px solid #0078d4;
   outline-offset: -2px;
   background: #262626;
 }
 
-.event-summary-static {
-  cursor: default;
-}
-
 .event-date {
   flex: 1 1 auto;
   font-weight: 600;
+}
+
+.event-type-suffix {
+  font-size: 0.85em;
+  color: #888;
+  font-weight: normal;
 }
 
 .event-type {

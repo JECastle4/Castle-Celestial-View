@@ -153,6 +153,8 @@ function search() {
     start_date: startDate.value,
     end_date: endDate.value,
     page_size: PAGE_SIZE,
+  }).catch(() => {
+    // Composable updates error state; rejection handled here to prevent unhandled rejection.
   });
 }
 </script>

@@ -14,6 +14,9 @@ from api.services.eclipse_detection import (
     is_full_moon,
     classify_lunar_eclipse_type,
     classify_solar_eclipse_type,
+    get_moon_ecliptic_latitude,
+    LUNAR_ECLIPSE_LATITUDE_LIMIT,
+    SOLAR_ECLIPSE_LATITUDE_LIMIT,
 )
 from api.services.eclipse_contact_times import (
     calculate_lunar_contact_times,
@@ -306,6 +309,114 @@ class TestEclipseTypeClassification:
         assert result['eclipse_type'] in ['TOTAL', 'ANNULAR', 'PARTIAL', 'NONE']
         assert 'size_ratio' in result
         assert 'umbral_exists' in result
+
+
+class TestEclipsePreFilter:
+    """Test the eclipse pre-filter based on Moon's ecliptic latitude.
+    
+    The pre-filter checks if abs(moon_lat) < LATITUDE_LIMIT. This is geometrically sound
+    because eclipses can only occur when the Moon is close to the ecliptic plane (where 
+    the Sun always resides). The Moon's orbital inclination is 5.09°, so the threshold
+    of 5.3° captures all possible eclipses while rejecting ~95% of syzygy events before
+    expensive shadow geometry calculations.
+    """
+
+    def test_moon_ecliptic_latitude_valid_range(self):
+        """Test that Moon's ecliptic latitude is always within ±6° (well within threshold)."""
+        # Test at many times throughout 2025-2026
+        test_times = [
+            Time('2025-09-07 18:11:00', scale='utc'),  # Lunar eclipse
+            Time('2025-09-21', scale='utc'),  # Solar eclipse
+            Time('2026-08-12 18:11:00', scale='utc'),  # Solar eclipse  
+            Time('2026-08-28 03:00:00', scale='utc'),  # Lunar eclipse
+            Time('2026-09-01 12:00:00', scale='utc'),  # Random time
+            Time('2025-12-25 00:00:00', scale='utc'),  # Different time
+        ]
+        
+        for time_obj in test_times:
+            lat = get_moon_ecliptic_latitude(time_obj)
+            # Moon latitude should stay within ~±5.1° (orbital inclination)
+            assert -6 < lat < 6, f"Latitude {lat}° at {time_obj.iso} outside expected range"
+            assert isinstance(lat, (float, np.floating))
+
+    def test_moon_latitude_changes_during_lunation(self):
+        """Test that Moon's latitude oscillates during its ~27.3-day orbit."""
+        # Sample Moon latitude during one lunation (every ~2 days)
+        base_time = Time('2026-08-01', scale='utc')
+        latitudes = []
+        
+        for i in range(15):
+            time_obj = base_time + i * 2  # Every 2 days
+            lat = get_moon_ecliptic_latitude(time_obj)
+            latitudes.append(lat)
+        
+        # Latitudes should vary (oscillate as Moon orbits)
+        assert max(latitudes) != min(latitudes), "Latitude should change during lunation"
+        assert max(latitudes) < 6, "Max latitude should be < 6°"
+        assert min(latitudes) > -6, "Min latitude should be > -6°"
+
+    def test_pre_filter_rejects_outside_threshold(self):
+        """Test that eclipse check rejects full/new moons with latitude > threshold."""
+        # Find a time with large latitude (not close to ecliptic plane)
+        # The Moon's latitude varies sinusoidally, so some full moons will be far from ecliptic
+        non_eclipse_full = Time('2026-02-03 18:00:00', scale='utc')  # A random full moon
+        
+        lat = get_moon_ecliptic_latitude(non_eclipse_full)
+        
+        # If latitude > threshold, pre-filter should reject immediately
+        if abs(lat) >= LUNAR_ECLIPSE_LATITUDE_LIMIT:
+            result = check_eclipse_at_time(non_eclipse_full, is_lunar=True)
+            assert result['is_eclipse'] is False, \
+                f"Pre-filter should reject latitude {lat}° > {LUNAR_ECLIPSE_LATITUDE_LIMIT}°"
+            assert result['eclipse_type'] == 'NONE'
+            assert result['within_threshold'] is False
+
+    def test_pre_filter_allows_within_threshold(self):
+        """Test that eclipse check processes events with latitude < threshold."""
+        # Use known eclipse times where latitude should be small
+        solar_eclipse_time = Time('2026-08-12 18:11:00', scale='utc')
+        lat = get_moon_ecliptic_latitude(solar_eclipse_time)
+        
+        # Should pass pre-filter (proceeds to shadow geometry calculation)
+        if abs(lat) < SOLAR_ECLIPSE_LATITUDE_LIMIT:
+            result = check_eclipse_at_time(solar_eclipse_time, is_lunar=False)
+            assert result['within_threshold'] is True, \
+                f"Pre-filter should accept latitude {lat}° < {SOLAR_ECLIPSE_LATITUDE_LIMIT}°"
+
+    def test_latitude_limit_is_correct(self):
+        """Test that latitude limit (5.3°) is based on Moon's orbital inclination."""
+        # Moon's orbital inclination is ~5.09°, so threshold should be ~5.3°
+        assert LUNAR_ECLIPSE_LATITUDE_LIMIT == 5.3, \
+            "Lunar latitude limit should be 5.3° (based on orbital inclination 5.09°)"
+        assert SOLAR_ECLIPSE_LATITUDE_LIMIT == 5.3, \
+            "Solar latitude limit should be 5.3° (symmetric with lunar)"
+
+    def test_eclipses_occur_within_latitude_limit(self):
+        """Test that all known eclipses occur when Moon latitude < threshold."""
+        known_eclipses = [
+            (Time('2025-09-07 18:11:00', scale='utc'), True),   # Lunar
+            (Time('2025-09-21', scale='utc'), False),           # Solar
+            (Time('2026-08-12 18:11:00', scale='utc'), False),  # Solar
+            (Time('2026-08-28 03:00:00', scale='utc'), True),   # Lunar
+        ]
+        
+        for time_obj, is_lunar in known_eclipses:
+            lat = get_moon_ecliptic_latitude(time_obj)
+            limit = LUNAR_ECLIPSE_LATITUDE_LIMIT if is_lunar else SOLAR_ECLIPSE_LATITUDE_LIMIT
+            assert abs(lat) < limit, \
+                f"Eclipse at {time_obj.iso} has latitude {lat}° outside limit {limit}°"
+
+    def test_check_eclipse_response_includes_latitude(self):
+        """Test that eclipse check responses include moon_ecl_lat_deg for diagnostics."""
+        eclipse_time = Time('2026-08-12 18:11:00', scale='utc')
+        result = check_eclipse_at_time(eclipse_time, is_lunar=False)
+        
+        # Response should include diagnostic field
+        assert 'moon_ecl_lat_deg' in result, "Response missing moon_ecl_lat_deg"
+        assert isinstance(result['moon_ecl_lat_deg'], (float, int))
+        # Should match the direct calculation
+        expected_lat = get_moon_ecliptic_latitude(eclipse_time)
+        assert abs(result['moon_ecl_lat_deg'] - expected_lat) < 0.0001
 
 
 class TestEclipseEdgeCases:

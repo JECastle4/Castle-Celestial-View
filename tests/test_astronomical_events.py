@@ -53,11 +53,14 @@ def full_range_result():
 
 def test_service_finds_known_eclipses(full_range_result):
     """Service-level: all 6 known 2025-2026 eclipses are found and classified correctly."""
-    events_by_date = {e["date"][:10]: e for e in full_range_result["events"]}
-
+    events = full_range_result["events"]
+    
     for date_str, event_type, expected_type in KNOWN_ECLIPSES:
-        assert date_str in events_by_date, f"Missing event on {date_str}"
-        event = events_by_date[date_str]
+        # Find the eclipse event for this date (there may be multiple events on same date)
+        matching_events = [e for e in events if e["date"][:10] == date_str and e["eclipse_occurs"]]
+        assert len(matching_events) > 0, f"Missing eclipse event on {date_str}"
+        
+        event = matching_events[0]
         assert event["event_type"] == event_type
         assert event["eclipse_type"] == expected_type
         assert event["eclipse_occurs"] is True

@@ -51,7 +51,7 @@ function formatTime(value: string): string {
   const parsed = new Date(`${value.replace(' ', 'T')}Z`);
   if (Number.isNaN(parsed.getTime())) return value;
   const intlLocale = normalizeLocaleForIntl(locale.value);
-  return new Intl.DateTimeFormat(intlLocale, { timeStyle: 'medium', timeZone: 'UTC' }).format(parsed);
+  return new Intl.DateTimeFormat(intlLocale, { timeStyle: 'medium' }).format(parsed);
 }
 </script>
 
