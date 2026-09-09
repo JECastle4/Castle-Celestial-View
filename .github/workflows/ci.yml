@@ -100,8 +100,8 @@ jobs:
     - name: Complexity check - Radon
       id: radon_check
       run: |
-        radon cc . -a -nb > radon-cc-report.txt
-        radon mi . -nb > radon-mi-report.txt
+        radon cc api/ tests/ -a -nb > radon-cc-report.txt
+        radon mi api/ tests/ -nb > radon-mi-report.txt
         cat radon-cc-report.txt
         cat radon-mi-report.txt
       continue-on-error: true

@@ -49,6 +49,11 @@ security-scan*
 phase2-results-*.json
 phase2-test-results-*.txt
 
+# Code quality & complexity analysis (never commit - CI only)
+radon*.txt
+radon*.json
+pylint-report.txt
+
 # IDE
 .vscode/
 .idea/

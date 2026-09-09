@@ -483,6 +483,74 @@ def classify_solar_eclipse_type(time_obj):
     }
 
 
+def _check_lunar_eclipse_at_time(time_obj, moon_lat, moon_lon):
+    """Check for lunar eclipse at given time (assumes syzygy/node pre-filter passed)."""
+    greatest_time = find_greatest_eclipse_time(time_obj, is_lunar=True)
+    type_info = classify_lunar_eclipse_type(greatest_time)
+    eclipse_type = type_info['eclipse_type']
+    magnitude = type_info['umbral_magnitude']
+
+    return {
+        'time': time_obj.iso,
+        'greatest_eclipse_time': greatest_time.iso,
+        'is_eclipse': eclipse_type != "NONE",
+        'eclipse_type': eclipse_type,
+        'phase': 'full',
+        'moon_ecl_lat_deg': round(moon_lat, 4),
+        'within_threshold': True,
+        'umbral_magnitude': magnitude,
+        'penumbral_magnitude': type_info.get('penumbral_magnitude'),
+    }
+
+
+def _check_solar_eclipse_at_time(time_obj, moon_lat):
+    """Check for solar eclipse at given time (assumes syzygy/node pre-filter passed)."""
+    greatest_time = find_greatest_eclipse_time(time_obj, is_lunar=False)
+    type_info = classify_solar_eclipse_type(greatest_time)
+    eclipse_type = type_info['eclipse_type']
+    size_ratio = type_info['size_ratio']
+
+    return {
+        'time': time_obj.iso,
+        'greatest_eclipse_time': greatest_time.iso,
+        'is_eclipse': eclipse_type != "NONE",
+        'eclipse_type': eclipse_type,
+        'phase': 'new',
+        'moon_ecl_lat_deg': round(moon_lat, 4),
+        'within_threshold': True,
+        'size_ratio': size_ratio,
+        'umbral_exists': type_info.get('umbral_exists'),
+    }
+
+
+def _get_eclipse_pre_filter_result(time_obj, moon_lat, is_lunar):
+    """Build result dict when eclipse pre-filter (syzygy/node distance) fails."""
+    if is_lunar:
+        return {
+            'time': time_obj.iso,
+            'greatest_eclipse_time': time_obj.iso,
+            'is_eclipse': False,
+            'eclipse_type': "NONE",
+            'phase': 'full',
+            'moon_ecl_lat_deg': round(moon_lat, 4),
+            'within_threshold': False,
+            'umbral_magnitude': None,
+            'penumbral_magnitude': None,
+        }
+    else:
+        return {
+            'time': time_obj.iso,
+            'greatest_eclipse_time': time_obj.iso,
+            'is_eclipse': False,
+            'eclipse_type': "NONE",
+            'phase': 'new',
+            'moon_ecl_lat_deg': round(moon_lat, 4),
+            'within_threshold': False,
+            'size_ratio': None,
+            'umbral_exists': None,
+        }
+
+
 def check_eclipse_at_time(time_obj, is_lunar=True):
     """
     Complete eclipse analysis: detection (ecliptic-limits pre-filter) + type
@@ -508,72 +576,14 @@ def check_eclipse_at_time(time_obj, is_lunar=True):
     if is_lunar:
         is_syzygy = is_full
         node_dist = node_distance_deg(moon_lon, time_obj)
-        # PRE-FILTER: Moon must be near a node AND at full moon
         if node_dist > LUNAR_ECLIPSE_NODE_LIMIT_DEG or not is_syzygy:
-            # Early return - eclipse impossible
-            return {
-                'time': time_obj.iso,
-                'greatest_eclipse_time': time_obj.iso,
-                'is_eclipse': False,
-                'eclipse_type': "NONE",
-                'phase': 'full',
-                'moon_ecl_lat_deg': round(moon_lat, 4),
-                'within_threshold': False,
-                'umbral_magnitude': None,
-                'penumbral_magnitude': None,
-            }
-
-        # Only proceed to expensive shadow geometry if pre-filter passed
-        greatest_time = find_greatest_eclipse_time(time_obj, is_lunar=True)
-        type_info = classify_lunar_eclipse_type(greatest_time)
-        eclipse_type = type_info['eclipse_type']
-        magnitude = type_info['umbral_magnitude']
-
-        return {
-            'time': time_obj.iso,
-            'greatest_eclipse_time': greatest_time.iso,
-            'is_eclipse': eclipse_type != "NONE",
-            'eclipse_type': eclipse_type,
-            'phase': 'full',
-            'moon_ecl_lat_deg': round(moon_lat, 4),
-            'within_threshold': True,
-            'umbral_magnitude': magnitude,
-            'penumbral_magnitude': type_info.get('penumbral_magnitude'),
-        }
+            return _get_eclipse_pre_filter_result(time_obj, moon_lat, is_lunar=True)
+        return _check_lunar_eclipse_at_time(time_obj, moon_lat, moon_lon)
 
     # Solar eclipse
     is_syzygy = is_new
     sun_lon = get_sun_ecliptic_longitude(time_obj)
     node_dist = node_distance_deg(sun_lon, time_obj)
-    # PRE-FILTER: Sun must be near a node AND at new moon
     if node_dist > SOLAR_ECLIPSE_NODE_LIMIT_DEG or not is_syzygy:
-        # Early return - eclipse impossible
-        return {
-            'time': time_obj.iso,
-            'greatest_eclipse_time': time_obj.iso,
-            'is_eclipse': False,
-            'eclipse_type': "NONE",
-            'phase': 'new',
-            'moon_ecl_lat_deg': round(moon_lat, 4),
-            'within_threshold': False,
-            'size_ratio': None,
-            'umbral_exists': None,
-        }
-
-    # Only proceed to expensive shadow geometry if pre-filter passed
-    greatest_time = find_greatest_eclipse_time(time_obj, is_lunar=False)
-    type_info = classify_solar_eclipse_type(greatest_time)
-    eclipse_type = type_info['eclipse_type']
-    size_ratio = type_info['size_ratio']
-
-    return {
-        'time': time_obj.iso,
-        'greatest_eclipse_time': greatest_time.iso,
-        'is_eclipse': eclipse_type != "NONE",
-        'eclipse_type': eclipse_type,
-        'phase': 'new',
-        'moon_ecl_lat_deg': round(moon_lat, 4),
-        'within_threshold': True,
-        'size_ratio': size_ratio,
-        'umbral_exists': type_info.get('umbral_exists'),
-    }
+        return _get_eclipse_pre_filter_result(time_obj, moon_lat, is_lunar=False)
+    return _check_solar_eclipse_at_time(time_obj, moon_lat)

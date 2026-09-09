@@ -73,6 +73,27 @@ def _bisect_zero(fn, t_low, t_high, iterations=50):
     return t_low + (t_high - t_low) / 2
 
 
+def _detect_moon_phase_crossings(sample_times, phase_angles, start_time, end_time):
+    """Detect new/full moon crossings from phase angle samples."""
+    events = []
+    for i in range(1, len(sample_times)):
+        prev_angle, cur_angle = phase_angles[i - 1], phase_angles[i]
+        diff = cur_angle - prev_angle
+
+        if diff < -180:
+            # Wrapped through 0/360 -> new moon crossing
+            t_event = _bisect_zero(_new_moon_signal, sample_times[i - 1], sample_times[i])
+            events.append({'time': t_event, 'phase': 'new'})
+        elif prev_angle < 180 <= cur_angle:
+            # Crossed 180 -> full moon crossing
+            t_event = _bisect_zero(_full_moon_signal, sample_times[i - 1], sample_times[i])
+            events.append({'time': t_event, 'phase': 'full'})
+
+    events = [e for e in events if start_time <= e['time'] < end_time]
+    events.sort(key=lambda e: e['time'].jd)
+    return events
+
+
 def find_new_full_moons(start_time, end_time, sample_interval_hours=SAMPLE_INTERVAL_HOURS):
     """
     Find all new and full moon instants within [start_time, end_time].
@@ -94,23 +115,76 @@ def find_new_full_moons(start_time, end_time, sample_interval_hours=SAMPLE_INTER
     moon_lon = moon.transform_to(GeocentricMeanEcliptic(equinox=sample_times)).lon.degree
     phase_angles = (moon_lon - sun_lon) % 360
 
-    events = []
-    for i in range(1, len(sample_times)):
-        prev_angle, cur_angle = phase_angles[i - 1], phase_angles[i]
-        diff = cur_angle - prev_angle
+    return _detect_moon_phase_crossings(sample_times, phase_angles, start_time, end_time)
 
-        if diff < -180:
-            # Wrapped through 0/360 -> new moon crossing
-            t_event = _bisect_zero(_new_moon_signal, sample_times[i - 1], sample_times[i])
-            events.append({'time': t_event, 'phase': 'new'})
-        elif prev_angle < 180 <= cur_angle:
-            # Crossed 180 -> full moon crossing
-            t_event = _bisect_zero(_full_moon_signal, sample_times[i - 1], sample_times[i])
-            events.append({'time': t_event, 'phase': 'full'})
 
-    events = [e for e in events if start_time <= e['time'] < end_time]
-    events.sort(key=lambda e: e['time'].jd)
-    return events
+def _build_lunar_eclipse_event(time_obj, moon_lat, moon_lon, greatest_time, include_contact_times, locale):
+    """Build event dict for a lunar eclipse or full moon."""
+    _t = get_i18n(locale).get
+
+    result = {
+        'event_type': _t('events.eventTypes.fullMoon'),
+        'is_lunar': True,
+        'date': time_obj.iso,
+        'julian_date': float(time_obj.jd),
+        'moon_ecl_lat_deg': round(float(moon_lat), 4),
+        'eclipse_occurs': False,
+        'eclipse_type': _t('events.eclipseTypes.NONE'),
+        'greatest_eclipse_time': greatest_time.iso,
+        'umbral_magnitude': None,
+        'penumbral_magnitude': None,
+        'size_ratio': None,
+        'contact_times': None,
+    }
+
+    type_info = classify_lunar_eclipse_type(greatest_time)
+    eclipse_type_code = type_info['eclipse_type']
+    result['eclipse_type'] = _t(f'events.eclipseTypes.{eclipse_type_code}')
+    result['umbral_magnitude'] = type_info['umbral_magnitude']
+    result['penumbral_magnitude'] = type_info['penumbral_magnitude']
+    result['eclipse_occurs'] = type_info['eclipse_type'] != 'NONE'
+
+    if result['eclipse_occurs']:
+        eclipse_type_name = eclipse_type_code[0].upper() + eclipse_type_code[1:].lower()
+        result['event_type'] = _t(f'events.eventTypes.lunar{eclipse_type_name}')
+        if include_contact_times:
+            result['contact_times'] = calculate_lunar_contact_times(greatest_time)
+
+    return result
+
+
+def _build_solar_eclipse_event(time_obj, moon_lat, greatest_time, include_contact_times, locale):
+    """Build event dict for a solar eclipse or new moon."""
+    _t = get_i18n(locale).get
+
+    result = {
+        'event_type': _t('events.eventTypes.newMoon'),
+        'is_lunar': False,
+        'date': time_obj.iso,
+        'julian_date': float(time_obj.jd),
+        'moon_ecl_lat_deg': round(float(moon_lat), 4),
+        'eclipse_occurs': False,
+        'eclipse_type': _t('events.eclipseTypes.NONE'),
+        'greatest_eclipse_time': greatest_time.iso,
+        'umbral_magnitude': None,
+        'penumbral_magnitude': None,
+        'size_ratio': None,
+        'contact_times': None,
+    }
+
+    type_info = classify_solar_eclipse_type(greatest_time)
+    eclipse_type_code = type_info['eclipse_type']
+    result['eclipse_type'] = _t(f'events.eclipseTypes.{eclipse_type_code}')
+    result['size_ratio'] = type_info['size_ratio']
+    result['eclipse_occurs'] = type_info['eclipse_type'] != 'NONE'
+
+    if result['eclipse_occurs']:
+        eclipse_type_name = eclipse_type_code[0].upper() + eclipse_type_code[1:].lower()
+        result['event_type'] = _t(f'events.eventTypes.solar{eclipse_type_name}')
+        if include_contact_times:
+            result['contact_times'] = calculate_solar_contact_times(greatest_time)
+
+    return result
 
 
 def build_astronomical_event(event, include_contact_times=True, locale=None):
@@ -121,32 +195,22 @@ def build_astronomical_event(event, include_contact_times=True, locale=None):
 
     PRE-FILTER: Checks whether the Sun (solar) or Moon (lunar) is within its
     "ecliptic limit" distance of a lunar node. Only if this pre-filter passes do we
-    proceed to expensive shadow geometry calculations. See LUNAR_ECLIPSE_NODE_LIMIT_DEG
-    / SOLAR_ECLIPSE_NODE_LIMIT_DEG in eclipse_detection.py for the geometric rationale.
+    proceed to expensive shadow geometry calculations.
     """
     time_obj = event['time']
     phase = event['phase']
     is_lunar = phase == 'full'
 
     moon_lat, moon_lon = get_moon_ecliptic_coords(time_obj)
-    if is_lunar:
-        node_dist = node_distance_deg(moon_lon, time_obj)
-        within_threshold = node_dist <= LUNAR_ECLIPSE_NODE_LIMIT_DEG
-    else:
-        sun_lon = get_sun_ecliptic_longitude(time_obj)
-        node_dist = node_distance_deg(sun_lon, time_obj)
-        within_threshold = node_dist <= SOLAR_ECLIPSE_NODE_LIMIT_DEG
-
     _t = get_i18n(locale).get
 
+    # Base result dict (no eclipse)
     result = {
         'event_type': (
             _t('events.eventTypes.fullMoon')
             if is_lunar
             else _t('events.eventTypes.newMoon')
         ),
-        # Locale-independent discriminator for lunar vs. solar; event_type/eclipse_type
-        # below are translated display strings and must not be used for branching logic.
         'is_lunar': is_lunar,
         'date': time_obj.iso,
         'julian_date': float(time_obj.jd),
@@ -160,37 +224,27 @@ def build_astronomical_event(event, include_contact_times=True, locale=None):
         'contact_times': None,
     }
 
+    # Check if eclipse is geometrically possible
+    if is_lunar:
+        node_dist = node_distance_deg(moon_lon, time_obj)
+        within_threshold = node_dist <= LUNAR_ECLIPSE_NODE_LIMIT_DEG
+    else:
+        sun_lon = get_sun_ecliptic_longitude(time_obj)
+        node_dist = node_distance_deg(sun_lon, time_obj)
+        within_threshold = node_dist <= SOLAR_ECLIPSE_NODE_LIMIT_DEG
+
     if not within_threshold:
         return result
 
+    # Proceed with eclipse classification
     greatest_time = find_greatest_eclipse_time(time_obj, is_lunar=is_lunar)
-    result['greatest_eclipse_time'] = greatest_time.iso
 
     if is_lunar:
-        type_info = classify_lunar_eclipse_type(greatest_time)
-        eclipse_type_code = type_info['eclipse_type']
-        result['eclipse_type'] = _t(f'events.eclipseTypes.{eclipse_type_code}')
-        result['umbral_magnitude'] = type_info['umbral_magnitude']
-        result['penumbral_magnitude'] = type_info['penumbral_magnitude']
-        result['eclipse_occurs'] = type_info['eclipse_type'] != 'NONE'
-        if result['eclipse_occurs']:
-            # Set event_type to combined semantic type (e.g., "Lunar Total")
-            eclipse_type_name = eclipse_type_code[0].upper() + eclipse_type_code[1:].lower()
-            result['event_type'] = _t(f'events.eventTypes.lunar{eclipse_type_name}')
-            if include_contact_times:
-                result['contact_times'] = calculate_lunar_contact_times(greatest_time)
+        result = _build_lunar_eclipse_event(time_obj, moon_lat, moon_lon, greatest_time,
+                                           include_contact_times, locale)
     else:
-        type_info = classify_solar_eclipse_type(greatest_time)
-        eclipse_type_code = type_info['eclipse_type']
-        result['eclipse_type'] = _t(f'events.eclipseTypes.{eclipse_type_code}')
-        result['size_ratio'] = type_info['size_ratio']
-        result['eclipse_occurs'] = type_info['eclipse_type'] != 'NONE'
-        if result['eclipse_occurs']:
-            # Set event_type to combined semantic type (e.g., "Solar Total")
-            eclipse_type_name = eclipse_type_code[0].upper() + eclipse_type_code[1:].lower()
-            result['event_type'] = _t(f'events.eventTypes.solar{eclipse_type_name}')
-            if include_contact_times:
-                result['contact_times'] = calculate_solar_contact_times(greatest_time)
+        result = _build_solar_eclipse_event(time_obj, moon_lat, greatest_time,
+                                           include_contact_times, locale)
 
     return result
 

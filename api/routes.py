@@ -760,6 +760,36 @@ async def get_moon_phase(request: MoonPhaseRequest):
         ) from e
 
 
+def _build_time_range_from_batch_request(request: BatchEarthObservationsRequest) -> TimeRange:
+    """Build TimeRange object from batch request parameters."""
+    return TimeRange(
+        start=ObservationDateTime(date=request.start_date, time=request.start_time),
+        end=ObservationDateTime(date=request.end_date, time=request.end_time),
+        frame_count=request.frame_count
+    )
+
+
+def _build_location_from_batch_request(request: BatchEarthObservationsRequest) -> LocationModel:
+    """Build LocationModel object from batch request parameters."""
+    return LocationModel(
+        latitude=request.latitude,
+        longitude=request.longitude,
+        elevation=request.elevation
+    )
+
+
+def _process_batch_frames_from_generator(gen, frame_count: int):
+    """Extract frames and metadata from batch observations generator."""
+    frames = []
+    metadata = None
+    for idx, item in enumerate(gen):
+        if idx < frame_count:
+            frames.append(item)
+        else:
+            metadata = item
+    return frames, metadata
+
+
 @router.post(
     "/batch-earth-observations",
     response_model=BatchEarthObservationsResponse,
@@ -783,28 +813,14 @@ async def get_moon_phase(request: MoonPhaseRequest):
 async def get_batch_earth_observations(request: BatchEarthObservationsRequest):
     """Calculate batch observations of celestial positions from Earth"""
     try:
-        time_range = TimeRange(
-            start=ObservationDateTime(date=request.start_date, time=request.start_time),
-            end=ObservationDateTime(date=request.end_date, time=request.end_time),
-            frame_count=request.frame_count
-        )
-        location = LocationModel(
-            latitude=request.latitude,
-            longitude=request.longitude,
-            elevation=request.elevation
-        )
+        time_range = _build_time_range_from_batch_request(request)
+        location = _build_location_from_batch_request(request)
         gen = calculate_batch_earth_observations(
             time_range=time_range,
             location=location,
             locale=get_i18n().locale
         )
-        frames = []
-        metadata = None
-        for idx, item in enumerate(gen):
-            if idx < request.frame_count:
-                frames.append(item)
-            else:
-                metadata = item
+        frames, metadata = _process_batch_frames_from_generator(gen, request.frame_count)
         return BatchEarthObservationsResponse(frames=frames, metadata=metadata)
     except ValidationError as e:
         # Pydantic validation errors should return 422
@@ -822,6 +838,7 @@ async def get_batch_earth_observations(request: BatchEarthObservationsRequest):
             status_code=500,
             detail=f"Error calculating batch observations: {str(e)}"
         ) from e
+
 
 
 @router.post(
