@@ -11,7 +11,7 @@ from astropy.coordinates import get_body, get_sun, EarthLocation, SkyCoord
 from astropy.coordinates import GeocentricMeanEcliptic
 import astropy.units as u
 import astropy.constants as const
-from functools import lru_cache
+
 
 # Physical constants (IAU standard)
 R_SUN_KM = const.R_sun.to(u.km).value        # ~695,700 km
@@ -214,11 +214,11 @@ def find_greatest_eclipse_time(approx_time, is_lunar, search_window_hours=24, it
     """
     # Cache key: ISO string + eclipse type
     cache_key = (approx_time.iso, is_lunar)
-    
+
     # Check cache first (Phase 2.2 optimization)
     if cache_key in _GREATEST_ECLIPSE_CACHE:
         return _GREATEST_ECLIPSE_CACHE[cache_key]
-    
+
     # Compute if not cached
     if is_lunar:
         separation_fn = get_antisolar_separation_deg
@@ -253,10 +253,10 @@ def find_greatest_eclipse_time(approx_time, is_lunar, search_window_hours=24, it
             fd = separation_fn(d)
 
     result = a + (b - a) / 2
-    
+
     # Cache the result (Phase 2.2 optimization)
     _GREATEST_ECLIPSE_CACHE[cache_key] = result
-    
+
     return result
 
 
@@ -412,11 +412,11 @@ def classify_lunar_eclipse_type(time_obj):
     """
     # Cache key for lunar eclipse classification (Phase 2.2 optimization)
     cache_key = time_obj.iso
-    
+
     # Check cache first
     if cache_key in _ECLIPSE_TYPE_CACHE_LUNAR:
         return _ECLIPSE_TYPE_CACHE_LUNAR[cache_key]
-    
+
     params = get_sun_moon_parameters(time_obj)
     shadow = calculate_earth_shadow_cone(time_obj)
 
@@ -444,10 +444,10 @@ def classify_lunar_eclipse_type(time_obj):
         'penumbral_magnitude': round(penumbral_mag, 4),
         'angular_separation_deg': round(separation, 4),
     }
-    
+
     # Cache the result (Phase 2.2 optimization)
     _ECLIPSE_TYPE_CACHE_LUNAR[cache_key] = result
-    
+
     return result
 
 
@@ -493,11 +493,11 @@ def classify_solar_eclipse_type(time_obj):
     """
     # Cache key for solar eclipse classification (Phase 2.2 optimization)
     cache_key = time_obj.iso
-    
+
     # Check cache first
     if cache_key in _ECLIPSE_TYPE_CACHE_SOLAR:
         return _ECLIPSE_TYPE_CACHE_SOLAR[cache_key]
-    
+
     params = get_sun_moon_parameters(time_obj)
     shadow = calculate_moon_shadow_cone(time_obj)
 
@@ -531,15 +531,17 @@ def classify_solar_eclipse_type(time_obj):
         'offset_km': round(offset_km, 1),
         'angular_separation_deg': round(separation_deg, 4),
     }
-    
+
     # Cache the result (Phase 2.2 optimization)
     _ECLIPSE_TYPE_CACHE_SOLAR[cache_key] = result
-    
+
     return result
 
 
 def _check_lunar_eclipse_at_time(time_obj, moon_lat, moon_lon):
     """Check for lunar eclipse at given time (assumes syzygy/node pre-filter passed)."""
+    # pylint: disable=unused-argument
+    # moon_lon is passed for potential future enhancements but not currently used
     greatest_time = find_greatest_eclipse_time(time_obj, is_lunar=True)
     type_info = classify_lunar_eclipse_type(greatest_time)
     eclipse_type = type_info['eclipse_type']
@@ -592,15 +594,14 @@ def _get_eclipse_pre_filter_result(time_obj, moon_lat, is_lunar):
             'umbral_magnitude': None,
             'penumbral_magnitude': None,
         }
-    else:
-        return {
-            'time': time_obj.iso,
-            'greatest_eclipse_time': time_obj.iso,
-            'is_eclipse': False,
-            'eclipse_type': "NONE",
-            'phase': 'new',
-            'moon_ecl_lat_deg': round(moon_lat, 4),
-            'within_threshold': False,
+    return {
+        'time': time_obj.iso,
+        'greatest_eclipse_time': time_obj.iso,
+        'is_eclipse': False,
+        'eclipse_type': "NONE",
+        'phase': 'new',
+        'moon_ecl_lat_deg': round(moon_lat, 4),
+        'within_threshold': False,
             'size_ratio': None,
             'umbral_exists': None,
         }
@@ -609,11 +610,10 @@ def _get_eclipse_pre_filter_result(time_obj, moon_lat, is_lunar):
 def clear_eclipse_caches():
     """
     Clear all eclipse detection caches (Phase 2.2 optimization).
-    
+
     Useful for memory management in long-running processes or testing.
     Caches will be repopulated on demand.
     """
-    global _GREATEST_ECLIPSE_CACHE, _ECLIPSE_TYPE_CACHE_LUNAR, _ECLIPSE_TYPE_CACHE_SOLAR
     _GREATEST_ECLIPSE_CACHE.clear()
     _ECLIPSE_TYPE_CACHE_LUNAR.clear()
     _ECLIPSE_TYPE_CACHE_SOLAR.clear()

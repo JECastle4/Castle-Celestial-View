@@ -118,8 +118,11 @@ def find_new_full_moons(start_time, end_time, sample_interval_hours=SAMPLE_INTER
     return _detect_moon_phase_crossings(sample_times, phase_angles, start_time, end_time)
 
 
-def _build_lunar_eclipse_event(time_obj, moon_lat, moon_lon, greatest_time, include_contact_times, locale):
+def _build_lunar_eclipse_event(time_obj, moon_lat, moon_lon, greatest_time,
+                               include_contact_times, locale):
     """Build event dict for a lunar eclipse or full moon."""
+    # pylint: disable=unused-argument
+    # moon_lon is used for potential future enhancements
     _t = get_i18n(locale).get
 
     result = {
