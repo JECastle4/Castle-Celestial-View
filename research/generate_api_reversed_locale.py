@@ -23,7 +23,7 @@ def reverse_strings(obj):
 
 
 if __name__ == '__main__':
-    repo_root = Path(__file__).resolve().parent
+    repo_root = Path(__file__).resolve().parent.parent
     input_path = repo_root / 'api' / 'locales' / 'en.json'
     output_path = repo_root / 'api' / 'locales' / 'xx-reverse.json'
 

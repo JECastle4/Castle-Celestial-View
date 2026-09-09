@@ -37,6 +37,25 @@
     "gibbous": "suobbiG",
     "full": "lluF"
   },
+  "events": {
+    "eventTypes": {
+      "newMoon": "nooM weN",
+      "fullMoon": "nooM lluF",
+      "solarTotal": "latoT raloS",
+      "solarPartial": "laitraP raloS",
+      "solarAnnular": "ralunnA raloS",
+      "lunarTotal": "latoT ranuL",
+      "lunarPartial": "laitraP ranuL",
+      "lunarPenumbral": "larbmuneP ranuL"
+    },
+    "eclipseTypes": {
+      "NONE": "espilcE oN",
+      "TOTAL": "latoT",
+      "PARTIAL": "laitraP",
+      "ANNULAR": "ralunnA",
+      "PENUMBRAL": "larbmuneP"
+    }
+  },
   "validation": {
     "latitudeRange": "{value} tog ,seerged 09 dna 09- neewteb eb tsum edutitaL",
     "longitudeRange": "{value} tog ,seerged 081 dna 081- neewteb eb tsum edutignoL",

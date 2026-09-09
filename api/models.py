@@ -1046,3 +1046,139 @@ class BatchEarthObservationsResponse(BaseModel):
         ...,
         description="Metadata about the observations"
     )
+
+
+# Astronomical Events Models (Issue 141 - new/full moons + eclipse detection)
+class AstronomicalEventsRequest(BaseModel):
+    """Request model for astronomical events (new/full moons + eclipse detection) in a date range"""
+    start_date: str = Field(
+        ...,
+        description="Start date in ISO format (YYYY-MM-DD)",
+        examples=["2025-01-01"]
+    )
+    end_date: str = Field(
+        ...,
+        description="End date in ISO format (YYYY-MM-DD), inclusive",
+        examples=["2025-12-31"]
+    )
+    page: int = Field(
+        default=1,
+        ge=1,
+        description="Page number (1-based)"
+    )
+    page_size: int = Field(
+        default=10,
+        ge=1,
+        le=100,
+        description="Number of events per page (1-100)"
+    )
+    include_contact_times: bool = Field(
+        default=True,
+        description="Whether to compute eclipse contact times (penumbral/umbral or "
+                     "global penumbral/central shadow boundary crossings)"
+    )
+    event_types: Optional[list[str]] = Field(
+        default=None,
+        description="Filter by event type: 'new_moon', 'full_moon'. Omit for both.",
+        examples=[["full_moon"]]
+    )
+
+    @field_validator('start_date', 'end_date')
+    @classmethod
+    def validate_date_format(cls, v: str) -> str:
+        """Validate date is in YYYY-MM-DD format and is a valid date (Issue 206)"""
+        if not isinstance(v, str):
+            raise ValueError("Date must be a string")
+
+        # Check format matches YYYY-MM-DD
+        if not re.match(r'^\d{4}-\d{2}-\d{2}$', v):
+            raise ValueError(f"Date must be in YYYY-MM-DD format, got '{v}'")
+
+        # Validate it's a real date (catches invalid dates like 2026-02-30)
+        try:
+            datetime.strptime(v, "%Y-%m-%d")
+        except ValueError as e:
+            raise ValueError(f"Invalid date '{v}': {str(e)}") from e
+
+        return v
+
+    @field_validator('event_types')
+    @classmethod
+    def validate_event_types(cls, v):
+        """Validate event_types only contains recognized values"""
+        if v is not None:
+            allowed = {'new_moon', 'full_moon'}
+            invalid = set(v) - allowed
+            if invalid:
+                raise ValueError(
+                    f"Invalid event_types {sorted(invalid)}; must be one of {sorted(allowed)}"
+                )
+        return v
+
+    @model_validator(mode='after')
+    def validate_date_range(self):
+        """Validate end_date is on or after start_date"""
+        start = datetime.strptime(self.start_date, "%Y-%m-%d")
+        end = datetime.strptime(self.end_date, "%Y-%m-%d")
+        if end < start:
+            raise ValueError("end_date must be on or after start_date")
+        return self
+
+
+class AstronomicalEvent(BaseModel):
+    """A single new/full moon event, with eclipse classification if applicable"""
+    event_type: str = Field(
+        ...,
+        description="Translated, locale-dependent event label (e.g. 'New Moon', "
+                     "'Full Moon', 'Lunar Total', 'Solar Annular')"
+    )
+    is_lunar: bool = Field(
+        ...,
+        description="Locale-independent discriminator: true for full-moon/lunar-eclipse "
+                     "events, false for new-moon/solar-eclipse events. Use this (not "
+                     "event_type/eclipse_type, which are translated) for branching logic."
+    )
+    date: str = Field(..., description="ISO datetime of the new/full moon instant")
+    julian_date: float = Field(..., description="Julian Date of the new/full moon instant")
+    moon_ecl_lat_deg: float = Field(..., description="Moon's ecliptic latitude in degrees")
+    eclipse_occurs: bool = Field(..., description="Whether an eclipse occurs")
+    eclipse_type: str = Field(
+        ...,
+        description="Translated, locale-dependent eclipse classification (e.g. "
+                     "'No Eclipse', 'Partial', 'Total', 'Annular', 'Penumbral')"
+    )
+    greatest_eclipse_time: Optional[str] = Field(
+        None,
+        description="ISO datetime of greatest eclipse (refined instant of minimum "
+                     "Sun-Moon/antisolar separation), present when within the "
+                     "eclipse-possible ecliptic latitude threshold"
+    )
+    umbral_magnitude: Optional[float] = Field(
+        None, description="Lunar eclipse umbral magnitude"
+    )
+    penumbral_magnitude: Optional[float] = Field(
+        None, description="Lunar eclipse penumbral magnitude"
+    )
+    size_ratio: Optional[float] = Field(
+        None, description="Solar eclipse Moon/Sun angular size ratio"
+    )
+    contact_times: Optional[dict] = Field(
+        None,
+        description="Eclipse contact times. Lunar: p1/u1/u2/u3/u4/p4. "
+                     "Solar (geocentric, not observer-specific): eclipse_begins/"
+                     "central_phase_begins/central_phase_ends/eclipse_ends."
+    )
+
+
+class PaginationInfo(BaseModel):
+    """Pagination metadata for a paginated response"""
+    page: int = Field(..., description="Current page number (1-based)")
+    page_size: int = Field(..., description="Number of events per page")
+    total_events: int = Field(..., description="Total number of matching events")
+    total_pages: int = Field(..., description="Total number of pages")
+
+
+class AstronomicalEventsResponse(BaseModel):
+    """Response model for astronomical events (new/full moons + eclipse detection)"""
+    events: list[AstronomicalEvent] = Field(..., description="Events on the requested page")
+    pagination: PaginationInfo = Field(..., description="Pagination metadata")

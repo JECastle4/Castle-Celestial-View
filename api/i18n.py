@@ -7,9 +7,42 @@ import logging
 import threading
 from contextvars import ContextVar
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional, cast
 
 logger = logging.getLogger(__name__)
+
+# Whitelist of allowed locales to prevent path traversal.
+# The Literal alias lets static analysis (CodeQL) prove that any value typed
+# as SupportedLocale can only be one of these fixed, non-attacker-controlled
+# strings — it is never built from raw user input.
+SupportedLocale = Literal['en', 'en-uk', 'en-us', 'xx-reverse']
+ALLOWED_LOCALES: frozenset[str] = frozenset(('en', 'en-uk', 'en-us', 'xx-reverse'))
+
+
+def _to_supported_locale(locale: str) -> SupportedLocale:
+    """Validate *locale* against the whitelist and narrow its type.
+
+    Raises ValueError for anything not in ALLOWED_LOCALES. This is the single
+    choke point where untrusted input is converted into the closed
+    SupportedLocale type before it can be used to look up a locale file.
+    """
+    if locale not in ALLOWED_LOCALES:
+        raise ValueError(f"Unsupported locale: {locale}")
+    return cast(SupportedLocale, locale)
+
+
+_LOCALES_DIR = Path(__file__).parent / 'locales'
+
+# Statically-defined paths, one per whitelisted locale. Filenames are fixed
+# string literals, never built by concatenating the request-controlled locale
+# value, so there is no path-injection/traversal surface regardless of what
+# string an attacker sends — an unrecognized locale simply isn't a key here.
+_LOCALE_FILE_PATHS: Dict[SupportedLocale, Path] = {
+    'en': _LOCALES_DIR / 'en.json',
+    'en-uk': _LOCALES_DIR / 'en-uk.json',
+    'en-us': _LOCALES_DIR / 'en-us.json',
+    'xx-reverse': _LOCALES_DIR / 'xx-reverse.json',
+}
 
 
 class I18n:
@@ -20,18 +53,28 @@ class I18n:
         self.locale = self._load_locale(locale)
 
     def _get_locale_path(self, locale: str) -> Path:
-        """Get the path to a locale JSON file."""
-        locales_dir = Path(__file__).parent / 'locales'
-        return locales_dir / f'{locale}.json'
+        """Get the path to a locale JSON file.
+
+        Validates *locale* against the whitelist, then looks up the
+        corresponding path from the static _LOCALE_FILE_PATHS table.
+        """
+        validated = _to_supported_locale(locale)
+        return _LOCALE_FILE_PATHS[validated]
 
     def _load_locale(self, locale: str) -> str:
         """Load translations for a given locale. Returns the resolved locale."""
+        # Use whitelist-based validation
+        if locale not in ALLOWED_LOCALES:
+            if locale != 'en':
+                logger.warning("Unsupported locale '%s', falling back to 'en'", locale)
+                return self._load_locale('en')
+            raise ValueError("Default locale 'en' must be in ALLOWED_LOCALES")
+
         locale_path = self._get_locale_path(locale)
 
         if not locale_path.exists():
             if locale != 'en':
-                # Fallback to English if locale doesn't exist
-                logger.warning("Locale '%s' not found, falling back to 'en'", locale)
+                logger.warning("Locale file not found for '%s', falling back to 'en'", locale)
                 return self._load_locale('en')
             raise FileNotFoundError(f"Default locale file not found: {locale_path}")
 

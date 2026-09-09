@@ -18,22 +18,46 @@ describe('Header', () => {
   });
 
   describe('mode switcher', () => {
-    it('renders the Solar System button as active', () => {
+    it('renders the Solar System button as active by default', () => {
       const wrapper = mount(Header, { props: { hasData: false, selectedBody: 'sun' } });
       const activeBtn = wrapper.find('.mode-btn.active');
       expect(activeBtn.exists()).toBe(true);
       expect(activeBtn.text()).toContain('Solar System');
     });
 
-    it('renders Eclipses and Transits buttons as disabled', () => {
+    it('renders the Eclipses button as active when currentMode is eclipses', () => {
+      const wrapper = mount(Header, { props: { hasData: false, selectedBody: 'sun', currentMode: 'eclipses' } });
+      const activeBtn = wrapper.find('.mode-btn.active');
+      expect(activeBtn.exists()).toBe(true);
+      expect(activeBtn.text()).toContain('Eclipses');
+    });
+
+    it('renders only the Transits button as disabled', () => {
       const wrapper = mount(Header, { props: { hasData: false, selectedBody: 'sun' } });
       const disabledBtns = wrapper.findAll('.mode-btn[disabled]');
-      expect(disabledBtns).toHaveLength(2);
+      expect(disabledBtns).toHaveLength(1);
+      expect(disabledBtns[0].text()).toContain('Transits');
     });
 
     it('renders exactly three mode buttons', () => {
       const wrapper = mount(Header, { props: { hasData: false, selectedBody: 'sun' } });
       expect(wrapper.findAll('.mode-btn')).toHaveLength(3);
+    });
+
+    it('emits select-mode with "eclipses" when the Eclipses button is clicked', async () => {
+      const wrapper = mount(Header, { props: { hasData: false, selectedBody: 'sun' } });
+      const buttons = wrapper.findAll('.mode-btn');
+      await buttons[1].trigger('click');
+      expect(wrapper.emitted('select-mode')).toBeTruthy();
+      expect(wrapper.emitted('select-mode')![0]).toEqual(['eclipses']);
+    });
+
+    it('emits select-mode with "solarSystem" when the Solar System button is clicked', async () => {
+      const wrapper = mount(Header, { props: { hasData: false, selectedBody: 'sun', currentMode: 'eclipses' } });
+      const buttons = wrapper.findAll('.mode-btn');
+      await buttons[0].trigger('click');
+      expect(wrapper.emitted('select-mode')).toBeTruthy();
+      expect(wrapper.emitted('select-mode')![0]).toEqual(['solarSystem']);
     });
   });
 

@@ -189,6 +189,45 @@ describe('AstronomyApiClient', () => {
     });
   });
 
+  describe('getAstronomicalEvents', () => {
+    it('should successfully fetch astronomical events', async () => {
+      const mockResponse = {
+        events: [],
+        pagination: { page: 1, page_size: 10, total_events: 0, total_pages: 0 },
+      };
+
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      const params = { start_date: '2026-01-01', end_date: '2026-12-31' };
+      const result = await client.getAstronomicalEvents(params);
+
+      expect(result).toEqual(mockResponse);
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/astronomical-events'),
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify(params),
+        })
+      );
+    });
+
+    it('should propagate ApiError on failure', async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: false,
+        status: 422,
+        statusText: 'Unprocessable Entity',
+        text: vi.fn().mockResolvedValue('Invalid date range'),
+      } as any);
+
+      await expect(
+        client.getAstronomicalEvents({ start_date: '2026-12-31', end_date: '2026-01-01' })
+      ).rejects.toThrow(ApiError);
+    });
+  });
+
   describe('ApiError', () => {
     it('should create error with correct properties', () => {
       const error = new ApiError(404, 'Not Found', 'Resource not found');

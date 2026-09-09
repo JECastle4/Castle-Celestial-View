@@ -1,0 +1,21 @@
+# Enforce Unix line endings for scripts that must run on Linux
+*.sh       text eol=lf
+*.ps1      text eol=crlf
+*.bash     text eol=lf
+
+# Python files should use LF
+*.py       text eol=lf
+*.pyi      text eol=lf
+
+# Frontend files
+*.ts       text eol=lf
+*.tsx      text eol=lf
+*.js       text eol=lf
+*.jsx      text eol=lf
+*.vue      text eol=lf
+*.json     text eol=lf
+*.yaml     text eol=lf
+*.yml      text eol=lf
+
+# Documentation
+*.md       text eol=lf

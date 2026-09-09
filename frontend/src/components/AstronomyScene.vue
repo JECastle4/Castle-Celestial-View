@@ -4,6 +4,7 @@
       :hasData="hasData"
       :selectedBody="selectedBodyId"
       @update:selectedBody="selectedBodyId = $event"
+      @select-mode="onSelectMode"
     />
     <div class="scene-layout">
       <div class="map-and-date-container">
@@ -251,8 +252,8 @@
 .astronomy-scene {
   display: flex;
   flex-direction: column;
-  width: 100vw;
-  height: 100dvh;
+  width: 100%;
+  height: 100%;
 }
 
 /* Layout for full-width map and fixed right panel */
@@ -335,6 +336,7 @@ import { ref, computed, watch, nextTick, onMounted, onUnmounted, defineAsyncComp
 import * as THREE from 'three';
 import { useToast } from '@/composables/useToast';
 import { useI18n } from 'vue-i18n';
+import { useRouter } from 'vue-router';
 import { useAstronomyData } from '@/composables/useAstronomyData';
 import { SceneManager } from '@/three/scene';
 import { Sun } from '@/three/objects/Sun';
@@ -356,7 +358,15 @@ import PanelHeader from './PanelHeader.vue';
 const BaseMap = defineAsyncComponent(() => import('./BaseMap.vue'));
 const DateRangePicker = defineAsyncComponent(() => import('./DateRangePicker.vue'));
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
+const router = useRouter();
+
+function onSelectMode(mode: 'solarSystem' | 'eclipses') {
+  if (mode === 'eclipses') {
+    router.push(`/${locale.value}/events`);
+  }
+}
+
 const toast = useToast();
 
 // Form parameters with defaults
