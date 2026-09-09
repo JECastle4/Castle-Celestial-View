@@ -115,6 +115,62 @@ def _fetch_all_celestial_bodies(obs_time: Time, earth_location: EarthLocation):
     }
 
 
+def _fetch_all_celestial_bodies_batch(times: list, earth_location: EarthLocation):
+    """
+    Fetch all celestial bodies for a list of times (vectorized for performance).
+    
+    For frame_count N, this makes N get_body calls instead of N*18 individual calls.
+    Astropy is optimized for array inputs and transforms.
+    
+    Args:
+        times: List of astropy Time objects (one per frame)
+        earth_location: Observer location (EarthLocation)
+    
+    Returns:
+        Dict of arrays: {body_name: array_of_positions_for_all_times}
+    """
+    # Convert list to Time array for vectorized operations
+    times_array = Time(times)
+    
+    # Vectorized astropy calls (one call per body type, not per frame)
+    sun = get_sun(times_array)
+    moon = get_body("moon", times_array, earth_location)
+    venus_with_loc = get_body("venus", times_array, earth_location)
+    mercury_with_loc = get_body("mercury", times_array, earth_location)
+    mars_with_loc = get_body("mars", times_array, earth_location)
+    jupiter_with_loc = get_body("jupiter", times_array, earth_location)
+    saturn_with_loc = get_body("saturn", times_array, earth_location)
+    uranus_with_loc = get_body("uranus", times_array, earth_location)
+    neptune_with_loc = get_body("neptune", times_array, earth_location)
+
+    venus_gcrs = get_body("venus", times_array)
+    mercury_gcrs = get_body("mercury", times_array)
+    mars_gcrs = get_body("mars", times_array)
+    jupiter_gcrs = get_body("jupiter", times_array)
+    saturn_gcrs = get_body("saturn", times_array)
+    uranus_gcrs = get_body("uranus", times_array)
+    neptune_gcrs = get_body("neptune", times_array)
+
+    return {
+        'sun': sun,
+        'moon': moon,
+        'venus_with_loc': venus_with_loc,
+        'mercury_with_loc': mercury_with_loc,
+        'mars_with_loc': mars_with_loc,
+        'jupiter_with_loc': jupiter_with_loc,
+        'saturn_with_loc': saturn_with_loc,
+        'uranus_with_loc': uranus_with_loc,
+        'neptune_with_loc': neptune_with_loc,
+        'venus_gcrs': venus_gcrs,
+        'mercury_gcrs': mercury_gcrs,
+        'mars_gcrs': mars_gcrs,
+        'jupiter_gcrs': jupiter_gcrs,
+        'saturn_gcrs': saturn_gcrs,
+        'uranus_gcrs': uranus_gcrs,
+        'neptune_gcrs': neptune_gcrs,
+    }
+
+
 def _calculate_mars_retrograde_status(frame_idx: int, frame_count: int, mars_gcrs: Time,
                                       obs_time: Time, mars_longitudes):
     """Calculate Mars retrograde status for current frame."""
@@ -137,62 +193,95 @@ def _calculate_mars_retrograde_status(frame_idx: int, frame_count: int, mars_gcr
 
 def _build_frame_observation_data(frame_idx: int, obs_time: Time, earth_location: EarthLocation,
                                   altaz_frame: AltAz, location: LocationModel, locale: Optional[str],
-                                  bodies, mars_retrograde_status):
-    """Build complete observation data for a single frame."""
+                                  bodies, mars_retrograde_status, altaz_frames=None):
+    """
+    Build complete observation data for a single frame.
+    
+    Args:
+        frame_idx: Index of this frame in the batch
+        obs_time: Single Time object for this frame
+        earth_location: Observer location
+        altaz_frame: Single AltAz frame for this time/location
+        location: Observer LocationModel
+        locale: Locale for translations
+        bodies: Dict of body arrays (from _fetch_all_celestial_bodies_batch)
+        mars_retrograde_status: Pre-computed retrograde status for this frame
+        altaz_frames: Optional pre-computed AltAz frame array for this frame
+    """
     iso_parts = obs_time.iso.split()
     date_part = iso_parts[0]
     time_part = iso_parts[1].split('.')[0]
     datetime_str = f"{date_part}T{time_part}Z"
 
-    sun_altaz = bodies['sun'].transform_to(altaz_frame)
-    moon_altaz = bodies['moon'].transform_to(altaz_frame)
-    venus_altaz = bodies['venus_with_loc'].transform_to(altaz_frame)
-    mercury_altaz = bodies['mercury_with_loc'].transform_to(altaz_frame)
-    mars_altaz = bodies['mars_with_loc'].transform_to(altaz_frame)
-    jupiter_altaz = bodies['jupiter_with_loc'].transform_to(altaz_frame)
-    saturn_altaz = bodies['saturn_with_loc'].transform_to(altaz_frame)
-    uranus_altaz = bodies['uranus_with_loc'].transform_to(altaz_frame)
-    neptune_altaz = bodies['neptune_with_loc'].transform_to(altaz_frame)
+    # Extract single-frame data from arrays by indexing
+    sun_frame = bodies['sun'][frame_idx] if hasattr(bodies['sun'], '__len__') else bodies['sun']
+    moon_frame = bodies['moon'][frame_idx] if hasattr(bodies['moon'], '__len__') else bodies['moon']
+    venus_with_loc_frame = bodies['venus_with_loc'][frame_idx] if hasattr(bodies['venus_with_loc'], '__len__') else bodies['venus_with_loc']
+    mercury_with_loc_frame = bodies['mercury_with_loc'][frame_idx] if hasattr(bodies['mercury_with_loc'], '__len__') else bodies['mercury_with_loc']
+    mars_with_loc_frame = bodies['mars_with_loc'][frame_idx] if hasattr(bodies['mars_with_loc'], '__len__') else bodies['mars_with_loc']
+    jupiter_with_loc_frame = bodies['jupiter_with_loc'][frame_idx] if hasattr(bodies['jupiter_with_loc'], '__len__') else bodies['jupiter_with_loc']
+    saturn_with_loc_frame = bodies['saturn_with_loc'][frame_idx] if hasattr(bodies['saturn_with_loc'], '__len__') else bodies['saturn_with_loc']
+    uranus_with_loc_frame = bodies['uranus_with_loc'][frame_idx] if hasattr(bodies['uranus_with_loc'], '__len__') else bodies['uranus_with_loc']
+    neptune_with_loc_frame = bodies['neptune_with_loc'][frame_idx] if hasattr(bodies['neptune_with_loc'], '__len__') else bodies['neptune_with_loc']
+    
+    venus_gcrs_frame = bodies['venus_gcrs'][frame_idx] if hasattr(bodies['venus_gcrs'], '__len__') else bodies['venus_gcrs']
+    mercury_gcrs_frame = bodies['mercury_gcrs'][frame_idx] if hasattr(bodies['mercury_gcrs'], '__len__') else bodies['mercury_gcrs']
+    mars_gcrs_frame = bodies['mars_gcrs'][frame_idx] if hasattr(bodies['mars_gcrs'], '__len__') else bodies['mars_gcrs']
+    jupiter_gcrs_frame = bodies['jupiter_gcrs'][frame_idx] if hasattr(bodies['jupiter_gcrs'], '__len__') else bodies['jupiter_gcrs']
+    saturn_gcrs_frame = bodies['saturn_gcrs'][frame_idx] if hasattr(bodies['saturn_gcrs'], '__len__') else bodies['saturn_gcrs']
+    uranus_gcrs_frame = bodies['uranus_gcrs'][frame_idx] if hasattr(bodies['uranus_gcrs'], '__len__') else bodies['uranus_gcrs']
+    neptune_gcrs_frame = bodies['neptune_gcrs'][frame_idx] if hasattr(bodies['neptune_gcrs'], '__len__') else bodies['neptune_gcrs']
+
+    # Transform indexed positions to AltAz
+    sun_altaz = sun_frame.transform_to(altaz_frame)
+    moon_altaz = moon_frame.transform_to(altaz_frame)
+    venus_altaz = venus_with_loc_frame.transform_to(altaz_frame)
+    mercury_altaz = mercury_with_loc_frame.transform_to(altaz_frame)
+    mars_altaz = mars_with_loc_frame.transform_to(altaz_frame)
+    jupiter_altaz = jupiter_with_loc_frame.transform_to(altaz_frame)
+    saturn_altaz = saturn_with_loc_frame.transform_to(altaz_frame)
+    uranus_altaz = uranus_with_loc_frame.transform_to(altaz_frame)
+    neptune_altaz = neptune_with_loc_frame.transform_to(altaz_frame)
 
     sun_data = _process_sun_position(
-        sun_gcrs=bodies['sun'],
+        sun_gcrs=sun_frame,
         sun_altaz=sun_altaz,
         time=obs_time,
         datetime_str=datetime_str,
         location=location
     )
     moon_data = _process_moon_position(
-        moon_gcrs=bodies['moon'],
+        moon_gcrs=moon_frame,
         moon_altaz=moon_altaz,
         time=obs_time,
         datetime_str=datetime_str,
         location=location
     )
     venus_data = _process_venus_position(
-        venus_with_loc=bodies['venus_with_loc'],
+        venus_with_loc=venus_with_loc_frame,
         venus_altaz=venus_altaz,
-        sun=bodies['sun'],
-        venus_gcrs=bodies['venus_gcrs'],
+        sun=sun_frame,
+        venus_gcrs=venus_gcrs_frame,
         time=obs_time,
         datetime_str=datetime_str,
         location=location,
         locale=locale
     )
     mercury_data = _process_mercury_position(
-        mercury_with_loc=bodies['mercury_with_loc'],
+        mercury_with_loc=mercury_with_loc_frame,
         mercury_altaz=mercury_altaz,
-        sun=bodies['sun'],
-        mercury_gcrs=bodies['mercury_gcrs'],
+        sun=sun_frame,
+        mercury_gcrs=mercury_gcrs_frame,
         time=obs_time,
         datetime_str=datetime_str,
         location=location,
         locale=locale
     )
     mars_data = _process_mars_position(
-        mars_with_loc=bodies['mars_with_loc'],
+        mars_with_loc=mars_with_loc_frame,
         mars_altaz=mars_altaz,
-        sun=bodies['sun'],
-        mars_gcrs=bodies['mars_gcrs'],
+        sun=sun_frame,
+        mars_gcrs=mars_gcrs_frame,
         time=obs_time,
         datetime_str=datetime_str,
         location=location,
@@ -200,40 +289,40 @@ def _build_frame_observation_data(frame_idx: int, obs_time: Time, earth_location
         retrograde_status=mars_retrograde_status
     )
     jupiter_data = _process_jupiter_position(
-        jupiter_with_loc=bodies['jupiter_with_loc'],
+        jupiter_with_loc=jupiter_with_loc_frame,
         jupiter_altaz=jupiter_altaz,
-        jupiter_gcrs=bodies['jupiter_gcrs'],
+        jupiter_gcrs=jupiter_gcrs_frame,
         time=obs_time,
         datetime_str=datetime_str,
         location=location
     )
     saturn_data = _process_saturn_position(
-        saturn_with_loc=bodies['saturn_with_loc'],
+        saturn_with_loc=saturn_with_loc_frame,
         saturn_altaz=saturn_altaz,
-        saturn_gcrs=bodies['saturn_gcrs'],
+        saturn_gcrs=saturn_gcrs_frame,
         time=obs_time,
         datetime_str=datetime_str,
         location=location
     )
     uranus_data = _process_uranus_position(
-        uranus_with_loc=bodies['uranus_with_loc'],
+        uranus_with_loc=uranus_with_loc_frame,
         uranus_altaz=uranus_altaz,
-        uranus_gcrs=bodies['uranus_gcrs'],
+        uranus_gcrs=uranus_gcrs_frame,
         time=obs_time,
         datetime_str=datetime_str,
         location=location
     )
     neptune_data = _process_neptune_position(
-        neptune_with_loc=bodies['neptune_with_loc'],
+        neptune_with_loc=neptune_with_loc_frame,
         neptune_altaz=neptune_altaz,
-        neptune_gcrs=bodies['neptune_gcrs'],
+        neptune_gcrs=neptune_gcrs_frame,
         time=obs_time,
         datetime_str=datetime_str,
         location=location
     )
     phase_data = _process_moon_phase(
-        sun=bodies['sun'],
-        moon=bodies['moon'],
+        sun=sun_frame,
+        moon=moon_frame,
         time=obs_time,
         datetime_str=datetime_str,
         location=location,
@@ -389,14 +478,15 @@ def calculate_batch_earth_observations(
     # Pre-calculate Mars retrograde for frame 0/1 comparison
     mars_longitudes = _precalculate_mars_retrograde(frame_count, times)
 
-    # Process each frame
-    for frame_idx, obs_time in enumerate(times):
-        # Fetch all celestial bodies for this time
-        bodies = _fetch_all_celestial_bodies(obs_time, earth_location)
+    # Vectorized batch call: fetch all bodies for all times at once (performance optimization)
+    # This single call replaces frame_count individual calls to _fetch_all_celestial_bodies
+    bodies = _fetch_all_celestial_bodies_batch(times, earth_location)
 
-        # Calculate Mars retrograde status
+    # Process each frame (now just indexes into pre-computed arrays)
+    for frame_idx, obs_time in enumerate(times):
+        # Calculate Mars retrograde status (uses pre-computed mars_gcrs array)
         mars_retrograde_status, _ = _calculate_mars_retrograde_status(
-            frame_idx, frame_count, bodies['mars_gcrs'], obs_time, mars_longitudes
+            frame_idx, frame_count, bodies['mars_gcrs'][frame_idx], obs_time, mars_longitudes
         )
 
         # Build Alt/Az frame for this observation
