@@ -8,6 +8,7 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from api.routes import router
 from api.i18n import set_request_locale, SUPPORTED_LOCALES
+from api.cache import get_cache_stats
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -206,3 +207,15 @@ async def root():
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy"}
+
+
+@app.get("/cache-stats")
+async def cache_statistics():
+    """Cache statistics endpoint for monitoring response cache performance.
+    
+    Returns:
+    - cached_entries: Number of active cache entries
+    - max_size: Maximum cache capacity
+    - utilization: Cache utilization percentage
+    """
+    return get_cache_stats()

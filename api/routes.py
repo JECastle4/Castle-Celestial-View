@@ -6,6 +6,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
+from api.cache import cache_response
 from api.i18n import get_i18n
 from api.models import (
     DateTimeRequest,
@@ -169,6 +170,7 @@ async def get_day_of_week(request: DateTimeRequest):
 
 
 @router.post("/sun-position", response_model=SunPositionResponse)
+@cache_response(ttl=300)
 async def get_sun_position(request: SunPositionRequest):
     """
     Calculate the sun's position at a given time and location.
@@ -213,6 +215,7 @@ async def get_sun_position(request: SunPositionRequest):
 
 
 @router.post("/moon-position", response_model=MoonPositionResponse)
+@cache_response(ttl=300)
 async def get_moon_position(request: MoonPositionRequest):
     """
     Calculate the moon's position at a given time and location.
@@ -257,6 +260,7 @@ async def get_moon_position(request: MoonPositionRequest):
 
 
 @router.post("/venus-position", response_model=VenusPositionResponse)
+@cache_response(ttl=300)
 async def get_venus_position(request: VenusPositionRequest):
     """
     Calculate Venus's position and phase at a given time and location.
@@ -398,6 +402,7 @@ async def get_mercury_position(request: MercuryPositionRequest):
 
 
 @router.post("/mars-position", response_model=MarsPositionResponse)
+@cache_response(ttl=300)
 async def get_mars_position(request: MarsPositionRequest):
     """
     Calculate Mars's position and phase at a given time and location.
@@ -710,6 +715,7 @@ async def get_neptune_position(request: NeptunePositionRequest):
 
 
 @router.post("/moon-phase", response_model=MoonPhaseResponse)
+@cache_response(ttl=300)
 async def get_moon_phase(request: MoonPhaseRequest):
     """
     Calculate the moon's phase information at a given time and location.
@@ -810,6 +816,7 @@ def _process_batch_frames_from_generator(gen, frame_count: int):
     Current implementation calls position services for each frame.
     """
 )
+@cache_response(ttl=300)
 async def get_batch_earth_observations(request: BatchEarthObservationsRequest):
     """Calculate batch observations of celestial positions from Earth"""
     try:
@@ -864,6 +871,7 @@ async def get_batch_earth_observations(request: BatchEarthObservationsRequest):
     - **event_types**: Optional filter - 'new_moon', 'full_moon', or omit for both
     """
 )
+@cache_response(ttl=600)
 def get_astronomical_events_route(
     request: AstronomicalEventsRequest,
     lang: Optional[str] = Query(None)
