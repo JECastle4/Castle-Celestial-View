@@ -629,6 +629,33 @@ class TestMoonPositionEndpoint:
 class TestBatchEarthObservationsEndpoint:
     """Test cases for /api/v1/batch-earth-observations endpoint"""
     
+    @staticmethod
+    def _verify_batch_response_structure(data: dict, expected_frame_count: int):
+        """Verify batch response has frames and metadata."""
+        assert "frames" in data
+        assert "metadata" in data
+        assert len(data["frames"]) == expected_frame_count
+
+    @staticmethod
+    def _verify_frame_has_bodies(frame: dict):
+        """Verify frame has sun, moon, and phase data."""
+        for body in ["sun", "moon"]:
+            assert body in frame
+            assert "altitude" in frame[body]
+            assert "azimuth" in frame[body]
+            assert "is_visible" in frame[body]
+        assert "moon_phase" in frame
+        for phase_field in ["illumination", "phase_angle", "phase_name"]:
+            assert phase_field in frame["moon_phase"]
+
+    @staticmethod
+    def _verify_batch_metadata(metadata: dict, expected: dict):
+        """Verify batch metadata values."""
+        assert metadata["frame_count"] == expected["frame_count"]
+        assert metadata["start_datetime"] == expected["start_datetime"]
+        assert metadata["end_datetime"] == expected["end_datetime"]
+        assert metadata["time_span_hours"] == expected["time_span_hours"]
+    
     def test_valid_batch_request(self):
         """Test valid batch request with multiple frames"""
         response = client.post(
@@ -648,43 +675,28 @@ class TestBatchEarthObservationsEndpoint:
         assert response.status_code == 200
         data = response.json()
         
-        # Check frames array
-        assert "frames" in data
-        assert len(data["frames"]) == 7
+        # Verify response structure
+        self._verify_batch_response_structure(data, 7)
         
-        # Check first frame structure
+        # Verify frames have required bodies and phases
         first_frame = data["frames"][0]
-        assert "datetime" in first_frame
-        assert "sun" in first_frame
-        assert "moon" in first_frame
-        assert "moon_phase" in first_frame
+        self._verify_frame_has_bodies(first_frame)
         assert first_frame["datetime"] == "2024-01-01T12:00:00Z"
         
-        # Check sun data structure
-        assert "altitude" in first_frame["sun"]
-        assert "azimuth" in first_frame["sun"]
-        assert "is_visible" in first_frame["sun"]
-        
-        # Check moon data structure
-        assert "altitude" in first_frame["moon"]
-        assert "azimuth" in first_frame["moon"]
-        assert "is_visible" in first_frame["moon"]
-        
-        # Check moon phase structure
-        assert "illumination" in first_frame["moon_phase"]
-        assert "phase_angle" in first_frame["moon_phase"]
-        assert "phase_name" in first_frame["moon_phase"]
-        
-        # Check metadata
-        assert "metadata" in data
-        assert data["metadata"]["frame_count"] == 7
-        assert data["metadata"]["start_datetime"] == "2024-01-01T12:00:00Z"
-        assert data["metadata"]["end_datetime"] == "2024-01-01T18:00:00Z"
-        assert data["metadata"]["time_span_hours"] == 6.0
-        
-        # Check last frame
+        # Verify last frame datetime
         last_frame = data["frames"][-1]
         assert last_frame["datetime"] == "2024-01-01T18:00:00Z"
+        
+        # Verify metadata
+        self._verify_batch_metadata(
+            data["metadata"],
+            {
+                "frame_count": 7,
+                "start_datetime": "2024-01-01T12:00:00Z",
+                "end_datetime": "2024-01-01T18:00:00Z",
+                "time_span_hours": 6.0
+            }
+        )
     
     def test_batch_with_default_times(self):
         """Test batch request with default start and end times"""

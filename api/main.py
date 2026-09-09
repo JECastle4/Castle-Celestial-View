@@ -95,17 +95,12 @@ async def request_size_limit_middleware(request: Request, call_next):
     return await call_next(request)
 
 
-def _resolve_accept_language(header: str) -> str:
-    """Select the best supported locale from an Accept-Language header value.
-
-    Parses all language-ranges (including q= weights), sorts by preference
-    (highest q first, original order preserved for equal q), and returns the
-    first tag that matches a supported locale — exact match first, then
-    language-prefix match (e.g. 'en-US' → 'en').  Falls back to 'en' if
-    nothing matches.
+def _parse_accept_language_tags(header: str) -> list[tuple[float, str]]:
+    """Parse Accept-Language header into sorted (q-value, tag) tuples.
+    
+    Higher q values appear first; equal-q entries retain original order.
+    Skips q=0 entries per RFC 9110 §12.4.2.
     """
-    if not header:
-        return 'en'
     tags: list[tuple[float, str]] = []
     for part in header.split(","):
         segments = part.strip().split(";")
@@ -126,12 +121,39 @@ def _resolve_accept_language(header: str) -> str:
             tags.append((q, tag))
     # Higher q first; equal-q entries retain their original (left-to-right) order.
     tags.sort(key=lambda x: x[0], reverse=True)
+    return tags
+
+
+def _match_supported_locale(tag: str) -> str | None:
+    """Find matching supported locale for language tag.
+    
+    Returns exact match if available, otherwise language-prefix match,
+    otherwise None.
+    """
+    if tag in SUPPORTED_LOCALES:
+        return tag
+    prefix = tag.split("-")[0]
+    if prefix in SUPPORTED_LOCALES:
+        return prefix
+    return None
+
+
+def _resolve_accept_language(header: str) -> str:
+    """Select the best supported locale from an Accept-Language header value.
+
+    Parses all language-ranges (including q= weights), sorts by preference
+    (highest q first, original order preserved for equal q), and returns the
+    first tag that matches a supported locale — exact match first, then
+    language-prefix match (e.g. 'en-US' → 'en').  Falls back to 'en' if
+    nothing matches.
+    """
+    if not header:
+        return 'en'
+    tags = _parse_accept_language_tags(header)
     for _, tag in tags:
-        if tag in SUPPORTED_LOCALES:
-            return tag
-        prefix = tag.split("-")[0]
-        if prefix in SUPPORTED_LOCALES:
-            return prefix
+        matched = _match_supported_locale(tag)
+        if matched:
+            return matched
     return 'en'
 
 
