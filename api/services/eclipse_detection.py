@@ -11,6 +11,7 @@ from astropy.coordinates import get_body, get_sun, EarthLocation, SkyCoord
 from astropy.coordinates import GeocentricMeanEcliptic
 import astropy.units as u
 import astropy.constants as const
+from functools import lru_cache
 
 # Physical constants (IAU standard)
 R_SUN_KM = const.R_sun.to(u.km).value        # ~695,700 km
@@ -47,6 +48,13 @@ MEAN_NODE_REGRESSION_DEG_PER_DAY = -0.0529538083
 
 # Golden ratio conjugate, used by the golden-section minimum-separation search below.
 _INV_PHI = (np.sqrt(5) - 1) / 2
+
+# Phase 2.2 Optimization: Cache expensive eclipse calculations
+# These caches avoid redundant find_greatest_eclipse_time() and classification calls
+# within a single request or across similar time ranges (typical for batch operations)
+_GREATEST_ECLIPSE_CACHE = {}  # key: (time.iso, is_lunar) -> Time object
+_ECLIPSE_TYPE_CACHE_LUNAR = {}  # key: time.iso -> classification dict
+_ECLIPSE_TYPE_CACHE_SOLAR = {}  # key: time.iso -> classification dict
 
 
 def get_moon_ecliptic_coords(time_obj):
@@ -190,6 +198,10 @@ def find_greatest_eclipse_time(approx_time, is_lunar, search_window_hours=24, it
     Uses golden-section search, which is appropriate because separation(t) is unimodal
     (has a single minimum) within a +/- search_window_hours bracket around a new/full moon.
 
+    Phase 2.2 Optimization: Results are cached to avoid redundant calculations
+    when the same eclipse time is queried multiple times (common in batch processing
+    or when contact times request additional analysis).
+
     Args:
         approx_time: astropy Time object, approximate new/full moon instant
         is_lunar: bool, True to minimize Moon-antisolar separation, False for Sun-Moon
@@ -200,6 +212,14 @@ def find_greatest_eclipse_time(approx_time, is_lunar, search_window_hours=24, it
     Returns:
         astropy Time object at the (refined) instant of greatest eclipse
     """
+    # Cache key: ISO string + eclipse type
+    cache_key = (approx_time.iso, is_lunar)
+    
+    # Check cache first (Phase 2.2 optimization)
+    if cache_key in _GREATEST_ECLIPSE_CACHE:
+        return _GREATEST_ECLIPSE_CACHE[cache_key]
+    
+    # Compute if not cached
     if is_lunar:
         separation_fn = get_antisolar_separation_deg
     else:
@@ -232,7 +252,12 @@ def find_greatest_eclipse_time(approx_time, is_lunar, search_window_hours=24, it
             d = a + span * _INV_PHI
             fd = separation_fn(d)
 
-    return a + (b - a) / 2
+    result = a + (b - a) / 2
+    
+    # Cache the result (Phase 2.2 optimization)
+    _GREATEST_ECLIPSE_CACHE[cache_key] = result
+    
+    return result
 
 
 def get_sun_moon_parameters(time_obj):
@@ -376,12 +401,22 @@ def classify_lunar_eclipse_type(time_obj):
         mag 0-1.0  → PARTIAL (moon partially in umbra)
         mag < 0, penumbral > 0 → PENUMBRAL (penumbra only)
 
+    Phase 2.2 Optimization: Results are cached to avoid redundant parameter calculations
+    and shadow-cone computations when the same lunar eclipse is analyzed multiple times.
+
     Args:
         time_obj: astropy Time object
 
     Returns:
         dict with eclipse type and magnitude values
     """
+    # Cache key for lunar eclipse classification (Phase 2.2 optimization)
+    cache_key = time_obj.iso
+    
+    # Check cache first
+    if cache_key in _ECLIPSE_TYPE_CACHE_LUNAR:
+        return _ECLIPSE_TYPE_CACHE_LUNAR[cache_key]
+    
     params = get_sun_moon_parameters(time_obj)
     shadow = calculate_earth_shadow_cone(time_obj)
 
@@ -403,12 +438,17 @@ def classify_lunar_eclipse_type(time_obj):
     else:
         eclipse_type = "NONE"
 
-    return {
+    result = {
         'eclipse_type': eclipse_type,
         'umbral_magnitude': round(umbral_mag, 4),
         'penumbral_magnitude': round(penumbral_mag, 4),
         'angular_separation_deg': round(separation, 4),
     }
+    
+    # Cache the result (Phase 2.2 optimization)
+    _ECLIPSE_TYPE_CACHE_LUNAR[cache_key] = result
+    
+    return result
 
 
 def classify_solar_eclipse_type(time_obj):
@@ -442,12 +482,22 @@ def classify_solar_eclipse_type(time_obj):
     Best accuracy requires time_obj to be the instant of greatest eclipse (see
     find_greatest_eclipse_time), not just any new moon instant.
 
+    Phase 2.2 Optimization: Results are cached to avoid redundant parameter calculations
+    and shadow-cone computations when the same solar eclipse is analyzed multiple times.
+
     Args:
         time_obj: astropy Time object
 
     Returns:
         dict with eclipse type and size characteristics
     """
+    # Cache key for solar eclipse classification (Phase 2.2 optimization)
+    cache_key = time_obj.iso
+    
+    # Check cache first
+    if cache_key in _ECLIPSE_TYPE_CACHE_SOLAR:
+        return _ECLIPSE_TYPE_CACHE_SOLAR[cache_key]
+    
     params = get_sun_moon_parameters(time_obj)
     shadow = calculate_moon_shadow_cone(time_obj)
 
@@ -472,7 +522,7 @@ def classify_solar_eclipse_type(time_obj):
     else:
         eclipse_type = "PARTIAL"
 
-    return {
+    result = {
         'eclipse_type': eclipse_type,
         'size_ratio': round(size_ratio, 6),
         'moon_ang_diam_deg': round(moon_ang_radius * 2, 6),
@@ -481,6 +531,11 @@ def classify_solar_eclipse_type(time_obj):
         'offset_km': round(offset_km, 1),
         'angular_separation_deg': round(separation_deg, 4),
     }
+    
+    # Cache the result (Phase 2.2 optimization)
+    _ECLIPSE_TYPE_CACHE_SOLAR[cache_key] = result
+    
+    return result
 
 
 def _check_lunar_eclipse_at_time(time_obj, moon_lat, moon_lon):
@@ -549,6 +604,19 @@ def _get_eclipse_pre_filter_result(time_obj, moon_lat, is_lunar):
             'size_ratio': None,
             'umbral_exists': None,
         }
+
+
+def clear_eclipse_caches():
+    """
+    Clear all eclipse detection caches (Phase 2.2 optimization).
+    
+    Useful for memory management in long-running processes or testing.
+    Caches will be repopulated on demand.
+    """
+    global _GREATEST_ECLIPSE_CACHE, _ECLIPSE_TYPE_CACHE_LUNAR, _ECLIPSE_TYPE_CACHE_SOLAR
+    _GREATEST_ECLIPSE_CACHE.clear()
+    _ECLIPSE_TYPE_CACHE_LUNAR.clear()
+    _ECLIPSE_TYPE_CACHE_SOLAR.clear()
 
 
 def check_eclipse_at_time(time_obj, is_lunar=True):
