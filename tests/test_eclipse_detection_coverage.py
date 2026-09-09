@@ -15,8 +15,11 @@ from api.services.eclipse_detection import (
     classify_lunar_eclipse_type,
     classify_solar_eclipse_type,
     get_moon_ecliptic_latitude,
-    LUNAR_ECLIPSE_LATITUDE_LIMIT,
-    SOLAR_ECLIPSE_LATITUDE_LIMIT,
+    get_moon_ecliptic_coords,
+    get_sun_ecliptic_longitude,
+    node_distance_deg,
+    LUNAR_ECLIPSE_NODE_LIMIT_DEG,
+    SOLAR_ECLIPSE_NODE_LIMIT_DEG,
 )
 from api.services.eclipse_contact_times import (
     calculate_lunar_contact_times,
@@ -312,13 +315,14 @@ class TestEclipseTypeClassification:
 
 
 class TestEclipsePreFilter:
-    """Test the eclipse pre-filter based on Moon's ecliptic latitude.
-    
-    The pre-filter checks if abs(moon_lat) < LATITUDE_LIMIT. This is geometrically sound
-    because eclipses can only occur when the Moon is close to the ecliptic plane (where 
-    the Sun always resides). The Moon's orbital inclination is 5.09°, so the threshold
-    of 5.3° captures all possible eclipses while rejecting ~95% of syzygy events before
-    expensive shadow geometry calculations.
+    """Test the eclipse pre-filter based on angular distance from a lunar node.
+
+    A fixed latitude threshold near the Moon's ~5.145° orbital inclination never
+    actually rejects anything, since the Moon can never exceed that latitude
+    regardless of whether an eclipse is possible. The real fast pre-filter test
+    is the "ecliptic limits" (Meeus, Astronomical Algorithms, Ch. 54): the Sun's
+    (solar) or Moon's (lunar) angular distance from a lunar node at syzygy. Beyond
+    these limits an eclipse is geometrically impossible.
     """
 
     def test_moon_ecliptic_latitude_valid_range(self):
@@ -355,56 +359,62 @@ class TestEclipsePreFilter:
         assert max(latitudes) < 6, "Max latitude should be < 6°"
         assert min(latitudes) > -6, "Min latitude should be > -6°"
 
-    def test_pre_filter_rejects_outside_threshold(self):
-        """Test that eclipse check rejects full/new moons with latitude > threshold."""
-        # Find a time with large latitude (not close to ecliptic plane)
-        # The Moon's latitude varies sinusoidally, so some full moons will be far from ecliptic
-        non_eclipse_full = Time('2026-02-03 18:00:00', scale='utc')  # A random full moon
-        
-        lat = get_moon_ecliptic_latitude(non_eclipse_full)
-        
-        # If latitude > threshold, pre-filter should reject immediately
-        if abs(lat) >= LUNAR_ECLIPSE_LATITUDE_LIMIT:
+    def test_pre_filter_rejects_outside_node_limit(self):
+        """Test that eclipse check rejects full/new moons far from a lunar node."""
+        # A random full moon, unlikely to be near a node
+        non_eclipse_full = Time('2026-02-03 18:00:00', scale='utc')
+
+        _, moon_lon = get_moon_ecliptic_coords(non_eclipse_full)
+        node_dist = node_distance_deg(moon_lon, non_eclipse_full)
+
+        # If node distance > limit, pre-filter should reject immediately
+        if node_dist > LUNAR_ECLIPSE_NODE_LIMIT_DEG:
             result = check_eclipse_at_time(non_eclipse_full, is_lunar=True)
             assert result['is_eclipse'] is False, \
-                f"Pre-filter should reject latitude {lat}° > {LUNAR_ECLIPSE_LATITUDE_LIMIT}°"
+                f"Pre-filter should reject node distance {node_dist}° > {LUNAR_ECLIPSE_NODE_LIMIT_DEG}°"
             assert result['eclipse_type'] == 'NONE'
             assert result['within_threshold'] is False
 
-    def test_pre_filter_allows_within_threshold(self):
-        """Test that eclipse check processes events with latitude < threshold."""
-        # Use known eclipse times where latitude should be small
+    def test_pre_filter_allows_within_node_limit(self):
+        """Test that eclipse check processes events near a lunar node."""
+        # Use a known eclipse time where the Sun should be close to a node
         solar_eclipse_time = Time('2026-08-12 18:11:00', scale='utc')
-        lat = get_moon_ecliptic_latitude(solar_eclipse_time)
-        
+        sun_lon = get_sun_ecliptic_longitude(solar_eclipse_time)
+        node_dist = node_distance_deg(sun_lon, solar_eclipse_time)
+
         # Should pass pre-filter (proceeds to shadow geometry calculation)
-        if abs(lat) < SOLAR_ECLIPSE_LATITUDE_LIMIT:
+        if node_dist <= SOLAR_ECLIPSE_NODE_LIMIT_DEG:
             result = check_eclipse_at_time(solar_eclipse_time, is_lunar=False)
             assert result['within_threshold'] is True, \
-                f"Pre-filter should accept latitude {lat}° < {SOLAR_ECLIPSE_LATITUDE_LIMIT}°"
+                f"Pre-filter should accept node distance {node_dist}° <= {SOLAR_ECLIPSE_NODE_LIMIT_DEG}°"
 
-    def test_latitude_limit_is_correct(self):
-        """Test that latitude limit (5.3°) is based on Moon's orbital inclination."""
-        # Moon's orbital inclination is ~5.09°, so threshold should be ~5.3°
-        assert LUNAR_ECLIPSE_LATITUDE_LIMIT == 5.3, \
-            "Lunar latitude limit should be 5.3° (based on orbital inclination 5.09°)"
-        assert SOLAR_ECLIPSE_LATITUDE_LIMIT == 5.3, \
-            "Solar latitude limit should be 5.3° (symmetric with lunar)"
+    def test_node_limits_match_meeus_ecliptic_limits(self):
+        """Test that node-distance limits match Meeus's published major ecliptic limits."""
+        # Meeus, Astronomical Algorithms, Ch. 54: major limits (eclipse impossible beyond these)
+        assert LUNAR_ECLIPSE_NODE_LIMIT_DEG == pytest.approx(12.25, abs=0.01), \
+            "Lunar node-distance limit should be ~12°15' (12.25°)"
+        assert SOLAR_ECLIPSE_NODE_LIMIT_DEG == pytest.approx(18.5167, abs=0.01), \
+            "Solar node-distance limit should be ~18°31' (18.5167°)"
 
-    def test_eclipses_occur_within_latitude_limit(self):
-        """Test that all known eclipses occur when Moon latitude < threshold."""
+    def test_eclipses_occur_within_node_limit(self):
+        """Test that all known eclipses occur when the relevant body is near a node."""
         known_eclipses = [
             (Time('2025-09-07 18:11:00', scale='utc'), True),   # Lunar
             (Time('2025-09-21', scale='utc'), False),           # Solar
             (Time('2026-08-12 18:11:00', scale='utc'), False),  # Solar
             (Time('2026-08-28 03:00:00', scale='utc'), True),   # Lunar
         ]
-        
+
         for time_obj, is_lunar in known_eclipses:
-            lat = get_moon_ecliptic_latitude(time_obj)
-            limit = LUNAR_ECLIPSE_LATITUDE_LIMIT if is_lunar else SOLAR_ECLIPSE_LATITUDE_LIMIT
-            assert abs(lat) < limit, \
-                f"Eclipse at {time_obj.iso} has latitude {lat}° outside limit {limit}°"
+            if is_lunar:
+                _, lon = get_moon_ecliptic_coords(time_obj)
+                limit = LUNAR_ECLIPSE_NODE_LIMIT_DEG
+            else:
+                lon = get_sun_ecliptic_longitude(time_obj)
+                limit = SOLAR_ECLIPSE_NODE_LIMIT_DEG
+            node_dist = node_distance_deg(lon, time_obj)
+            assert node_dist <= limit, \
+                f"Eclipse at {time_obj.iso} has node distance {node_dist}° outside limit {limit}°"
 
     def test_check_eclipse_response_includes_latitude(self):
         """Test that eclipse check responses include moon_ecl_lat_deg for diagnostics."""
@@ -417,6 +427,98 @@ class TestEclipsePreFilter:
         # Should match the direct calculation
         expected_lat = get_moon_ecliptic_latitude(eclipse_time)
         assert abs(result['moon_ecl_lat_deg'] - expected_lat) < 0.0001
+
+    def test_node_distance_is_symmetric_and_bounded(self):
+        """Test that node_distance_deg always returns a value in [0, 90]."""
+        time_obj = Time('2026-05-15 00:00:00', scale='utc')
+        for lon in [0, 45, 90, 135, 180, 225, 270, 315, 359.9]:
+            dist = node_distance_deg(lon, time_obj)
+            assert 0 <= dist <= 90, f"node_distance_deg({lon}) = {dist} out of bounds"
+
+    def test_case_1_body_directly_at_node(self):
+        """Case #1: Test that eclipse at node (distance ~ 0°) passes pre-filter and is detected.
+        
+        Real example: 2025-09-07 18:11 UTC (Total Lunar Eclipse) has node distance 2.8753°.
+        This eclipse occurs during an eclipse season when the Moon is very close to a node.
+        """
+        # 2025-09-07: Total Lunar Eclipse at node distance 2.8753°
+        eclipse_time = Time('2025-09-07 18:11:00', scale='utc')
+        _, moon_lon = get_moon_ecliptic_coords(eclipse_time)
+        node_dist = node_distance_deg(moon_lon, eclipse_time)
+        
+        # Verify the node distance is indeed very small
+        assert node_dist < 5.0, \
+            f"Case #1 example should have node distance < 5°, got {node_dist:.4f}°"
+        assert node_dist <= LUNAR_ECLIPSE_NODE_LIMIT_DEG, \
+            f"Node distance {node_dist:.4f}° should pass lunar limit {LUNAR_ECLIPSE_NODE_LIMIT_DEG}°"
+        
+        # Verify pre-filter allows processing (within_threshold is True)
+        result = check_eclipse_at_time(eclipse_time, is_lunar=True)
+        assert result['within_threshold'] is True, \
+            f"Pre-filter should accept node distance {node_dist:.4f}° at node"
+        
+        # Verify eclipse is actually detected
+        assert result['is_eclipse'] is True, \
+            f"Known eclipse at {eclipse_time.iso} should be detected"
+        assert result['eclipse_type'] in ['TOTAL', 'PARTIAL', 'PENUMBRAL'], \
+            f"Lunar eclipse type should be valid, got {result['eclipse_type']}"
+
+    def test_case_3_body_far_from_node_rejected(self):
+        """Case #3: Test that syzygy far from nodes (distance > 90° or > limit) is rejected by pre-filter.
+        
+        Construct a synthetic case: find a full/new moon time that falls far from all nodes.
+        This can happen during interlude periods between eclipse seasons.
+        """
+        # Search for a new/full moon with maximum node distance
+        # Sample every 1 day for a short period to find one far from nodes
+        start = Time('2026-05-01', scale='utc')
+        end = Time('2026-06-01', scale='utc')
+        
+        max_solar_dist = -1
+        max_solar_time = None
+        max_lunar_dist = -1
+        max_lunar_time = None
+        
+        for i in range(int((end - start).jd)):
+            time_obj = start + i
+            
+            # Check new moons (solar candidates)
+            if is_new_moon(time_obj, tolerance_deg=0.8):
+                sun_lon = get_sun_ecliptic_longitude(time_obj)
+                dist = node_distance_deg(sun_lon, time_obj)
+                if dist > max_solar_dist:
+                    max_solar_dist = dist
+                    max_solar_time = time_obj
+            
+            # Check full moons (lunar candidates)
+            if is_full_moon(time_obj, tolerance_deg=0.8):
+                _, moon_lon = get_moon_ecliptic_coords(time_obj)
+                dist = node_distance_deg(moon_lon, time_obj)
+                if dist > max_lunar_dist:
+                    max_lunar_dist = dist
+                    max_lunar_time = time_obj
+        
+        # Test solar eclipse rejection (if one found outside limit)
+        if max_solar_dist > SOLAR_ECLIPSE_NODE_LIMIT_DEG:
+            result = check_eclipse_at_time(max_solar_time, is_lunar=False)
+            assert result['is_eclipse'] is False, \
+                f"Solar eclipse at {max_solar_time.iso} with node distance {max_solar_dist:.2f}° " \
+                f"(> limit {SOLAR_ECLIPSE_NODE_LIMIT_DEG:.2f}°) should be rejected by pre-filter"
+            assert result['eclipse_type'] == 'NONE', \
+                f"Pre-filter should return NONE for node distance {max_solar_dist:.2f}° > limit"
+            assert result['within_threshold'] is False, \
+                f"within_threshold should be False for rejected pre-filter"
+        
+        # Test lunar eclipse rejection (if one found outside limit)
+        if max_lunar_dist > LUNAR_ECLIPSE_NODE_LIMIT_DEG:
+            result = check_eclipse_at_time(max_lunar_time, is_lunar=True)
+            assert result['is_eclipse'] is False, \
+                f"Lunar eclipse at {max_lunar_time.iso} with node distance {max_lunar_dist:.2f}° " \
+                f"(> limit {LUNAR_ECLIPSE_NODE_LIMIT_DEG:.2f}°) should be rejected by pre-filter"
+            assert result['eclipse_type'] == 'NONE', \
+                f"Pre-filter should return NONE for node distance {max_lunar_dist:.2f}° > limit"
+            assert result['within_threshold'] is False, \
+                f"within_threshold should be False for rejected pre-filter"
 
 
 class TestEclipseEdgeCases:

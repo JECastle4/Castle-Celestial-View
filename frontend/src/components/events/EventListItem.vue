@@ -6,6 +6,8 @@
     <button
       type="button"
       class="event-summary"
+      :class="{ 'event-summary-static': !eclipseOccurs }"
+      :aria-label="ariaLabel"
       :aria-expanded="eclipseOccurs && expanded"
       :aria-controls="eclipseOccurs ? detailsId : undefined"
       @click="eclipseOccurs && (expanded = !expanded)"
@@ -70,7 +72,13 @@ const formattedDate = computed(() => {
   return new Intl.DateTimeFormat(intlLocale, {
     dateStyle: 'medium',
     timeStyle: 'short',
+    timeZone: 'UTC',
   }).format(parsed);
+});
+
+const ariaLabel = computed(() => {
+  const label = `${formattedDate.value} - ${props.eventType}`;
+  return props.eclipseOccurs ? label : `${label}. ${t('events.noEclipse')}`;
 });
 </script>
 
@@ -109,6 +117,19 @@ button.event-summary:focus-visible {
   outline: 2px solid #0078d4;
   outline-offset: -2px;
   background: #262626;
+}
+
+/* Static (non-expandable) rows */
+button.event-summary-static {
+  cursor: default;
+}
+
+button.event-summary-static:hover {
+  background: none;
+}
+
+button.event-summary-static:focus-visible {
+  background: none;
 }
 
 .event-date {

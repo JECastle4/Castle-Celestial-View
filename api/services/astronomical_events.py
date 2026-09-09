@@ -17,12 +17,14 @@ import astropy.units as u
 from api.i18n import get_i18n
 from api.services.eclipse_detection import (
     GEOCENTRIC,
-    get_moon_ecliptic_latitude,
+    get_moon_ecliptic_coords,
+    get_sun_ecliptic_longitude,
+    node_distance_deg,
     find_greatest_eclipse_time,
     classify_lunar_eclipse_type,
     classify_solar_eclipse_type,
-    LUNAR_ECLIPSE_LATITUDE_LIMIT,
-    SOLAR_ECLIPSE_LATITUDE_LIMIT,
+    LUNAR_ECLIPSE_NODE_LIMIT_DEG,
+    SOLAR_ECLIPSE_NODE_LIMIT_DEG,
 )
 from api.services.eclipse_contact_times import (
     calculate_lunar_contact_times,
@@ -116,20 +118,24 @@ def build_astronomical_event(event, include_contact_times=True, locale=None):
     Given a {'time', 'phase'} entry from find_new_full_moons, build the full event
     dict: moon ecliptic latitude/threshold check, eclipse classification (if any),
     optionally contact times, and translate event_type/eclipse_type using locale.
-    
-    PRE-FILTER: Checks if Moon's ecliptic latitude is within threshold for potential
-    eclipse. Only if this pre-filter passes do we proceed to expensive shadow geometry
-    calculations. This is geometrically sound: eclipses can only occur when the Moon
-    is close to the ecliptic plane (where the Sun resides).
+
+    PRE-FILTER: Checks whether the Sun (solar) or Moon (lunar) is within its
+    "ecliptic limit" distance of a lunar node. Only if this pre-filter passes do we
+    proceed to expensive shadow geometry calculations. See LUNAR_ECLIPSE_NODE_LIMIT_DEG
+    / SOLAR_ECLIPSE_NODE_LIMIT_DEG in eclipse_detection.py for the geometric rationale.
     """
     time_obj = event['time']
     phase = event['phase']
     is_lunar = phase == 'full'
-    latitude_limit = LUNAR_ECLIPSE_LATITUDE_LIMIT if is_lunar else SOLAR_ECLIPSE_LATITUDE_LIMIT
 
-    moon_lat = get_moon_ecliptic_latitude(time_obj)
-    # PRE-FILTER: Is Moon close enough to ecliptic plane for eclipse?
-    within_threshold = abs(moon_lat) < latitude_limit
+    moon_lat, moon_lon = get_moon_ecliptic_coords(time_obj)
+    if is_lunar:
+        node_dist = node_distance_deg(moon_lon, time_obj)
+        within_threshold = node_dist <= LUNAR_ECLIPSE_NODE_LIMIT_DEG
+    else:
+        sun_lon = get_sun_ecliptic_longitude(time_obj)
+        node_dist = node_distance_deg(sun_lon, time_obj)
+        within_threshold = node_dist <= SOLAR_ECLIPSE_NODE_LIMIT_DEG
 
     _t = get_i18n(locale).get
 

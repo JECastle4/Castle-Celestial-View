@@ -7,7 +7,6 @@ Key Reference: research/verify_eclipse_approach.py (validated implementation)
 """
 
 import numpy as np
-from astropy.time import Time
 from astropy.coordinates import get_body, get_sun, EarthLocation, SkyCoord
 from astropy.coordinates import GeocentricMeanEcliptic
 import astropy.units as u
@@ -27,21 +26,42 @@ R_EARTH_KM = 6371.0                           # km
 # (parallax-free) reference frame.
 GEOCENTRIC = EarthLocation.from_geocentric(0 * u.km, 0 * u.km, 0 * u.km)
 
-# Ecliptic latitude thresholds (degrees)
-# CRITICAL PRE-FILTER: Eclipses can only occur when the Moon is close to the ecliptic
-# plane (where the Sun always resides). Moon's orbital inclination is 5.09°, so the
-# maximum ecliptic latitude at which an eclipse can occur is approximately 5.3°.
-#
-# This threshold is the first and most efficient check: ~95% of new/full moons have
-# latitude > 5.3° and are rejected immediately, avoiding expensive shadow geometry
-# calculations. Eclipses can only happen when this condition is met.
-#
-# Derived from: Moon orbital inclination (5.09°) + safety margin for perturbations
-LUNAR_ECLIPSE_LATITUDE_LIMIT = 5.3            # degrees from ecliptic plane
-SOLAR_ECLIPSE_LATITUDE_LIMIT = 5.3            # degrees from ecliptic plane
+# CRITICAL PRE-FILTER: "Ecliptic limits" (Meeus, Astronomical Algorithms, Ch. 54).
+# The Moon's ecliptic latitude never exceeds its ~5.145° orbital inclination, so a
+# fixed latitude threshold near that value (e.g. 5.3°) never actually rejects
+# anything - every syzygy passes. The real, well-established fast test is the
+# angular distance from a lunar node at syzygy: eclipses are only geometrically
+# possible within a fixed distance of a node (Sun's distance from node for solar,
+# Moon's distance from node for lunar), because that distance directly bounds how
+# close the Moon can get to the shadow axis. Beyond these limits an eclipse is
+# impossible and the expensive greatest-eclipse search/shadow geometry can be
+# skipped entirely.
+SOLAR_ECLIPSE_NODE_LIMIT_DEG = 18.5167   # 18°31' major limit - solar eclipse impossible beyond this
+LUNAR_ECLIPSE_NODE_LIMIT_DEG = 12.25     # 12°15' major limit - lunar eclipse impossible beyond this
+
+# Mean lunar ascending node longitude at J2000.0 and its (retrograde) regression
+# rate - low-order term of Meeus Ch. 47, full regression every ~18.6 years.
+# Precise enough to bracket eclipse seasons for this fast pre-filter.
+MEAN_NODE_LON_J2000_DEG = 125.04452
+MEAN_NODE_REGRESSION_DEG_PER_DAY = -0.0529538083
 
 # Golden ratio conjugate, used by the golden-section minimum-separation search below.
 _INV_PHI = (np.sqrt(5) - 1) / 2
+
+
+def get_moon_ecliptic_coords(time_obj):
+    """
+    Calculate moon's ecliptic (latitude, longitude) from a single position query.
+
+    Args:
+        time_obj: astropy Time object
+
+    Returns:
+        (latitude_deg, longitude_deg) tuple
+    """
+    moon = get_body('moon', time_obj, location=GEOCENTRIC)
+    moon_ecliptic = moon.transform_to(GeocentricMeanEcliptic(equinox=time_obj))
+    return moon_ecliptic.lat.degree, moon_ecliptic.lon.degree % 360
 
 
 def get_moon_ecliptic_latitude(time_obj):
@@ -54,9 +74,56 @@ def get_moon_ecliptic_latitude(time_obj):
     Returns:
         Moon's ecliptic latitude in degrees
     """
-    moon = get_body('moon', time_obj, location=GEOCENTRIC)
-    moon_ecliptic = moon.transform_to(GeocentricMeanEcliptic(equinox=time_obj))
-    return moon_ecliptic.lat.degree
+    lat, _ = get_moon_ecliptic_coords(time_obj)
+    return lat
+
+
+def get_sun_ecliptic_longitude(time_obj):
+    """
+    Calculate sun's ecliptic longitude at given time.
+
+    Args:
+        time_obj: astropy Time object
+
+    Returns:
+        Sun's ecliptic longitude in degrees (0-360)
+    """
+    sun = get_sun(time_obj)
+    sun_ecliptic = sun.transform_to(GeocentricMeanEcliptic(equinox=time_obj))
+    return sun_ecliptic.lon.degree % 360
+
+
+def get_mean_lunar_node_longitude(time_obj):
+    """
+    Mean ecliptic longitude of the Moon's ascending node at the given time.
+
+    Args:
+        time_obj: astropy Time object
+
+    Returns:
+        Mean ascending node longitude in degrees (0-360)
+    """
+    days_since_j2000 = time_obj.jd - 2451545.0
+    return (MEAN_NODE_LON_J2000_DEG + MEAN_NODE_REGRESSION_DEG_PER_DAY * days_since_j2000) % 360
+
+
+def node_distance_deg(ecliptic_longitude_deg, time_obj):
+    """
+    Angular distance from an ecliptic longitude to the nearest lunar node.
+
+    Ascending and descending nodes are 180° apart and equally valid crossing
+    points, so the result is folded into [0, 90].
+
+    Args:
+        ecliptic_longitude_deg: ecliptic longitude of the Sun or Moon, in degrees
+        time_obj: astropy Time object
+
+    Returns:
+        Distance to the nearest node, in degrees (0-90)
+    """
+    node_lon = get_mean_lunar_node_longitude(time_obj)
+    diff = abs((ecliptic_longitude_deg - node_lon + 180) % 360 - 180)
+    return diff if diff <= 90 else 180 - diff
 
 
 def get_moon_phase_angle(time_obj):
@@ -276,10 +343,7 @@ def calculate_moon_shadow_cone(time_obj):
 
     # Umbral radius at Earth distance (dark shadow)
     umbral_radius_km = R_MOON_KM - (R_SUN_KM * moon_dist) / sun_dist
-    if umbral_radius_km != 0:
-        umbral_radius_ang = np.degrees(np.arctan(abs(umbral_radius_km) / moon_dist))
-    else:
-        umbral_radius_ang = 0
+    umbral_radius_ang = np.degrees(np.arctan(abs(umbral_radius_km) / moon_dist))
 
     # Penumbral radius at Earth distance
     penumbral_radius_km = R_MOON_KM + (R_SUN_KM * moon_dist) / sun_dist
@@ -421,13 +485,14 @@ def classify_solar_eclipse_type(time_obj):
 
 def check_eclipse_at_time(time_obj, is_lunar=True):
     """
-    Complete eclipse analysis: detection (ecliptic latitude) + type
+    Complete eclipse analysis: detection (ecliptic-limits pre-filter) + type
     classification (shadow geometry).
 
-    Pre-filter: Checks if Moon's ecliptic latitude is within threshold. If not,
-    returns early without expensive shadow geometry calculations. This check is
-    geometrically sound because eclipses can only occur when the Moon is close to
-    the ecliptic plane (where the Sun resides).
+    Pre-filter: Checks whether the Sun (solar) or Moon (lunar) is within its
+    "ecliptic limit" distance of a lunar node. If not, an eclipse is geometrically
+    impossible and the function returns early without the expensive greatest-eclipse
+    search or shadow geometry calculations. See SOLAR_ECLIPSE_NODE_LIMIT_DEG /
+    LUNAR_ECLIPSE_NODE_LIMIT_DEG for the geometric rationale.
 
     Args:
         time_obj: astropy Time object
@@ -436,15 +501,15 @@ def check_eclipse_at_time(time_obj, is_lunar=True):
     Returns:
         dict with complete eclipse information
     """
-    moon_lat = get_moon_ecliptic_latitude(time_obj)
+    moon_lat, moon_lon = get_moon_ecliptic_coords(time_obj)
     is_full = is_full_moon(time_obj)
     is_new = is_new_moon(time_obj)
 
     if is_lunar:
-        latitude_limit = LUNAR_ECLIPSE_LATITUDE_LIMIT
         is_syzygy = is_full
-        # PRE-FILTER: Moon must be close to ecliptic plane AND at full moon
-        if abs(moon_lat) >= latitude_limit or not is_syzygy:
+        node_dist = node_distance_deg(moon_lon, time_obj)
+        # PRE-FILTER: Moon must be near a node AND at full moon
+        if node_dist > LUNAR_ECLIPSE_NODE_LIMIT_DEG or not is_syzygy:
             # Early return - eclipse impossible
             return {
                 'time': time_obj.iso,
@@ -477,10 +542,11 @@ def check_eclipse_at_time(time_obj, is_lunar=True):
         }
 
     # Solar eclipse
-    latitude_limit = SOLAR_ECLIPSE_LATITUDE_LIMIT
     is_syzygy = is_new
-    # PRE-FILTER: Moon must be close to ecliptic plane AND at new moon
-    if abs(moon_lat) >= latitude_limit or not is_syzygy:
+    sun_lon = get_sun_ecliptic_longitude(time_obj)
+    node_dist = node_distance_deg(sun_lon, time_obj)
+    # PRE-FILTER: Sun must be near a node AND at new moon
+    if node_dist > SOLAR_ECLIPSE_NODE_LIMIT_DEG or not is_syzygy:
         # Early return - eclipse impossible
         return {
             'time': time_obj.iso,
