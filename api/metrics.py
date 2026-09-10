@@ -120,6 +120,13 @@ class MetricsCollector:  # pylint: disable=too-many-instance-attributes
             labelnames=['endpoint', 'error_type', 'status'],
         )
 
+        # Timeout metrics (Phase 3.3 - graceful degradation)
+        self.timeout_exceeded_total = Counter(
+            'timeout_exceeded_total',
+            'Total requests that exceeded timeout due to load',
+            labelnames=['endpoint'],
+        )
+
     def record_request(
         self,
         endpoint: str,
@@ -184,6 +191,10 @@ class MetricsCollector:  # pylint: disable=too-many-instance-attributes
         self.errors_total.labels(
             endpoint=endpoint, error_type=error_type, status=status
         ).inc()
+
+    def record_timeout_exceeded(self, endpoint: str) -> None:
+        """Record request timeout due to load (Phase 3.3 graceful degradation)."""
+        self.timeout_exceeded_total.labels(endpoint=endpoint).inc()
 
     def get_metrics_text(self) -> bytes:
         """Return metrics in Prometheus text format."""

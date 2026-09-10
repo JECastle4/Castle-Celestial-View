@@ -1,6 +1,7 @@
 """
 Main FastAPI application for Astronomy API
 """
+import asyncio
 import logging
 import time
 import os
@@ -8,6 +9,7 @@ import os
 from astropy.utils import iers
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from api.cache import get_cache_stats
 from api.i18n import SUPPORTED_LOCALES, set_request_locale
@@ -15,6 +17,7 @@ from api.metrics import get_metrics
 from api.rate_limiter import limiter
 from api.routes import router
 from api.routes.metrics import router as metrics_router
+from api.timeout_logic import calculate_adaptive_timeout, record_request_completion
 
 # Only import RateLimitExceeded if we're using the real rate limiter
 # pylint: disable=invalid-name
@@ -250,7 +253,58 @@ async def metrics_middleware(request: Request, call_next):
     if status_code == 429:
         metrics.record_rate_limit_exceeded(endpoint)
 
+    # Record completion time for adaptive timeout calculation (Phase 3.3)
+    record_request_completion(endpoint, duration)
+
     return response
+
+
+@app.middleware("http")
+async def timeout_middleware(request: Request, call_next):
+    """Adaptive timeout middleware for graceful degradation under load (Phase 3.3).
+
+    Calculates timeout based on observed p95 request duration. Under load, timeouts
+    are reduced proportionally, allowing cheap requests to fail fast (DDoS protection)
+    while preserving expensive requests when possible.
+
+    Runs AFTER metrics middleware so request completion times are captured for the
+    percentile calculation.
+    """
+    endpoint = request.url.path.split("?")[0] or "/"
+
+    # Calculate adaptive timeout based on system performance
+    timeout_seconds = calculate_adaptive_timeout(endpoint)
+
+    try:
+        # Wrap the endpoint call with asyncio.wait_for timeout
+        response = await asyncio.wait_for(
+            call_next(request),
+            timeout=timeout_seconds
+        )
+        return response
+    except asyncio.TimeoutError:
+        # Request exceeded adaptive timeout - log and return 503
+        metrics = get_metrics()
+        metrics.record_timeout_exceeded(endpoint)
+
+        logger.warning(
+            "Request timeout on %s after %.2fs (load-based degradation)",
+            endpoint,
+            timeout_seconds
+        )
+
+        return JSONResponse(
+            status_code=503,  # Service Unavailable
+            content={
+                'error': 'Request timeout',
+                'message': (
+                    f'Request exceeded {timeout_seconds:.1f}s timeout due to '
+                    'system load'
+                ),
+                'timeout_seconds': timeout_seconds,
+                'endpoint': endpoint,
+            },
+        )
 
 
 # Include the routes
