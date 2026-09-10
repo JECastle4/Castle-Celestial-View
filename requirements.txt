@@ -24,3 +24,5 @@ click>=8.5.0
 msgpack>=1.2.2
 # Rate limiting for DDoS protection (Phase 3.1)
 slowapi>=0.1.9
+# Prometheus metrics for monitoring (Phase 3.2)
+prometheus-client>=0.20.0
