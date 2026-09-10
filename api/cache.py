@@ -12,6 +12,8 @@ import inspect
 from typing import Any, Callable, Optional, Hashable
 from collections import OrderedDict
 
+from api.i18n import get_i18n
+
 
 class TTLCache:
     """
@@ -138,13 +140,13 @@ def cache_response(ttl: int = 300):
 
     def decorator(func: Callable) -> Callable:
         is_async = inspect.iscoroutinefunction(func)
-        
+
         if is_async:
             @functools.wraps(func)
             async def async_wrapper(*args, **kwargs):
                 # Extract request object (should be first positional arg after 'self' if method)
                 request = args[0] if args else kwargs.get('request')
-                
+
                 if request is None:
                     # No cacheable request, proceed without caching
                     return await func(*args, **kwargs)
@@ -163,30 +165,30 @@ def cache_response(ttl: int = 300):
                 return result
 
             return async_wrapper
-        else:
-            @functools.wraps(func)
-            def sync_wrapper(*args, **kwargs):
-                # Extract request object (should be first positional arg after 'self' if method)
-                request = args[0] if args else kwargs.get('request')
-                
-                if request is None:
-                    # No cacheable request, proceed without caching
-                    return func(*args, **kwargs)
 
-                # Generate cache key from request
-                cache_key = _generate_cache_key(func.__name__, request)
+        @functools.wraps(func)
+        def sync_wrapper(*args, **kwargs):
+            # Extract request object (should be first positional arg after 'self' if method)
+            request = args[0] if args else kwargs.get('request')
 
-                # Try to get from cache
-                cached = _response_cache.get(cache_key)
-                if cached is not None:
-                    return cached
+            if request is None:
+                # No cacheable request, proceed without caching
+                return func(*args, **kwargs)
 
-                # Execute function and cache result
-                result = func(*args, **kwargs)
-                _response_cache.set(cache_key, result, ttl=ttl)
-                return result
+            # Generate cache key from request
+            cache_key = _generate_cache_key(func.__name__, request)
 
-            return sync_wrapper
+            # Try to get from cache
+            cached = _response_cache.get(cache_key)
+            if cached is not None:
+                return cached
+
+            # Execute function and cache result
+            result = func(*args, **kwargs)
+            _response_cache.set(cache_key, result, ttl=ttl)
+            return result
+
+        return sync_wrapper
 
     return decorator
 
@@ -196,15 +198,15 @@ def cache_response(ttl: int = 300):
 def _generate_cache_key(func_name: str, request: Any) -> tuple:
     """
     Generate a hashable cache key from function name, request object, and locale.
-    
+
     Converts request to a serializable representation. For Pydantic models,
     uses dict() representation. Falls back to str() for other types.
     Includes current locale in cache key to prevent cross-locale response mixing.
-    
+
     Args:
         func_name: Name of the endpoint function
         request: Request object (typically Pydantic model)
-        
+
     Returns:
         Hashable tuple suitable as cache key
     """
@@ -216,13 +218,13 @@ def _generate_cache_key(func_name: str, request: Any) -> tuple:
             request_dict = request.dict()
         else:
             request_dict = vars(request) if hasattr(request, '__dict__') else {}
-    except Exception:
+    except Exception:  # pylint: disable=broad-exception-caught
         request_dict = {}
 
     # Include current locale in cache key to ensure locale-specific responses are cached separately
     try:
         locale = get_i18n().locale
-    except Exception:
+    except Exception:  # pylint: disable=broad-exception-caught
         locale = 'en'  # Default to 'en' if locale context not available
 
     # Convert dict to sorted tuple of items for hashability

@@ -397,3 +397,49 @@ def stream_astronomical_events(
         'total_events': total,
         'total_pages': total_pages,
     }
+
+
+def get_contact_times_for_event(event_date_iso, is_lunar, _locale=None):
+    """
+    Fetch eclipse contact times for a specific event. This is the on-demand
+    lazy-loading endpoint: used when a user expands an eclipse card to see
+    detailed contact times without computing them upfront for all events.
+
+    Args:
+        event_date_iso: ISO datetime string (YYYY-MM-DD HH:MM:SS.sss)
+        is_lunar: True for lunar/full-moon eclipse, False for solar/new-moon
+        locale: BCP 47 locale tag for translating any error messages
+
+    Returns:
+        dict: contact_times dict with eclipse contact times, or empty dict if
+        event_date_iso doesn't represent a valid eclipse or calculation fails.
+        Format: Lunar: {p1, u1, u2, u3, u4, p4} or Solar: {eclipse_begins,
+        central_phase_begins, central_phase_ends, eclipse_ends}
+
+    Raises:
+        ValueError: if event_date_iso is invalid or calculation fails
+    """
+    try:
+        # Parse the ISO datetime
+        time_obj = Time(event_date_iso, scale='utc', format='iso')
+    except Exception as e:
+        raise ValueError(f"Invalid event_date '{event_date_iso}': {str(e)}") from e
+
+    try:
+        # Find the greatest eclipse time (refined instant)
+        greatest_time = find_greatest_eclipse_time(time_obj, is_lunar=is_lunar)
+
+        # Compute contact times based on eclipse type
+        if is_lunar:
+            contact_times = calculate_lunar_contact_times(greatest_time)
+        else:
+            contact_times = calculate_solar_contact_times(greatest_time)
+
+        return contact_times if contact_times else {}
+    except Exception as e:
+        # Log and return empty dict rather than propagating exception
+        # (server error will still be reported, but with safe fallback)
+        raise ValueError(
+            f"Error calculating contact times for {'lunar' if is_lunar else 'solar'} "
+            f"eclipse at {event_date_iso}: {str(e)}"
+        ) from e

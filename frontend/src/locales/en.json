@@ -202,5 +202,9 @@
       "framesPerDay": "frames/day",
       "totalFrames": "total frames"
     }
+  },
+  "events": {
+    "loadingContactTimes": "Loading contact times...",
+    "allTimesLocal": "All times shown in local time"
   }
 }

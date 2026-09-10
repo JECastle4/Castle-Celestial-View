@@ -67,9 +67,21 @@
             :date="ev.date"
             :eventType="ev.event_type"
             :eclipseOccurs="ev.eclipse_occurs"
+            :event="ev"
+            @load-contact-times="loadContactTimesForEvent"
           >
-            <LunarEclipseDetails v-if="ev.is_lunar" :event="ev" />
-            <SolarEclipseDetails v-else :event="ev" />
+            <LunarEclipseDetails 
+              v-if="ev.is_lunar" 
+              :event="ev"
+              :loading="loadingEventDate === ev.date"
+              :error="contactTimesErrors[ev.date] || null"
+            />
+            <SolarEclipseDetails 
+              v-else 
+              :event="ev"
+              :loading="loadingEventDate === ev.date"
+              :error="contactTimesErrors[ev.date] || null"
+            />
           </EventListItem>
         </ul>
         <p v-else-if="hasSearched" class="empty-state">{{ t('events.noResults') }}</p>
@@ -114,9 +126,11 @@ const DateRangePicker = defineAsyncComponent(() => import('@/components/DateRang
 
 const { t, locale } = useI18n();
 const router = useRouter();
-const { events, pagination, loading, error, hasSearched, fetchEventsSSE, cancelSSE, goToPage, sseEventCount } = useAstronomicalEvents();
+const { events, pagination, loading, error, hasSearched, fetchEventsSSE, cancelSSE, goToPage, sseEventCount, fetchContactTimesForEvent } = useAstronomicalEvents();
 
 const PAGE_SIZE = 10;
+const loadingEventDate = ref<string | null>(null);
+const contactTimesErrors = ref<Record<string, string>>({});
 
 const today = new Date();
 const oneYearFromToday = new Date(today);
@@ -156,6 +170,27 @@ function search() {
   }).catch(() => {
     // Composable updates error state; rejection handled here to prevent unhandled rejection.
   });
+}
+
+async function loadContactTimesForEvent(event: any) {
+  // Only fetch if it's an eclipse and we don't already have contact times
+  if (!event.eclipse_occurs || event.contact_times) {
+    return;
+  }
+
+  const dateStr = event.date;
+  
+  try {
+    loadingEventDate.value = dateStr;
+    delete contactTimesErrors.value[dateStr];
+    
+    await fetchContactTimesForEvent(dateStr, event.is_lunar);
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : 'Failed to load contact times';
+    contactTimesErrors.value[dateStr] = errorMsg;
+  } finally {
+    loadingEventDate.value = null;
+  }
 }
 </script>
 

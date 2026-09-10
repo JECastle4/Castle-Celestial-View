@@ -816,7 +816,7 @@ class TestVenusPositionErrorHandling:
         """Test ValueError exception handling in Venus endpoint."""
         from unittest.mock import patch
         
-        with patch("api.routes.calculate_venus_position") as mock_calc:
+        with patch("api.routes.bodies.calculate_venus_position") as mock_calc:
             mock_calc.side_effect = ValueError("Test calculation error")
             
             response = client.post(
@@ -836,7 +836,7 @@ class TestVenusPositionErrorHandling:
         """Test unexpected exception handling in Venus endpoint."""
         from unittest.mock import patch
         
-        with patch("api.routes.calculate_venus_position") as mock_calc:
+        with patch("api.routes.bodies.calculate_venus_position") as mock_calc:
             mock_calc.side_effect = RuntimeError("Unexpected error")
             
             response = client.post(

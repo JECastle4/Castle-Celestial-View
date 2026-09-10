@@ -216,6 +216,7 @@
 		"eventsReceived": "({count} received so far)",
 		"noResults": "No events found in the selected date range.",
 		"allTimesLocal": "All times are in your local time zone",
+		"loadingContactTimes": "Loading contact times...",
 		"pageOf": "Page {page} of {total}",
 		"searchParameters": "Search Parameters",
 		"resultsFound": "Results Found",

@@ -137,6 +137,36 @@ export function useAstronomicalEvents(api: AstronomyApi = astronomyApi) {
     pagination.value = { ...pagination.value, page };
   }
 
+  /**
+   * Fetch contact times for a specific eclipse event.
+   * Updates the event in-place with the fetched contact_times.
+   */
+  async function fetchContactTimesForEvent(eventDate: string, isLunar: boolean) {
+    try {
+      const response = await api.getContactTimesForEvent(eventDate, isLunar);
+      
+      // Find and update the event in the current events list
+      const event = events.value.find((ev) => ev.date === eventDate);
+      if (event) {
+        event.contact_times = response.contact_times || null;
+      }
+      
+      // Also update in allSseEvents if available
+      const sseEvent = allSseEvents.find((ev) => ev.date === eventDate);
+      if (sseEvent) {
+        sseEvent.contact_times = response.contact_times || null;
+      }
+    } catch (err) {
+      if (err instanceof ApiError) {
+        throw err;
+      } else if (err instanceof Error) {
+        throw err;
+      } else {
+        throw new Error(t('errors.unknown'));
+      }
+    }
+  }
+
   return {
     events,
     pagination,
@@ -147,6 +177,7 @@ export function useAstronomicalEvents(api: AstronomyApi = astronomyApi) {
     fetchEventsSSE,
     cancelSSE,
     goToPage,
+    fetchContactTimesForEvent,
     sseEventCount,
   };
 }

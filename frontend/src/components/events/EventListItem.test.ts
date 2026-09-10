@@ -2,6 +2,36 @@ import { describe, it, expect } from 'vitest';
 import { mount } from '@vue/test-utils';
 import EventListItem from './EventListItem.vue';
 
+const mockEvent = {
+  event_type: 'Full Moon',
+  is_lunar: true,
+  date: '2025-09-07 18:11:42.600',
+  julian_date: 2460925.257,
+  moon_ecl_lat_deg: -0.1,
+  eclipse_occurs: true,
+  eclipse_type: 'Total',
+  greatest_eclipse_time: '2025-09-07 18:11:42.600',
+  umbral_magnitude: 1.36,
+  penumbral_magnitude: 2.4,
+  size_ratio: null,
+  contact_times: null,
+};
+
+const mockNonEclipseEvent = {
+  event_type: 'New Moon',
+  is_lunar: false,
+  date: '2025-09-21 19:54:00.000',
+  julian_date: 2460939.33,
+  moon_ecl_lat_deg: 0.2,
+  eclipse_occurs: false,
+  eclipse_type: 'No Eclipse',
+  greatest_eclipse_time: null,
+  umbral_magnitude: null,
+  penumbral_magnitude: null,
+  size_ratio: null,
+  contact_times: null,
+};
+
 describe('EventListItem', () => {
   it('renders a static (non-expandable) row when no eclipse occurs', () => {
     const wrapper = mount(EventListItem, {
@@ -9,6 +39,7 @@ describe('EventListItem', () => {
         date: '2025-09-21 19:54:00.000',
         eventType: 'New Moon',
         eclipseOccurs: false,
+        event: mockNonEclipseEvent,
       },
     });
 
@@ -27,6 +58,7 @@ describe('EventListItem', () => {
         date: '2025-09-07 18:11:42.600',
         eventType: 'Full Moon',
         eclipseOccurs: true,
+        event: mockEvent,
       },
     });
 
@@ -41,6 +73,7 @@ describe('EventListItem', () => {
         date: '2025-09-07 18:11:42.600',
         eventType: 'Full Moon',
         eclipseOccurs: true,
+        event: mockEvent,
       },
       slots: {
         default: '<div class="slot-content">Details</div>',

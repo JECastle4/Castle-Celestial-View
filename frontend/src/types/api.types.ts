@@ -123,6 +123,15 @@ export interface AstronomicalEventsResponse {
   pagination: PaginationInfo;
 }
 
+export interface EclipseContactTimesRequest {
+  event_date: string;
+  is_lunar: boolean;
+}
+
+export interface EclipseContactTimesResponse {
+  contact_times: Record<string, string> | null;
+}
+
 // Configuration
 export interface ApiConfig {
   baseUrl: string;

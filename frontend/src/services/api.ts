@@ -67,6 +67,21 @@ export class AstronomyApiClient {
     return this.postJson<AstronomicalEventsResponse>(url, params);
   }
 
+  /**
+   * Fetch contact times for a specific eclipse (lazy-loaded on demand)
+   */
+  async getContactTimesForEvent(
+    eventDate: string,
+    isLunar: boolean
+  ): Promise<{ contact_times: Record<string, string> | null }> {
+    const url = `${this.baseUrl}${API_ENDPOINTS.contactTimes}?lang=${getCurrentLocale()}`;
+    const body = {
+      event_date: eventDate,
+      is_lunar: isLunar,
+    };
+    return this.postJson<{ contact_times: Record<string, string> | null }>(url, body);
+  }
+
   private async postJson<T>(url: string, body: unknown): Promise<T> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
@@ -116,6 +131,7 @@ export class AstronomyApiClient {
 export interface AstronomyApi {
   getBatchEarthObservations(params: BatchObservationsParams): Promise<BatchEarthObservationsResponse>;
   getAstronomicalEvents(params: AstronomicalEventsParams): Promise<AstronomicalEventsResponse>;
+  getContactTimesForEvent(eventDate: string, isLunar: boolean): Promise<{ contact_times: Record<string, string> | null }>;
 }
 
 // Export singleton instance

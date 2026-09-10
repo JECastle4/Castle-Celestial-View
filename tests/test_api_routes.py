@@ -1090,7 +1090,7 @@ class TestExceptionHandling:
         """Test ValueError handling in day-of-week endpoint"""
         from unittest.mock import patch
         
-        with patch("api.routes.calculate_day_of_week") as mock_calc:
+        with patch("api.routes.bodies.calculate_day_of_week") as mock_calc:
             mock_calc.side_effect = ValueError("Test calculation error")
             
             response = client.post(
@@ -1099,13 +1099,13 @@ class TestExceptionHandling:
             )
             
             assert response.status_code == 400
-            assert "Invalid date/time format" in response.json()["detail"]
+            assert "Invalid input" in response.json()["detail"]
     
     def test_sun_position_value_error(self):
         """Test ValueError handling in sun-position endpoint"""
         from unittest.mock import patch
         
-        with patch("api.routes.calculate_sun_position") as mock_calc:
+        with patch("api.routes.bodies.calculate_sun_position") as mock_calc:
             mock_calc.side_effect = ValueError("Test calculation error")
             
             response = client.post(
@@ -1125,7 +1125,7 @@ class TestExceptionHandling:
         """Test ValueError handling in moon-position endpoint"""
         from unittest.mock import patch
         
-        with patch("api.routes.calculate_moon_position") as mock_calc:
+        with patch("api.routes.bodies.calculate_moon_position") as mock_calc:
             mock_calc.side_effect = ValueError("Test calculation error")
             
             response = client.post(
@@ -1145,7 +1145,7 @@ class TestExceptionHandling:
         """Test ValueError handling in moon-phase endpoint"""
         from unittest.mock import patch
         
-        with patch("api.routes.calculate_moon_phase") as mock_calc:
+        with patch("api.routes.bodies.calculate_moon_phase") as mock_calc:
             mock_calc.side_effect = ValueError("Test calculation error")
             
             response = client.post(
@@ -1165,7 +1165,7 @@ class TestExceptionHandling:
         """Test ValueError handling in batch-earth-observations endpoint"""
         from unittest.mock import patch
         
-        with patch("api.routes.calculate_batch_earth_observations") as mock_calc:
+        with patch("api.routes.batch.calculate_batch_earth_observations") as mock_calc:
             mock_calc.side_effect = ValueError("Test calculation error")
             
             response = client.post(
