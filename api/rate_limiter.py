@@ -5,6 +5,40 @@ Implements tiered, endpoint-specific rate limiting based on computational cost.
 Uses slowapi for per-IP request throttling with graceful 429 responses.
 
 In test mode (pytest), rate limiting is bypassed to avoid test flakiness.
+
+Configuration (Environment Variables):
+    RATE_LIMIT_ENABLED: Enable/disable rate limiting (default: "true")
+        Set to "false" to disable all rate limiting without code changes.
+        Example: export RATE_LIMIT_ENABLED=false
+    
+    RATE_LIMIT_DEFAULT: Global per-IP limit across all endpoints (default: "200/minute")
+        Format: "N/minute" where N is requests per minute.
+        Example: export RATE_LIMIT_DEFAULT=300/minute
+    
+    LIMIT_EXPENSIVE_BATCH: batch-earth-observations endpoint (default: "20/minute")
+        Expensive operation: ~40s avg CPU per request.
+        Example: export LIMIT_EXPENSIVE_BATCH=30/minute
+    
+    LIMIT_EXPENSIVE_EVENTS: astronomical-events endpoint (default: "15/minute")
+        Expensive operation: ~30s avg CPU per request.
+        Example: export LIMIT_EXPENSIVE_EVENTS=20/minute
+    
+    LIMIT_STREAM_EVENTS: astronomical-events-stream SSE endpoint (default: "10/minute")
+        Limits concurrent streaming connections per IP.
+        Example: export LIMIT_STREAM_EVENTS=15/minute
+    
+    LIMIT_CONTACT_TIMES: contact-times endpoint (default: "30/minute")
+        Lazy-loaded operation: cheaper than search.
+        Example: export LIMIT_CONTACT_TIMES=50/minute
+    
+    LIMIT_CHEAP: position/phase endpoints (default: "100/minute")
+        Fast operations: <500ms per request.
+        Example: export LIMIT_CHEAP=150/minute
+
+Typical Deployment Scenarios:
+    - Reduce limits during high-load events: adjust env vars, restart container
+    - Disable rate limiting for internal testing: RATE_LIMIT_ENABLED=false
+    - Increase limits for enterprise deployments: adjust endpoint-specific vars
 """
 
 import logging
@@ -55,33 +89,82 @@ class MockLimiter:
         return self.limit(*args, **kwargs)
 
 
+# Configuration: Read rate limiting settings from environment variables
+# Allows operational teams to tune throttling without code changes or redeployment
+
+# Enable/disable rate limiting via RATE_LIMIT_ENABLED env var (default: true)
+RATE_LIMIT_ENABLED = os.getenv("RATE_LIMIT_ENABLED", "true").lower() in ("true", "1", "yes")
+
+# Default global limit (per IP, all endpoints combined) via RATE_LIMIT_DEFAULT env var
+_DEFAULT_LIMIT = os.getenv("RATE_LIMIT_DEFAULT", "200/minute")
+
+# Endpoint-specific limits via environment variables (allow ops to adjust without code changes)
+# Format: "N/minute" where N is requests per minute
+LIMIT_EXPENSIVE_BATCH = os.getenv(
+    "LIMIT_EXPENSIVE_BATCH",
+    "20/minute"  # batch-earth-observations: 40s avg × 20 = 800s CPU
+)
+LIMIT_EXPENSIVE_EVENTS = os.getenv(
+    "LIMIT_EXPENSIVE_EVENTS",
+    "15/minute"  # astronomical-events: 30s avg × 15 = 450s CPU
+)
+LIMIT_STREAM_EVENTS = os.getenv(
+    "LIMIT_STREAM_EVENTS",
+    "10/minute"  # astronomical-events-stream: limits concurrent SSE
+)
+LIMIT_CONTACT_TIMES = os.getenv(
+    "LIMIT_CONTACT_TIMES",
+    "30/minute"  # contact-times: lazy-loaded, cheaper than search
+)
+LIMIT_CHEAP = os.getenv(
+    "LIMIT_CHEAP",
+    "100/minute"  # position/phase: <500ms each
+)
+
+def should_bypass_rate_limit(request: Request) -> bool:
+    """Check if request should bypass rate limiting (internal IPs).
+    
+    Returns True if the request comes from an internal IP (localhost),
+    allowing monitoring/benchmark traffic to bypass rate limiting.
+    """
+    client_host = request.client.host if request.client else None
+    return client_host in INTERNAL_IPS
+
+
+def _rate_limit_key_func(request: Request) -> str | None:
+    """
+    Custom key function for rate limiting that respects INTERNAL_IPS.
+    
+    Returns:
+        None for internal IPs (skips rate limiting for monitoring/benchmarks)
+        IP address string for all other requests (applies rate limiting)
+    
+    Usage: passed to Limiter(key_func=_rate_limit_key_func)
+    
+    When this function returns None, slowapi skips rate limiting for that request.
+    This allows localhost/internal monitoring traffic to bypass the limiter.
+    """
+    if should_bypass_rate_limit(request):
+        return None  # Skip rate limiting for internal IPs
+    return get_remote_address(request)  # Apply rate limiting for all other IPs
+
+
 # Create appropriate limiter based on environment
 if is_test_mode():
     # Use mock limiter in test mode to avoid rate limit conflicts in tests
     limiter = MockLimiter()  # type: ignore
-else:
-    # Use real limiter in production/development
+elif RATE_LIMIT_ENABLED:
+    # Use real limiter in production/development (if not disabled)
     limiter = Limiter(
-        key_func=get_remote_address,
-        default_limits=["200/minute"],  # Global per-IP limit (all endpoints combined)
+        key_func=_rate_limit_key_func,  # Extract client IP (None for internal)
+        default_limits=[_DEFAULT_LIMIT],  # Global per-IP limit
         storage_uri="memory://",  # Single instance in-memory storage
         strategy="fixed-window",  # Fixed window strategy (simpler, faster)
     )
-
-# Rate limit constants - Tier 2: Expensive endpoints (high computational cost)
-LIMIT_EXPENSIVE_BATCH = "20/minute"  # batch-earth-observations: 40s avg × 20 = 800s CPU
-LIMIT_EXPENSIVE_EVENTS = "15/minute"  # astronomical-events: 30s avg × 15 = 450s CPU
-LIMIT_STREAM_EVENTS = "10/minute"  # astronomical-events-stream: limits concurrent SSE
-LIMIT_CONTACT_TIMES = "30/minute"  # contact-times: lazy-loaded, cheaper than search
-
-# Rate limit constants - Tier 3: Cheap endpoints (low computational cost)
-LIMIT_CHEAP = "100/minute"  # position/phase: <500ms each
-
-
-def should_bypass_rate_limit(request: Request) -> bool:
-    """Check if request should bypass rate limiting (internal IPs)."""
-    client_host = request.client.host if request.client else None
-    return client_host in INTERNAL_IPS
+else:
+    # Rate limiting disabled via RATE_LIMIT_ENABLED=false
+    limiter = MockLimiter()  # type: ignore
+    logger.info("Rate limiting is disabled (RATE_LIMIT_ENABLED=false)")
 
 
 async def rate_limit_exception_handler(request: Request, _: RateLimitExceeded) -> JSONResponse:

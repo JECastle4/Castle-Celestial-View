@@ -4,7 +4,7 @@ API routes for eclipse and astronomical event predictions.
 import json
 from typing import Optional
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Body, Query, Request
 from fastapi.responses import StreamingResponse
 
 from api.cache import cache_response
@@ -59,17 +59,18 @@ router = APIRouter(tags=["astronomical-events"])
 @cache_response(ttl=600)
 @handle_route_errors("calculating astronomical events")
 def get_astronomical_events_route(
-    request: AstronomicalEventsRequest,
+    _request: Request,  # For SlowAPI rate limiting
+    events_request: AstronomicalEventsRequest = Body(...),  # For caching and validation
     lang: Optional[str] = Query(None)
-):
+) -> AstronomicalEventsResponse:
     """Find new/full moons and classify eclipses within a date range."""
     result = get_astronomical_events(
-        start_date_str=request.start_date,
-        end_date_str=request.end_date,
-        page=request.page,
-        page_size=request.page_size,
-        include_contact_times=request.include_contact_times,
-        event_types=request.event_types,
+        start_date_str=events_request.start_date,
+        end_date_str=events_request.end_date,
+        page=events_request.page,
+        page_size=events_request.page_size,
+        include_contact_times=events_request.include_contact_times,
+        event_types=events_request.event_types,
         locale=lang,
     )
     return AstronomicalEventsResponse(**result)
@@ -168,12 +169,13 @@ def stream_astronomical_events_route(
 @cache_response(ttl=600)
 @handle_route_errors("calculating contact times")
 def get_contact_times_route(
-    request: EclipseContactTimesRequest,
+    _request: Request,  # For SlowAPI rate limiting
+    contact_times_request: EclipseContactTimesRequest = Body(...),  # For caching and validation
     _lang: Optional[str] = Query(None)
-):
+) -> EclipseContactTimesResponse:
     """Fetch eclipse contact times for a specific event."""
     contact_times = get_contact_times_for_event(
-        event_date_iso=request.event_date,
-        is_lunar=request.is_lunar,
+        event_date_iso=contact_times_request.event_date,
+        is_lunar=contact_times_request.is_lunar,
     )
     return EclipseContactTimesResponse(contact_times=contact_times)

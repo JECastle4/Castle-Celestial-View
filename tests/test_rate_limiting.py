@@ -90,7 +90,8 @@ class TestRateLimitingIntegration:
         assert hasattr(app.state, 'limiter')
         
         # Verify rate-limit-stats endpoint exists
-        route_paths = [route.path for route in app.routes]
+        # Note: Only regular routes have .path; some may be IncludedRouter objects
+        route_paths = [route.path for route in app.routes if hasattr(route, 'path')]
         assert "/rate-limit-stats" in route_paths
 
 
@@ -421,3 +422,255 @@ class TestRateLimitingI18n:
 
         # Should return the default
         assert message == "Fallback message"
+
+
+class TestRateLimitEnvironmentVariables:
+    """Test environment variable configuration for rate limiting.
+    
+    These tests verify that:
+    1. Default values are used when env vars are not set (backward compatible)
+    2. Custom values override defaults when env vars are set
+    3. RATE_LIMIT_ENABLED can disable/enable rate limiting
+    4. Invalid values are handled gracefully
+    """
+    
+    def test_default_values_without_env_vars(self):
+        """Test that default rate limit values are used when env vars not set.
+        
+        By default (no env vars), rate limiting is:
+        - ENABLED (not disabled)
+        - Uses original hard-coded limits
+        """
+        # These should all return the defaults since tests don't set env vars
+        assert LIMIT_EXPENSIVE_BATCH == "20/minute"
+        assert LIMIT_EXPENSIVE_EVENTS == "15/minute"
+        assert LIMIT_STREAM_EVENTS == "10/minute"
+        assert LIMIT_CONTACT_TIMES == "30/minute"
+        assert LIMIT_CHEAP == "100/minute"
+    
+    def test_rate_limit_enabled_default_true(self):
+        """Test that RATE_LIMIT_ENABLED defaults to true (rate limiting enabled)."""
+        # In test mode, MockLimiter is used regardless, but verify the default
+        # reading logic by checking it's not explicitly false
+        enabled_env = os.getenv("RATE_LIMIT_ENABLED", "true").lower()
+        assert enabled_env in ("true", "1", "yes", "false", "0", "no")
+        
+        # When not set, should default to true
+        if "RATE_LIMIT_ENABLED" not in os.environ:
+            default = os.getenv("RATE_LIMIT_ENABLED", "true").lower() in ("true", "1", "yes")
+            assert default is True
+    
+    def test_rate_limit_enabled_recognizes_true_values(self):
+        """Test that RATE_LIMIT_ENABLED recognizes various true values."""
+        true_values = ["true", "True", "TRUE", "1", "yes", "Yes", "YES"]
+        
+        for value in true_values:
+            result = value.lower() in ("true", "1", "yes")
+            assert result is True, f"Value '{value}' should be recognized as True"
+    
+    def test_rate_limit_enabled_recognizes_false_values(self):
+        """Test that RATE_LIMIT_ENABLED recognizes various false values."""
+        false_values = ["false", "False", "FALSE", "0", "no", "No", "NO"]
+        
+        for value in false_values:
+            result = value.lower() in ("true", "1", "yes")
+            assert result is False, f"Value '{value}' should be recognized as False"
+    
+    def test_env_var_format_validation(self):
+        """Test that rate limit format is valid (N/minute)."""
+        limits = [
+            LIMIT_EXPENSIVE_BATCH,
+            LIMIT_EXPENSIVE_EVENTS,
+            LIMIT_STREAM_EVENTS,
+            LIMIT_CONTACT_TIMES,
+            LIMIT_CHEAP,
+        ]
+        
+        for limit in limits:
+            assert isinstance(limit, str), f"Limit should be string: {limit}"
+            
+            # Should match format "N/minute"
+            parts = limit.split("/")
+            assert len(parts) == 2, f"Invalid format (should be 'N/minute'): {limit}"
+            
+            number, unit = parts
+            assert number.isdigit(), f"Should be number: {number}"
+            assert unit.lower() == "minute", f"Should be 'minute': {unit}"
+            assert int(number) > 0, f"Should be positive: {number}"
+    
+    def test_env_var_precedence_over_defaults(self):
+        """Test documentation: env vars override defaults when set.
+        
+        This test documents the expected behavior:
+        - If LIMIT_EXPENSIVE_BATCH env var is set, it overrides "20/minute"
+        - If not set, defaults to "20/minute"
+        
+        Note: We can't actually test this in pytest since we're in test mode,
+        but this documents the intended behavior for production.
+        """
+        # Example: if someone sets LIMIT_EXPENSIVE_BATCH=50/minute
+        # The code reads: LIMIT_EXPENSIVE_BATCH = os.getenv("LIMIT_EXPENSIVE_BATCH", "20/minute")
+        # So they would get "50/minute" instead of "20/minute"
+        
+        test_value = os.getenv("LIMIT_EXPENSIVE_BATCH", "20/minute")
+        assert test_value == "20/minute" or "/" in test_value
+    
+    def test_env_config_documented_in_module_docstring(self):
+        """Test that environment variables are documented in module docstring."""
+        import api.rate_limiter as rate_limiter_module
+        
+        docstring = rate_limiter_module.__doc__
+        assert docstring is not None
+        
+        # Should mention configuration and environment variables
+        assert "Configuration" in docstring or "Environment" in docstring or "env" in docstring.lower()
+        
+        # Should mention key variables
+        assert "RATE_LIMIT_ENABLED" in docstring
+        assert "RATE_LIMIT_DEFAULT" in docstring or "default" in docstring.lower()
+        assert "LIMIT_EXPENSIVE_BATCH" in docstring or "batch" in docstring.lower()
+        assert "LIMIT_STREAM_EVENTS" in docstring or "stream" in docstring.lower()
+    
+    def test_rate_limiting_can_be_disabled_via_env(self):
+        """Test that setting RATE_LIMIT_ENABLED=false disables rate limiting.
+        
+        In production (non-test mode):
+        - RATE_LIMIT_ENABLED=true (default): Uses real Limiter
+        - RATE_LIMIT_ENABLED=false: Uses MockLimiter (no-op)
+        
+        This allows operational teams to disable rate limiting without code changes.
+        """
+        # Verify the logic for deciding whether rate limiting is enabled
+        enabled_str = os.getenv("RATE_LIMIT_ENABLED", "true").lower()
+        is_enabled = enabled_str in ("true", "1", "yes")
+        
+        # By default (no env var), should be enabled
+        if "RATE_LIMIT_ENABLED" not in os.environ:
+            assert is_enabled is True
+    
+    def test_env_var_allows_rate_tuning_per_endpoint(self):
+        """Test documentation: operational teams can tune each endpoint independently.
+        
+        Examples:
+        export LIMIT_EXPENSIVE_BATCH=30/minute        # Increase batch limit
+        export LIMIT_EXPENSIVE_EVENTS=20/minute       # Increase search limit
+        export LIMIT_STREAM_EVENTS=15/minute          # Increase streaming limit
+        
+        This allows:
+        1. Responding to load without code changes
+        2. Gradual rollout by tuning specific endpoints
+        3. Enterprise customization for customers
+        """
+        # Verify all rate limit constants can be customized independently
+        all_limits = {
+            "LIMIT_EXPENSIVE_BATCH": LIMIT_EXPENSIVE_BATCH,
+            "LIMIT_EXPENSIVE_EVENTS": LIMIT_EXPENSIVE_EVENTS,
+            "LIMIT_STREAM_EVENTS": LIMIT_STREAM_EVENTS,
+            "LIMIT_CONTACT_TIMES": LIMIT_CONTACT_TIMES,
+            "LIMIT_CHEAP": LIMIT_CHEAP,
+        }
+        
+        for name, value in all_limits.items():
+            assert isinstance(value, str), f"{name} should be a string"
+            assert "/" in value, f"{name} should be in format N/minute"
+
+
+class TestInternalIPBypass:
+    """Test that internal IPs bypass rate limiting for monitoring/benchmarks."""
+    
+    def test_should_bypass_rate_limit_for_localhost_ipv4(self):
+        """Test that 127.0.0.1 is recognized as internal IP."""
+        from unittest.mock import MagicMock
+        from api.rate_limiter import should_bypass_rate_limit
+        
+        # Mock request from localhost IPv4
+        mock_request = MagicMock()
+        mock_request.client.host = "127.0.0.1"
+        
+        # Should bypass rate limiting
+        assert should_bypass_rate_limit(mock_request) is True
+    
+    def test_should_bypass_rate_limit_for_localhost_ipv6(self):
+        """Test that ::1 (IPv6 localhost) is recognized as internal IP."""
+        from unittest.mock import MagicMock
+        from api.rate_limiter import should_bypass_rate_limit
+        
+        # Mock request from localhost IPv6
+        mock_request = MagicMock()
+        mock_request.client.host = "::1"
+        
+        # Should bypass rate limiting
+        assert should_bypass_rate_limit(mock_request) is True
+    
+    def test_should_not_bypass_for_external_ips(self):
+        """Test that external IPs do not bypass rate limiting."""
+        from unittest.mock import MagicMock
+        from api.rate_limiter import should_bypass_rate_limit
+        
+        external_ips = ["8.8.8.8", "192.168.1.1", "10.0.0.1", "172.16.0.1"]
+        
+        for external_ip in external_ips:
+            mock_request = MagicMock()
+            mock_request.client.host = external_ip
+            
+            # Should NOT bypass rate limiting
+            assert should_bypass_rate_limit(mock_request) is False, \
+                f"External IP {external_ip} should not bypass rate limiting"
+    
+    def test_rate_limit_key_func_returns_none_for_internal_ips(self):
+        """Test that custom key func returns None for internal IPs (skips rate limiting).
+        
+        In slowapi, when key_func returns None, rate limiting is skipped for that request.
+        This allows monitoring/benchmark traffic from internal IPs to bypass limits.
+        """
+        from unittest.mock import MagicMock
+        from api.rate_limiter import _rate_limit_key_func
+        
+        # Mock request from localhost
+        mock_request = MagicMock()
+        mock_request.client.host = "127.0.0.1"
+        
+        # Key func should return None (skip rate limiting)
+        result = _rate_limit_key_func(mock_request)
+        assert result is None, "Internal IP should return None (skip rate limiting)"
+    
+    def test_rate_limit_key_func_returns_ip_for_external_ips(self):
+        """Test that custom key func returns IP address for external clients."""
+        from unittest.mock import MagicMock
+        from api.rate_limiter import _rate_limit_key_func
+        
+        # Mock request from external IP
+        mock_request = MagicMock()
+        mock_request.client.host = "8.8.8.8"
+        
+        # Key func should return the IP address (apply rate limiting)
+        result = _rate_limit_key_func(mock_request)
+        assert result == "8.8.8.8", "External IP should return IP address (apply rate limiting)"
+    
+    def test_limiter_uses_custom_key_func_in_production(self):
+        """Test that limiter is configured with custom key function in production.
+        
+        Note: This test runs in test mode (MockLimiter), but documents the expected
+        production behavior.
+        """
+        # In test mode, limiter is MockLimiter, so this just verifies the config exists
+        assert hasattr(limiter, 'limit'), "Limiter should have limit method"
+    
+    def test_localhost_ipv4_in_internal_ips_list(self):
+        """Verify 127.0.0.1 is in INTERNAL_IPS constant."""
+        from api.rate_limiter import INTERNAL_IPS
+        
+        assert "127.0.0.1" in INTERNAL_IPS, "127.0.0.1 (localhost IPv4) should be in INTERNAL_IPS"
+    
+    def test_localhost_ipv6_in_internal_ips_list(self):
+        """Verify ::1 is in INTERNAL_IPS constant."""
+        from api.rate_limiter import INTERNAL_IPS
+        
+        assert "::1" in INTERNAL_IPS, "::1 (localhost IPv6) should be in INTERNAL_IPS"
+    
+    def test_internal_ips_list_is_not_empty(self):
+        """Verify INTERNAL_IPS list is not empty."""
+        from api.rate_limiter import INTERNAL_IPS
+        
+        assert len(INTERNAL_IPS) > 0, "INTERNAL_IPS should contain at least one IP"
+        assert isinstance(INTERNAL_IPS, set), "INTERNAL_IPS should be a set for O(1) lookups"

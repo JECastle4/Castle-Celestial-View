@@ -6,6 +6,8 @@ and shadow cone geometry for precise type determination.
 Key Reference: research/verify_eclipse_approach.py (validated implementation)
 """
 
+import threading
+from collections import OrderedDict
 import numpy as np
 from astropy.coordinates import get_body, get_sun, EarthLocation, SkyCoord
 from astropy.coordinates import GeocentricMeanEcliptic
@@ -49,12 +51,58 @@ MEAN_NODE_REGRESSION_DEG_PER_DAY = -0.0529538083
 # Golden ratio conjugate, used by the golden-section minimum-separation search below.
 _INV_PHI = (np.sqrt(5) - 1) / 2
 
-# Phase 2.2 Optimization: Cache expensive eclipse calculations
-# These caches avoid redundant find_greatest_eclipse_time() and classification calls
-# within a single request or across similar time ranges (typical for batch operations)
-_GREATEST_ECLIPSE_CACHE = {}  # key: (time.iso, is_lunar) -> Time object
-_ECLIPSE_TYPE_CACHE_LUNAR = {}  # key: time.iso -> classification dict
-_ECLIPSE_TYPE_CACHE_SOLAR = {}  # key: time.iso -> classification dict
+
+class _BoundedLRUCache:
+    """
+    Thread-safe bounded LRU (Least-Recently-Used) cache.
+    
+    Limits memory growth from unbounded process-global caches. When the cache
+    reaches max_size, the least-recently-used entry is evicted to make room for
+    new entries. Thread-safe: all operations protected by a lock to prevent
+    race conditions when multiple requests access the cache concurrently.
+    
+    Args:
+        max_size: Maximum number of entries to cache (default: 1024)
+    """
+    def __init__(self, max_size: int = 1024):
+        self.max_size = max_size
+        self.cache = OrderedDict()
+        self._lock = threading.RLock()
+
+    def get(self, key):
+        """Get value from cache, or None if not found or evicted."""
+        with self._lock:
+            if key not in self.cache:
+                return None
+            # Move to end (most recently used)
+            self.cache.move_to_end(key)
+            return self.cache[key]
+
+    def set(self, key, value):
+        """Set value in cache, evicting LRU entry if cache is full."""
+        with self._lock:
+            if key in self.cache:
+                # Update existing key and move to end
+                self.cache.move_to_end(key)
+            elif len(self.cache) >= self.max_size:
+                # Evict least-recently-used (first item)
+                self.cache.popitem(last=False)
+            # Store new/updated value at end (most recently used)
+            self.cache[key] = value
+
+    def clear(self):
+        """Clear all entries from cache."""
+        with self._lock:
+            self.cache.clear()
+
+
+# Phase 2.2 Optimization: Bounded LRU caches for expensive eclipse calculations
+# Max 1024 entries per cache (bounded memory). Evicts least-recently-used entries
+# when full, preventing unbounded growth from arbitrary timestamps via API.
+# Thread-safe: internal locks protect against concurrent access from request handlers.
+_GREATEST_ECLIPSE_CACHE = _BoundedLRUCache(max_size=1024)
+_ECLIPSE_TYPE_CACHE_LUNAR = _BoundedLRUCache(max_size=1024)
+_ECLIPSE_TYPE_CACHE_SOLAR = _BoundedLRUCache(max_size=1024)
 
 
 def get_moon_ecliptic_coords(time_obj):
@@ -216,8 +264,9 @@ def find_greatest_eclipse_time(approx_time, is_lunar, search_window_hours=24, it
     cache_key = (approx_time.iso, is_lunar)
 
     # Check cache first (Phase 2.2 optimization)
-    if cache_key in _GREATEST_ECLIPSE_CACHE:
-        return _GREATEST_ECLIPSE_CACHE[cache_key]
+    cached_result = _GREATEST_ECLIPSE_CACHE.get(cache_key)
+    if cached_result is not None:
+        return cached_result
 
     # Compute if not cached
     if is_lunar:
@@ -255,7 +304,7 @@ def find_greatest_eclipse_time(approx_time, is_lunar, search_window_hours=24, it
     result = a + (b - a) / 2
 
     # Cache the result (Phase 2.2 optimization)
-    _GREATEST_ECLIPSE_CACHE[cache_key] = result
+    _GREATEST_ECLIPSE_CACHE.set(cache_key, result)
 
     return result
 
@@ -414,8 +463,9 @@ def classify_lunar_eclipse_type(time_obj):
     cache_key = time_obj.iso
 
     # Check cache first
-    if cache_key in _ECLIPSE_TYPE_CACHE_LUNAR:
-        return _ECLIPSE_TYPE_CACHE_LUNAR[cache_key]
+    cached_result = _ECLIPSE_TYPE_CACHE_LUNAR.get(cache_key)
+    if cached_result is not None:
+        return cached_result
 
     params = get_sun_moon_parameters(time_obj)
     shadow = calculate_earth_shadow_cone(time_obj)
@@ -446,7 +496,7 @@ def classify_lunar_eclipse_type(time_obj):
     }
 
     # Cache the result (Phase 2.2 optimization)
-    _ECLIPSE_TYPE_CACHE_LUNAR[cache_key] = result
+    _ECLIPSE_TYPE_CACHE_LUNAR.set(cache_key, result)
 
     return result
 
@@ -495,8 +545,9 @@ def classify_solar_eclipse_type(time_obj):
     cache_key = time_obj.iso
 
     # Check cache first
-    if cache_key in _ECLIPSE_TYPE_CACHE_SOLAR:
-        return _ECLIPSE_TYPE_CACHE_SOLAR[cache_key]
+    cached_result = _ECLIPSE_TYPE_CACHE_SOLAR.get(cache_key)
+    if cached_result is not None:
+        return cached_result
 
     params = get_sun_moon_parameters(time_obj)
     shadow = calculate_moon_shadow_cone(time_obj)
@@ -533,7 +584,7 @@ def classify_solar_eclipse_type(time_obj):
     }
 
     # Cache the result (Phase 2.2 optimization)
-    _ECLIPSE_TYPE_CACHE_SOLAR[cache_key] = result
+    _ECLIPSE_TYPE_CACHE_SOLAR.set(cache_key, result)
 
     return result
 

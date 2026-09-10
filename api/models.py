@@ -1073,10 +1073,10 @@ class AstronomicalEventsRequest(BaseModel):
         description="Number of events per page (1-100)"
     )
     include_contact_times: bool = Field(
-        default=False,
+        default=True,
         description="Whether to compute eclipse contact times (penumbral/umbral or "
-                     "global penumbral/central shadow boundary crossings). Defaults to False "
-                     "for performance; set to True to include contact times in initial response."
+                     "global penumbral/central shadow boundary crossings). Defaults to True "
+                     "for backward compatibility; set to False to omit for performance."
     )
     event_types: Optional[list[str]] = Field(
         default=None,

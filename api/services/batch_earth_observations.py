@@ -75,46 +75,6 @@ def _precalculate_mars_retrograde(frame_count: int, times):
     return mars_longitudes
 
 
-def _fetch_all_celestial_bodies(obs_time: Time, earth_location: EarthLocation):
-    """Fetch all celestial bodies (with and without location) for a given time."""
-    sun = get_sun(obs_time)
-    moon = get_body("moon", obs_time, earth_location)
-    venus_with_loc = get_body("venus", obs_time, earth_location)
-    mercury_with_loc = get_body("mercury", obs_time, earth_location)
-    mars_with_loc = get_body("mars", obs_time, earth_location)
-    jupiter_with_loc = get_body("jupiter", obs_time, earth_location)
-    saturn_with_loc = get_body("saturn", obs_time, earth_location)
-    uranus_with_loc = get_body("uranus", obs_time, earth_location)
-    neptune_with_loc = get_body("neptune", obs_time, earth_location)
-
-    venus_gcrs = get_body("venus", obs_time)
-    mercury_gcrs = get_body("mercury", obs_time)
-    mars_gcrs = get_body("mars", obs_time)
-    jupiter_gcrs = get_body("jupiter", obs_time)
-    saturn_gcrs = get_body("saturn", obs_time)
-    uranus_gcrs = get_body("uranus", obs_time)
-    neptune_gcrs = get_body("neptune", obs_time)
-
-    return {
-        'sun': sun,
-        'moon': moon,
-        'venus_with_loc': venus_with_loc,
-        'mercury_with_loc': mercury_with_loc,
-        'mars_with_loc': mars_with_loc,
-        'jupiter_with_loc': jupiter_with_loc,
-        'saturn_with_loc': saturn_with_loc,
-        'uranus_with_loc': uranus_with_loc,
-        'neptune_with_loc': neptune_with_loc,
-        'venus_gcrs': venus_gcrs,
-        'mercury_gcrs': mercury_gcrs,
-        'mars_gcrs': mars_gcrs,
-        'jupiter_gcrs': jupiter_gcrs,
-        'saturn_gcrs': saturn_gcrs,
-        'uranus_gcrs': uranus_gcrs,
-        'neptune_gcrs': neptune_gcrs,
-    }
-
-
 def _fetch_all_celestial_bodies_batch(times: list, earth_location: EarthLocation):
     """
     Fetch all celestial bodies for a list of times (vectorized for performance).

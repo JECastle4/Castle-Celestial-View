@@ -440,16 +440,30 @@ def get_contact_times_for_event(event_date_iso, is_lunar, _locale=None):
         # Find the greatest eclipse time (refined instant)
         greatest_time = find_greatest_eclipse_time(time_obj, is_lunar=is_lunar)
 
-        # Compute contact times based on eclipse type
+        # Validate that the event is actually an eclipse (not an ordinary new/full moon)
+        if is_lunar:
+            type_info = classify_lunar_eclipse_type(greatest_time)
+        else:
+            type_info = classify_solar_eclipse_type(greatest_time)
+
+        if type_info['eclipse_type'] == 'NONE':
+            raise ValueError(
+                f"Event at {event_date_iso} is not an eclipse; "
+                f"no contact times available for ordinary {'full moon' if is_lunar else 'new moon'}"
+            )
+
+        # Compute contact times for the confirmed eclipse
         if is_lunar:
             contact_times = calculate_lunar_contact_times(greatest_time)
         else:
             contact_times = calculate_solar_contact_times(greatest_time)
 
         return contact_times if contact_times else {}
+    except ValueError:
+        # Re-raise validation errors (invalid event, not an eclipse, etc.)
+        raise
     except Exception as e:
-        # Log and return empty dict rather than propagating exception
-        # (server error will still be reported, but with safe fallback)
+        # Log and raise for other errors
         raise ValueError(
             f"Error calculating contact times for {'lunar' if is_lunar else 'solar'} "
             f"eclipse at {event_date_iso}: {str(e)}"

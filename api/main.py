@@ -9,7 +9,7 @@ import os
 from astropy.utils import iers
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from api.cache import get_cache_stats
 from api.i18n import SUPPORTED_LOCALES, set_request_locale
@@ -105,7 +105,7 @@ MAX_REQUEST_SIZE_BYTES = int(os.getenv("MAX_REQUEST_SIZE_MB", "5")) * 1024 * 102
 @app.middleware("http")
 async def request_size_limit_middleware(request: Request, call_next):
     """Limit request body size to prevent DOS attacks.
-    
+
     Checks Content-Length header and rejects oversized requests.
     Limit is configurable via MAX_REQUEST_SIZE_MB environment variable (default: 5 MB).
     """
@@ -126,7 +126,7 @@ async def request_size_limit_middleware(request: Request, call_next):
 
 def _parse_accept_language_tags(header: str) -> list[tuple[float, str]]:
     """Parse Accept-Language header into sorted (q-value, tag) tuples.
-    
+
     Higher q values appear first; equal-q entries retain original order.
     Skips q=0 entries per RFC 9110 §12.4.2.
     """
@@ -155,7 +155,7 @@ def _parse_accept_language_tags(header: str) -> list[tuple[float, str]]:
 
 def _match_supported_locale(tag: str) -> str | None:
     """Find matching supported locale for language tag.
-    
+
     Returns exact match if available, otherwise language-prefix match,
     otherwise None.
     """
@@ -185,6 +185,35 @@ def _resolve_accept_language(header: str) -> str:
             return matched
     return 'en'
 
+def _get_route_label(request: Request) -> str:
+    """Extract matched route label for Prometheus metrics (cardinality safety).
+
+    Returns the matched route's path pattern (template) if available, which is
+    bounded and consistent. Falls back to "unknown" for unmatched routes (404)
+    instead of using the raw URL path.
+
+    Using the raw URL path as a label would allow attackers to create unbounded
+    cardinality in Prometheus by sending requests to arbitrary unknown paths,
+    causing time-series/memory exhaustion in monitoring.
+
+    Args:
+        request: The HTTP request object (after route matching via call_next)
+
+    Returns:
+        Route path pattern (e.g. "/api/v1/bodies") or "unknown" for 404s
+    """
+    try:
+        # After call_next, the matched route is stored in request.scope
+        route = request.scope.get('route')
+        if route and hasattr(route, 'path'):
+            return route.path
+    except (AttributeError, KeyError, TypeError):  # Best-effort route extraction
+        # Ignore errors accessing request.scope or route attributes
+        pass
+
+    # Fallback for unmatched routes (404) or any access errors
+    # "unknown" is a bounded label that prevents cardinality explosion
+    return "unknown"
 
 @app.middleware("http")
 async def locale_middleware(request: Request, call_next):
@@ -219,43 +248,154 @@ async def locale_middleware(request: Request, call_next):
 @app.middleware("http")
 async def metrics_middleware(request: Request, call_next):
     """Record HTTP request metrics for Prometheus monitoring (Phase 3.2).
-    
+
     Tracks request duration, count, status, and in-progress requests per endpoint.
+    Uses matched route template as label (not raw URL path) to prevent cardinality
+    explosion from requests to unknown paths.
     Ultra-lightweight: ~2-3 μs overhead per request.
+
+    Ensures cleanup (record_request_end) is called even if outer middleware cancels
+    the request (e.g., due to timeout), preventing leaked in-progress request counts.
     """
-    # Get endpoint name from URL path (strip query params and convert to label-safe format)
-    endpoint = request.url.path.split("?")[0] or "/"
-    method = request.method
-
-    # Increment in-progress gauge
-    metrics = get_metrics()
-    metrics.record_request_start(endpoint)
-
-    # Record start time
+    # Record start time (before any processing)
     start_time = time.perf_counter()
 
+    metrics = get_metrics()
+    endpoint = None
+    status_code = 500  # Default to server error
+
     try:
-        # Call endpoint
+        # Call endpoint (route matching happens here)
         response = await call_next(request)
         status_code = response.status_code
-    except Exception as exc:
-        # Record error and re-raise
+
+        # Extract matched route label (bounded; prevents cardinality explosion)
+        # This is safe to call after call_next when route matching is complete
+        endpoint = _get_route_label(request)
+        method = request.method
+
+        # Record metrics (after route matching, using bounded route label)
+        duration = time.perf_counter() - start_time
+        metrics.record_request_start(endpoint)
+        metrics.record_request(endpoint, method, status_code, duration)
+
+        # Track 429 rate limit responses
+        if status_code == 429:
+            metrics.record_rate_limit_exceeded(endpoint)
+
+        # Record completion time for adaptive timeout calculation (Phase 3.3)
+        record_request_completion(endpoint, duration)
+
+        return response
+
+    except asyncio.CancelledError:
+        # Outer timeout middleware cancelled this request
+        # Ensure metrics are recorded for the timed-out request
+        endpoint = _get_route_label(request)
+        duration = time.perf_counter() - start_time
+
+        metrics.record_request_start(endpoint)
+        metrics.record_error(endpoint, "timeout", 503)
+
+        # Record timeout for adaptive calculation
+        record_request_completion(endpoint, duration)
+
+        # Log and re-raise so timeout middleware can handle it
+        logger.warning(
+            "Request cancelled (timeout) on %s after %.2fs",
+            endpoint,
+            duration
+        )
+        raise
+
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        # Other exception during route handling
+        endpoint = _get_route_label(request)
         metrics.record_error(endpoint, "exception", 500)
-        metrics.record_request_end(endpoint)
         raise exc
 
-    # Record metrics
-    duration = time.perf_counter() - start_time
-    metrics.record_request(endpoint, method, status_code, duration)
-    metrics.record_request_end(endpoint)
+    finally:
+        # Always record request completion, even on timeout or exception
+        if endpoint:
+            metrics.record_request_end(endpoint)
 
-    # Track 429 rate limit responses
-    if status_code == 429:
-        metrics.record_rate_limit_exceeded(endpoint)
 
-    # Record completion time for adaptive timeout calculation (Phase 3.3)
-    record_request_completion(endpoint, duration)
+def _wrap_streaming_response_timeout(response, timeout_seconds, endpoint, start_time):
+    """
+    Wrap a StreamingResponse to enforce timeout during body iteration.
 
+    The initial asyncio.wait_for() only times response creation. For StreamingResponse,
+    the actual expensive work (generator iteration) happens AFTER the response is
+    returned. This wrapper applies timeout to the iteration itself, providing proper
+    load shedding and preventing unbounded long-running streams.
+
+    Args:
+        response: FastAPI response object
+        timeout_seconds: timeout budget (in seconds)
+        endpoint: endpoint label for logging
+        start_time: time when request started (perf_counter)
+
+    Returns:
+        Response object (wrapped if it was StreamingResponse)
+    """
+    if not isinstance(response, StreamingResponse):
+        return response
+
+    original_body_iterator = response.body_iterator
+
+    async def timeout_enforcing_generator():
+        """Iterate generator with timeout enforcement on each iteration."""
+        try:
+            # Try to iterate the original generator
+            if hasattr(original_body_iterator, '__aiter__'):
+                # Async generator
+                async for item in original_body_iterator:
+                    elapsed = time.perf_counter() - start_time
+                    if elapsed > timeout_seconds:
+                        # Timeout during streaming - log and break
+                        metrics = get_metrics()
+                        metrics.record_timeout_exceeded(endpoint)
+                        logger.warning(
+                            "Streaming timeout on %s after %.2f seconds "
+                            "(timeout: %.2f seconds)",
+                            endpoint,
+                            elapsed,
+                            timeout_seconds,
+                        )
+                        # Yield error event for SSE clients
+                        yield b"event: error\ndata: {\"error\": \"timeout\"}\n\n"
+                        return
+                    yield item
+            else:
+                # Sync generator - iterate and yield
+                for item in original_body_iterator:
+                    elapsed = time.perf_counter() - start_time
+                    if elapsed > timeout_seconds:
+                        # Timeout during streaming
+                        metrics = get_metrics()
+                        metrics.record_timeout_exceeded(endpoint)
+                        logger.warning(
+                            "Streaming timeout on %s after %.2f seconds "
+                            "(timeout: %.2f seconds)",
+                            endpoint,
+                            elapsed,
+                            timeout_seconds,
+                        )
+                        # Yield error event for SSE clients
+                        yield b"event: error\ndata: {\"error\": \"timeout\"}\n\n"
+                        return
+                    yield item
+        finally:
+            # Cleanup: close async generator if needed
+            if hasattr(original_body_iterator, 'aclose'):
+                try:
+                    await original_body_iterator.aclose()
+                except (RuntimeError, ValueError):  # Cleanup errors (generator closed, etc)
+                    # Ignore cleanup errors - don't suppress original exception
+                    pass
+
+    # Replace body iterator with wrapped version
+    response.body_iterator = timeout_enforcing_generator()
     return response
 
 
@@ -267,20 +407,35 @@ async def timeout_middleware(request: Request, call_next):
     are reduced proportionally, allowing cheap requests to fail fast (DDoS protection)
     while preserving expensive requests when possible.
 
-    Runs AFTER metrics middleware so request completion times are captured for the
-    percentile calculation.
+    Times both response creation AND body iteration (for StreamingResponse), ensuring
+    proper load shedding even for long-running streams.
+
+    Uses bounded route labels for timeout tracking (prevents cardinality explosion
+    from tracking arbitrary unknown paths in the adaptive timeout tracker).
     """
-    endpoint = request.url.path.split("?")[0] or "/"
+    # Use bounded route label (returns "unknown" for unmatched routes before call_next)
+    # This prevents arbitrary unknown paths from creating unbounded tracker entries
+    endpoint = _get_route_label(request)
 
     # Calculate adaptive timeout based on system performance
     timeout_seconds = calculate_adaptive_timeout(endpoint)
 
+    # Track start time for StreamingResponse body iteration timeout
+    start_time = time.perf_counter()
+
     try:
         # Wrap the endpoint call with asyncio.wait_for timeout
+        # This ensures response creation (including handler execution) completes in time
         response = await asyncio.wait_for(
             call_next(request),
             timeout=timeout_seconds
         )
+
+        # Wrap StreamingResponse to enforce timeout on body iteration as well
+        response = _wrap_streaming_response_timeout(
+            response, timeout_seconds, endpoint, start_time
+        )
+
         return response
     except asyncio.TimeoutError:
         # Request exceeded adaptive timeout - log and return 503
@@ -332,7 +487,7 @@ async def health_check():
 @app.get("/cache-stats")
 async def cache_statistics():
     """Cache statistics endpoint for monitoring response cache performance.
-    
+
     Returns:
     - cached_entries: Number of active cache entries
     - max_size: Maximum cache capacity

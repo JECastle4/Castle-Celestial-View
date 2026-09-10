@@ -34,7 +34,7 @@ class TestLightLoadScenario:
         tracker = get_tracker()
         tracker.clear()
 
-        endpoint = "/batch-earth-observations"
+        endpoint = "/api/v1/batch-earth-observations"
         base = BASE_TIMEOUTS["expensive"]  # 120s
 
         # Simulate light load: all requests complete in 10-20 seconds
@@ -57,7 +57,7 @@ class TestLightLoadScenario:
         tracker = get_tracker()
         tracker.clear()
 
-        endpoint = "/batch-earth-observations"
+        endpoint = "/api/v1/batch-earth-observations"
         base = BASE_TIMEOUTS["expensive"]
 
         # No data recorded yet
@@ -73,7 +73,7 @@ class TestDegradedLoadScenario:
         tracker = get_tracker()
         tracker.clear()
 
-        endpoint = "/batch-earth-observations"
+        endpoint = "/api/v1/batch-earth-observations"
         base = BASE_TIMEOUTS["expensive"]  # 120s
 
         # Simulate degraded load: completion times ranging 50-150 seconds
@@ -96,7 +96,7 @@ class TestDegradedLoadScenario:
         tracker = get_tracker()
         tracker.clear()
 
-        endpoint = "/health"
+        endpoint = "/api/v1/health"
         base = BASE_TIMEOUTS["cheap"]  # 3s
 
         # Health checks are fast even under load
@@ -117,8 +117,8 @@ class TestMixedWorkloadScenario:
         tracker = get_tracker()
         tracker.clear()
 
-        cheap = "/health"
-        expensive = "/batch-earth-observations"
+        cheap = "/api/v1/health"
+        expensive = "/api/v1/batch-earth-observations"
 
         # Cheap endpoint: always fast
         for i in range(50):
@@ -146,8 +146,8 @@ class TestDDoSMitigationScenario:
         tracker = get_tracker()
         tracker.clear()
 
-        cheap_endpoint = "/health"
-        expensive_endpoint = "/batch-earth-observations"
+        cheap_endpoint = "/api/v1/health"
+        expensive_endpoint = "/api/v1/batch-earth-observations"
 
         # Simulate severe DDoS: cheap requests are flooding server
         # Each cheap request takes 2.5s (server struggling)

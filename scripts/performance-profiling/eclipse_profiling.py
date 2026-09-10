@@ -119,12 +119,13 @@ def profile_greatest_eclipse_time(eclipse_candidates):
     print(f"PROFILE: Greatest Eclipse Time Search")
     print(f"{'='*70}")
 
+    elapsed_times = {'lunar': [], 'solar': []}
+
     if not eclipse_candidates:
         print("No eclipse candidates to profile.")
         return elapsed_times, 0.0
 
     times_by_phase = {'full': [], 'new': []}
-    elapsed_times = {'lunar': [], 'solar': []}
 
     for event, _, _, _ in eclipse_candidates:
         phase = event['phase']

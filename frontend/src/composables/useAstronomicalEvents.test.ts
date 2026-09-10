@@ -367,4 +367,142 @@ describe('useAstronomicalEvents - fetchContactTimesForEvent', () => {
 
     expect(events.value[0].contact_times).toBeNull();
   });
+
+  // Solar eclipse contact times tests
+  it('fetches solar contact times and updates event in events list', async () => {
+    const solarEvent = { ...mockResponse.events[0], is_lunar: false, eclipse_type: 'Total', contact_times: null };
+    const mockApi = {
+      getBatchEarthObservations: vi.fn(),
+      getAstronomicalEvents: vi.fn().mockResolvedValueOnce({ events: [solarEvent], pagination: mockResponse.pagination }),
+      getContactTimesForEvent: vi.fn().mockResolvedValueOnce({
+        contact_times: { c1: '2025-09-07 14:00:00.000', c2: '2025-09-07 15:30:00.000', c3: '2025-09-07 17:00:00.000', c4: '2025-09-07 18:30:00.000' },
+      }),
+    };
+
+    const { events, fetchEvents, fetchContactTimesForEvent } = useAstronomicalEvents(mockApi);
+    await fetchEvents({ start_date: '2025-01-01', end_date: '2025-12-31' });
+
+    expect(events.value[0].contact_times).toBeNull();
+
+    await fetchContactTimesForEvent('2025-09-07 18:11:42.600', false);
+
+    expect(events.value[0].contact_times).toEqual({
+      c1: '2025-09-07 14:00:00.000',
+      c2: '2025-09-07 15:30:00.000',
+      c3: '2025-09-07 17:00:00.000',
+      c4: '2025-09-07 18:30:00.000',
+    });
+    expect(mockApi.getContactTimesForEvent).toHaveBeenCalledWith('2025-09-07 18:11:42.600', false);
+  });
+
+  it('updates solar event in allSseEvents during SSE search', async () => {
+    const mock = (function installMockEventSource() {
+      let pageListener: ((event: any) => void) | undefined;
+      let metadataListener: ((event: any) => void) | undefined;
+      const close = vi.fn();
+      const origEventSource = globalThis.EventSource;
+      class MockEventSource {
+        static CONNECTING = 0;
+        static OPEN = 1;
+        static CLOSED = 2;
+        close = close;
+        onerror: ((event: any) => void) | null = null;
+        addEventListener = (type: string, cb: (event: any) => void) => {
+          if (type === 'page') pageListener = cb;
+          if (type === 'metadata') metadataListener = cb;
+        };
+        constructor(_url: string) {
+          // No-op
+        }
+      }
+      globalThis.EventSource = MockEventSource as unknown as typeof EventSource;
+      return {
+        restore: () => { globalThis.EventSource = origEventSource; },
+        emitPage: (events: unknown[]) => pageListener?.({ data: JSON.stringify({ page: 1, events }) }),
+        emitMetadata: (metadata: unknown) => metadataListener?.({ data: JSON.stringify(metadata) }),
+        close,
+      };
+    })();
+
+    const solarEventWithoutTimes = { ...mockResponse.events[0], is_lunar: false, contact_times: null };
+    const mockApi = {
+      getBatchEarthObservations: vi.fn(),
+      getAstronomicalEvents: vi.fn(),
+      getContactTimesForEvent: vi.fn().mockResolvedValueOnce({
+        contact_times: { c1: '2025-09-07 14:00:00.000' },
+      }),
+    };
+
+    const { fetchEventsSSE, fetchContactTimesForEvent } = useAstronomicalEvents(mockApi);
+
+    const promise = fetchEventsSSE({ start_date: '2025-01-01', end_date: '2025-12-31' });
+    mock.emitPage([solarEventWithoutTimes]);
+    mock.emitMetadata({ page_size: 10, total_events: 1, total_pages: 1 });
+    await promise;
+
+    await fetchContactTimesForEvent('2025-09-07 18:11:42.600', false);
+
+    expect(mockApi.getContactTimesForEvent).toHaveBeenCalled();
+
+    mock.restore();
+  });
+
+  it('handles ApiError when fetching solar contact times', async () => {
+    const apiError = new ApiError(500, 'Internal Server Error', 'Server failed to fetch solar contact times');
+    const solarEvent = { ...mockResponse.events[0], is_lunar: false };
+    const mockApi = {
+      getBatchEarthObservations: vi.fn(),
+      getAstronomicalEvents: vi.fn().mockResolvedValueOnce({ events: [solarEvent], pagination: mockResponse.pagination }),
+      getContactTimesForEvent: vi.fn().mockRejectedValueOnce(apiError),
+    };
+
+    const { fetchEvents, fetchContactTimesForEvent } = useAstronomicalEvents(mockApi);
+    await fetchEvents({ start_date: '2025-01-01', end_date: '2025-12-31' });
+
+    await expect(fetchContactTimesForEvent('2025-09-07 18:11:42.600', false)).rejects.toThrow(ApiError);
+  });
+
+  it('handles generic Error when fetching solar contact times', async () => {
+    const solarEvent = { ...mockResponse.events[0], is_lunar: false };
+    const mockApi = {
+      getBatchEarthObservations: vi.fn(),
+      getAstronomicalEvents: vi.fn().mockResolvedValueOnce({ events: [solarEvent], pagination: mockResponse.pagination }),
+      getContactTimesForEvent: vi.fn().mockRejectedValueOnce(new Error('Solar data fetch failed')),
+    };
+
+    const { fetchEvents, fetchContactTimesForEvent } = useAstronomicalEvents(mockApi);
+    await fetchEvents({ start_date: '2025-01-01', end_date: '2025-12-31' });
+
+    await expect(fetchContactTimesForEvent('2025-09-07 18:11:42.600', false)).rejects.toThrow('Solar data fetch failed');
+  });
+
+  it('handles unknown error type when fetching solar contact times', async () => {
+    const solarEvent = { ...mockResponse.events[0], is_lunar: false };
+    const mockApi = {
+      getBatchEarthObservations: vi.fn(),
+      getAstronomicalEvents: vi.fn().mockResolvedValueOnce({ events: [solarEvent], pagination: mockResponse.pagination }),
+      getContactTimesForEvent: vi.fn().mockRejectedValueOnce('unknown solar error'),
+    };
+
+    const { fetchEvents, fetchContactTimesForEvent } = useAstronomicalEvents(mockApi);
+    await fetchEvents({ start_date: '2025-01-01', end_date: '2025-12-31' });
+
+    await expect(fetchContactTimesForEvent('2025-09-07 18:11:42.600', false)).rejects.toThrow('An unknown error occurred');
+  });
+
+  it('handles null contact_times for solar event', async () => {
+    const solarEvent = { ...mockResponse.events[0], is_lunar: false, contact_times: {} };
+    const mockApi = {
+      getBatchEarthObservations: vi.fn(),
+      getAstronomicalEvents: vi.fn().mockResolvedValueOnce({ events: [solarEvent], pagination: mockResponse.pagination }),
+      getContactTimesForEvent: vi.fn().mockResolvedValueOnce({ contact_times: null }),
+    };
+
+    const { events, fetchEvents, fetchContactTimesForEvent } = useAstronomicalEvents(mockApi);
+    await fetchEvents({ start_date: '2025-01-01', end_date: '2025-12-31' });
+
+    await fetchContactTimesForEvent('2025-09-07 18:11:42.600', false);
+
+    expect(events.value[0].contact_times).toBeNull();
+  });
 });

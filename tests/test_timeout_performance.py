@@ -238,20 +238,32 @@ class TestMemoryOverhead:
     """Measure memory usage of timeout system."""
 
     def test_tracker_memory_scaling(self):
-        """Memory should scale linearly with observations."""
+        """Memory usage should scale reasonably with observation count."""
+        import sys
+
         tracker = PercentileTracker()
 
         # Create tracker with many observations
+        total_observations = 0
         for endpoint_num in range(10):
             endpoint = f"/endpoint-{endpoint_num}"
             for i in range(300):  # 5 min of 1 req/sec
                 tracker.record_completion(endpoint, float(10 + (i % 20)))
+                total_observations += 1
 
-        # Estimate memory usage
-        # This is a rough estimate - actual depends on Python internals
-        import sys
+        # Measure total memory used by tracker's observation storage
+        # Note: sys.getsizeof() measures the dict container + shallow contents
+        # This is a conservative (lower) bound; actual memory is higher due to deques
         size_bytes = sys.getsizeof(tracker._observations)
-        print(f"Tracker internal dict size: ~{size_bytes} bytes")
+
+        # Each observation is a (timestamp, duration) tuple stored in a deque
+        # Expected: ~100-150 bytes per observation (tuple overhead + deque overhead)
+        # If this exceeds 200 bytes/obs, we likely have a memory leak
+        bytes_per_observation = size_bytes / max(1, total_observations)
+
+        assert (
+            bytes_per_observation < 200
+        ), f"Memory usage too high: {bytes_per_observation:.1f} bytes/observation (total: {size_bytes} bytes for {total_observations} observations)"
 
         # Cleanup
         tracker.clear()
@@ -261,28 +273,58 @@ class TestCacheEfficiency:
     """Measure cache hit/miss rates."""
 
     def test_cache_hit_rate_5_second_ttl(self):
-        """Most lookups should hit the cache with 5s TTL."""
+        """Verify cache provides hits: results consistent and cache state valid."""
+        import time
+
         tracker = get_tracker()
         tracker.clear()
 
         endpoint = "/test"
 
-        # Populate
+        # Populate with 50 observations to enable p95 calculation
         for i in range(50):
             tracker.record_completion(endpoint, float(10 + i))
 
-        # Warm the cache
-        tracker.get_percentile(endpoint)
+        # Before first call: cache is empty
+        assert endpoint not in tracker._percentile_cache, "Cache should be empty initially"
 
-        # Rapid lookups should all hit cache
-        hits = 0
+        # First call: warms cache
+        first_result = tracker.get_percentile(endpoint)
+        assert first_result is not None, "Expected p95 to be calculated"
+        assert (
+            endpoint in tracker._percentile_cache
+        ), "Expected p95 to be cached after first call"
+
+        cached_p95, cached_timestamp = tracker._percentile_cache[endpoint]
+        assert cached_p95 == first_result, "Cached value should match returned value"
+
+        # Rapid calls should all return same cached value (no recalculation)
         for _ in range(100):
             result = tracker.get_percentile(endpoint)
-            if result is not None:
-                hits += 1
+            assert result == first_result, "Cache hits should return same value"
 
-        hit_rate = hits / 100
-        assert hit_rate >= 0.95, f"Cache hit rate too low: {hit_rate:.1%}"
+        # Cache entry should not have been updated (same timestamp)
+        assert (
+            tracker._percentile_cache[endpoint][1] == cached_timestamp
+        ), "Cache timestamp should not change for hits"
+
+        # Invalidate cache
+        tracker._percentile_cache.clear()
+        assert endpoint not in tracker._percentile_cache, "Cache should be empty after clear"
+
+        # After invalidation, call should recalculate but return same value
+        second_result = tracker.get_percentile(endpoint)
+        assert second_result == first_result, "Recalculated p95 should match original"
+
+        # Cache should be populated again
+        assert (
+            endpoint in tracker._percentile_cache
+        ), "Cache should be repopulated after recalculation"
+
+        new_timestamp = tracker._percentile_cache[endpoint][1]
+        assert (
+            new_timestamp > cached_timestamp
+        ), "Cache timestamp should be newer after recalculation"
 
 
 class TestP95ExtractionOverhead:

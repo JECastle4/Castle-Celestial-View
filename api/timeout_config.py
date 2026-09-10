@@ -7,27 +7,31 @@ observed system performance (p95 request duration).
 """
 
 # Endpoint cost tier classification (for adaptive timeout calculation)
+# Paths must match what the middleware receives: full paths with /api/v1 prefix
 ENDPOINT_COSTS = {
     # Cheap: lightweight responses, typically <100ms
-    '/health': 'cheap',
-    '/metrics': 'cheap',
+    '/api/v1/health': 'cheap',
+    '/metrics': 'cheap',  # Not under /api/v1 (separate metrics_router)
 
-    # Medium: simple queries, typically 0.5-2s
-    '/bodies/earth': 'medium',
-    '/bodies/moon': 'medium',
-    '/bodies/mercury': 'medium',
-    '/bodies/venus': 'medium',
-    '/bodies/mars': 'medium',
-    '/bodies/jupiter': 'medium',
-    '/bodies/saturn': 'medium',
-    '/bodies/uranus': 'medium',
-    '/bodies/neptune': 'medium',
-    '/bodies/sun': 'medium',
+    # Medium: simple position/phase queries, typically 0.5-2s
+    '/api/v1/day-of-week': 'medium',
+    '/api/v1/sun-position': 'medium',
+    '/api/v1/moon-position': 'medium',
+    '/api/v1/mercury-position': 'medium',
+    '/api/v1/venus-position': 'medium',
+    '/api/v1/mars-position': 'medium',
+    '/api/v1/jupiter-position': 'medium',
+    '/api/v1/saturn-position': 'medium',
+    '/api/v1/uranus-position': 'medium',
+    '/api/v1/neptune-position': 'medium',
+    '/api/v1/moon-phase': 'medium',
 
     # Expensive: batch/event processing, typically 5-30s
-    '/batch-earth-observations': 'expensive',
-    '/astronomical-events': 'expensive',
-    '/contact-times': 'expensive',
+    '/api/v1/batch-earth-observations': 'expensive',
+    '/api/v1/batch-earth-observations-stream': 'expensive',
+    '/api/v1/astronomical-events': 'expensive',
+    '/api/v1/astronomical-events-stream': 'expensive',
+    '/api/v1/contact-times': 'expensive',
 }
 
 # Base timeouts (before adaptive scaling based on system performance)
@@ -64,10 +68,21 @@ def get_endpoint_cost(endpoint: str) -> str:
     Get the cost tier for an endpoint.
     
     Args:
-        endpoint: Request path (e.g., '/batch-earth-observations')
+        endpoint: Full request path including API prefix (e.g., '/api/v1/batch-earth-observations').
+                 Falls back to 'medium' tier if endpoint is not in the cost map.
     
     Returns:
-        'cheap', 'medium', or 'expensive' (defaults to 'medium' if unknown)
+        'cheap', 'medium', or 'expensive' tier (defaults to 'medium' if unknown)
+    
+    Note:
+        Paths must match the full mounted route path with prefix. All endpoints
+        registered with 'router' are mounted with prefix '/api/v1' by:
+            app.include_router(router, prefix="/api/v1")
+        
+        Example paths:
+            - '/api/v1/batch-earth-observations' → expensive (120s base timeout)
+            - '/api/v1/moon-position' → medium (15s base timeout)
+            - 'unknown' → medium (15s base timeout, for unmatched routes)
     """
     return ENDPOINT_COSTS.get(endpoint, 'medium')
 

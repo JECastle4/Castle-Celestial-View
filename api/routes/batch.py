@@ -2,7 +2,7 @@
 API routes for batch celestial observations and streaming.
 """
 import json
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request, Body
 from fastapi.responses import StreamingResponse
 from api.cache import cache_response
 from api.i18n import get_i18n
@@ -61,6 +61,7 @@ def _process_batch_frames_from_generator(gen, frame_count: int):
     Each frame is sent as a separate SSE event.
     """
 )
+@limiter.limit(LIMIT_EXPENSIVE_BATCH)  # DDoS: 20 req/min per IP (POST batch limit)
 @handle_route_errors("streaming batch observations")
 async def stream_batch_earth_observations(
     start_date: str = Query(...),
@@ -136,14 +137,17 @@ async def stream_batch_earth_observations(
 @limiter.limit(LIMIT_EXPENSIVE_BATCH)  # DDoS protection: 20 req/min per IP
 @cache_response(ttl=300)
 @handle_route_errors("calculating batch observations")
-async def get_batch_earth_observations(request: BatchEarthObservationsRequest):
+async def get_batch_earth_observations(
+    _request: Request,  # For SlowAPI rate limiter
+    batch_request: BatchEarthObservationsRequest = Body(...),  # Request model
+) -> BatchEarthObservationsResponse:
     """Calculate batch observations of celestial positions from Earth"""
-    time_range = _build_time_range_from_batch_request(request)
-    location = _build_location_from_batch_request(request)
+    time_range = _build_time_range_from_batch_request(batch_request)
+    location = _build_location_from_batch_request(batch_request)
     gen = calculate_batch_earth_observations(
         time_range=time_range,
         location=location,
         locale=get_i18n().locale
     )
-    frames, metadata = _process_batch_frames_from_generator(gen, request.frame_count)
+    frames, metadata = _process_batch_frames_from_generator(gen, batch_request.frame_count)
     return BatchEarthObservationsResponse(frames=frames, metadata=metadata)

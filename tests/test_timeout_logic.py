@@ -32,11 +32,11 @@ class TestTimeoutConfig:
 
     def test_endpoint_cost_classification(self):
         """Test that endpoints are correctly classified."""
-        assert get_endpoint_cost('/health') == 'cheap'
+        assert get_endpoint_cost('/api/v1/health') == 'cheap'
         assert get_endpoint_cost('/metrics') == 'cheap'
-        assert get_endpoint_cost('/bodies/earth') == 'medium'
-        assert get_endpoint_cost('/batch-earth-observations') == 'expensive'
-        assert get_endpoint_cost('/astronomical-events') == 'expensive'
+        assert get_endpoint_cost('/api/v1/sun-position') == 'medium'
+        assert get_endpoint_cost('/api/v1/batch-earth-observations') == 'expensive'
+        assert get_endpoint_cost('/api/v1/astronomical-events') == 'expensive'
         assert get_endpoint_cost('/unknown-endpoint') == 'medium'  # Default
 
     def test_base_timeouts(self):
@@ -168,7 +168,7 @@ class TestTimeoutCalculation:
         # Clear tracker
         get_tracker().clear()
         
-        timeout = calculate_adaptive_timeout('/batch-earth-observations')
+        timeout = calculate_adaptive_timeout('/api/v1/batch-earth-observations')
         assert timeout == BASE_TIMEOUTS['expensive']
 
     def test_fast_system_generous_timeout(self):
@@ -176,7 +176,7 @@ class TestTimeoutCalculation:
         tracker = get_tracker()
         tracker.clear()
         
-        endpoint = '/batch-earth-observations'
+        endpoint = '/api/v1/batch-earth-observations'
         base = BASE_TIMEOUTS['expensive']  # 120s
         
         # Add observations where p95 < 60s (0.5 * 120)
@@ -192,7 +192,7 @@ class TestTimeoutCalculation:
         tracker = get_tracker()
         tracker.clear()
         
-        endpoint = '/batch-earth-observations'
+        endpoint = '/api/v1/batch-earth-observations'
         base = BASE_TIMEOUTS['expensive']  # 120s
         
         # Add observations where base * 0.5 < p95 < base * 0.8
@@ -209,7 +209,7 @@ class TestTimeoutCalculation:
         tracker = get_tracker()
         tracker.clear()
         
-        endpoint = '/batch-earth-observations'
+        endpoint = '/api/v1/batch-earth-observations'
         base = BASE_TIMEOUTS['expensive']  # 120s
         
         # Add observations where p95 >= base * 0.8 (p95 >= 96s)

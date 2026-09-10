@@ -68,12 +68,99 @@ class PercentileTracker:
             ):
                 self._observations[endpoint].popleft()
 
+    def _prune_stale_observations(self, endpoint: str, now: float) -> bool:
+        """
+        Prune observations outside sliding window and invalidate cache if empty.
+
+        Args:
+            endpoint: Request path
+            now: Current timestamp
+
+        Returns:
+            True if observations remain after pruning, False if empty/no data
+        """
+        if endpoint not in self._observations:
+            return False
+
+        cutoff = now - SLIDING_WINDOW_SECONDS
+        while (
+            self._observations[endpoint]
+            and self._observations[endpoint][0][0] < cutoff
+        ):
+            self._observations[endpoint].popleft()
+
+        # If observations are now empty, invalidate cache
+        if not self._observations[endpoint]:
+            self._percentile_cache.pop(endpoint, None)
+            return False
+
+        return True
+
+    def _try_cache_hit(self, endpoint: str, now: float) -> Optional[float]:
+        """
+        Check cache and return p95 if hit and valid (TTL not expired).
+
+        Args:
+            endpoint: Request path
+            now: Current timestamp
+
+        Returns:
+            Cached p95 value if valid, None otherwise
+        """
+        if endpoint not in self._percentile_cache:
+            return None
+
+        cached_p95, cached_time = self._percentile_cache[endpoint]
+        if now - cached_time < PERCENTILE_CACHE_TTL_SECONDS:
+            return cached_p95  # Cache hit
+
+        return None
+
+    def _calculate_p95(self, endpoint: str) -> Optional[float]:
+        """
+        Calculate p95 from observations using linear interpolation.
+
+        Args:
+            endpoint: Request path
+
+        Returns:
+            p95 completion time in seconds, or None if insufficient data
+        """
+        # Verify sufficient data
+        if (
+            endpoint not in self._observations
+            or len(self._observations[endpoint]) < 20
+        ):
+            return None
+
+        # Extract durations only (discard timestamps)
+        durations = [
+            duration for _, duration in self._observations[endpoint]
+        ]
+        durations.sort()
+
+        # Calculate p95 using linear interpolation
+        n = len(durations)
+        p95_index = PERCENTILE_TO_TRACK * (n - 1)
+        lower_idx = int(p95_index)
+        upper_idx = min(lower_idx + 1, n - 1)
+        fraction = p95_index - lower_idx
+
+        # Linear interpolation between adjacent values
+        p95 = (
+            durations[lower_idx] * (1 - fraction)
+            + durations[upper_idx] * fraction
+        )
+
+        return p95
+
     def get_percentile(self, endpoint: str) -> Optional[float]:
         """
         Get p95 (95th percentile) completion time for endpoint.
 
         Uses cached value if calculated within last 5 seconds,
-        otherwise recalculates from observations.
+        otherwise recalculates from observations. Prunes stale observations
+        on every read to prevent using expired p95 values after idle periods.
 
         Args:
             endpoint: Request path
@@ -84,47 +171,19 @@ class PercentileTracker:
         now = time.time()
 
         with self._lock:
-            # Check cache
-            if endpoint in self._percentile_cache:
-                cached_p95, cached_time = self._percentile_cache[endpoint]
-                if now - cached_time < PERCENTILE_CACHE_TTL_SECONDS:
-                    return cached_p95  # Cache hit
-
-            # Not cached or cache expired - recalculate
-            if (
-                endpoint not in self._observations
-                or len(self._observations[endpoint]) < 10
-            ):
-                # Insufficient data (need at least 10 observations for meaningful p95)
+            # Prune stale observations and check if data remains
+            if not self._prune_stale_observations(endpoint, now):
                 return None
 
-            # Extract durations only (discard timestamps)
-            durations = [
-                duration for _, duration in self._observations[endpoint]
-            ]
-            durations.sort()
+            # Try cache first
+            cached_result = self._try_cache_hit(endpoint, now)
+            if cached_result is not None:
+                return cached_result
 
-            # Calculate p95 index
-            # For p95: need at least 20 samples for 1 sample at top 5%
-            # Use linear interpolation for fractional indices
-            n = len(durations)
-            if n < 20:
-                # Insufficient data, return None (cold start)
-                return None
-
-            p95_index = PERCENTILE_TO_TRACK * (n - 1)
-            lower_idx = int(p95_index)
-            upper_idx = min(lower_idx + 1, n - 1)
-            fraction = p95_index - lower_idx
-
-            # Linear interpolation between adjacent values
-            p95 = (
-                durations[lower_idx] * (1 - fraction)
-                + durations[upper_idx] * fraction
-            )
-
-            # Cache result
-            self._percentile_cache[endpoint] = (p95, now)
+            # Calculate p95 and cache result
+            p95 = self._calculate_p95(endpoint)
+            if p95 is not None:
+                self._percentile_cache[endpoint] = (p95, now)
 
             return p95
 

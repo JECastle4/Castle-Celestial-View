@@ -60,7 +60,9 @@
 		"apply": "Apply",
 		"cancel": "Cancel",
 		"selectBody": "Select {body} to view details",
-		"zoomToBody": "Zoom to {body}"
+		"zoomToBody": "Zoom to {body}",
+		"downloadAsCSV": "Download eclipse contact times as CSV",
+		"downloadAsJSON": "Download eclipse contact times as JSON"
 	},
 	"views": {
 		"solar3d": "Solar System View",
