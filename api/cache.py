@@ -9,9 +9,9 @@ identical requests.
 import time
 import functools
 import inspect
-import sys
 from typing import Any, Callable, Optional, Hashable
 from collections import OrderedDict
+from api.metrics import record_cache_hit_safe, record_cache_miss_safe
 
 from api.i18n import get_i18n
 
@@ -163,11 +163,11 @@ def cache_response(ttl: int = 300):
                 cached = _response_cache.get(cache_key)
                 if cached is not None:
                     # Cache hit - record metric
-                    _record_cache_hit(endpoint_name)
+                    record_cache_hit_safe(endpoint_name)
                     return cached
 
                 # Cache miss
-                _record_cache_miss(endpoint_name)
+                record_cache_miss_safe(endpoint_name)
 
                 # Execute function and cache result
                 result = await func(*args, **kwargs)
@@ -192,11 +192,11 @@ def cache_response(ttl: int = 300):
             cached = _response_cache.get(cache_key)
             if cached is not None:
                 # Cache hit - record metric
-                _record_cache_hit(endpoint_name)
+                record_cache_hit_safe(endpoint_name)
                 return cached
 
             # Cache miss
-            _record_cache_miss(endpoint_name)
+            record_cache_miss_safe(endpoint_name)
 
             # Execute function and cache result
             result = func(*args, **kwargs)
@@ -206,32 +206,6 @@ def cache_response(ttl: int = 300):
         return sync_wrapper
 
     return decorator
-
-
-def _record_cache_hit(endpoint: str) -> None:
-    """Record cache hit metric (Phase 3.2 monitoring)."""
-    # Only record metrics if not in test mode and metrics available
-    if 'pytest' in sys.modules or 'unittest' in sys.modules:
-        return
-    try:
-        # pylint: disable=import-outside-toplevel
-        from api.metrics import get_metrics
-        get_metrics().record_cache_hit(endpoint)
-    except ImportError:
-        pass
-
-
-def _record_cache_miss(endpoint: str) -> None:
-    """Record cache miss metric (Phase 3.2 monitoring)."""
-    # Only record metrics if not in test mode and metrics available
-    if 'pytest' in sys.modules or 'unittest' in sys.modules:
-        return
-    try:
-        # pylint: disable=import-outside-toplevel
-        from api.metrics import get_metrics
-        get_metrics().record_cache_miss(endpoint)
-    except ImportError:
-        pass
 
 
 def _generate_cache_key(func_name: str, request: Any) -> tuple:

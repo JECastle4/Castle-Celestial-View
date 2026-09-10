@@ -9,13 +9,13 @@ Geocentric-only. This is the data source behind the /astronomical-events API rou
 Supports pagination since a date range can span many lunations.
 """
 
-import sys
 import numpy as np
 from astropy.time import Time
 from astropy.coordinates import get_sun, get_body, GeocentricMeanEcliptic
 import astropy.units as u
 
 from api.i18n import get_i18n
+from api.metrics import record_astropy_call_safe, record_event_processed_safe
 from api.services.eclipse_detection import (
     GEOCENTRIC,
     get_moon_ecliptic_coords,
@@ -39,32 +39,6 @@ SAMPLE_INTERVAL_HOURS = 12
 
 # Maximum requestable date range (days), bounding worst-case compute cost.
 MAX_RANGE_DAYS = 3660  # ~10 years
-
-
-def _record_astropy_call(operation: str, count: int = 1) -> None:
-    """Record astropy call metric (Phase 3.2 monitoring)."""
-    # Only record metrics if not in test mode
-    if 'pytest' in sys.modules or 'unittest' in sys.modules:
-        return
-    try:
-        # pylint: disable=import-outside-toplevel
-        from api.metrics import get_metrics
-        get_metrics().record_astropy_call('/astronomical-events', operation, count)
-    except ImportError:
-        pass
-
-
-def _record_event_processed(event_type: str, count: int = 1) -> None:
-    """Record event processing metric (Phase 3.2 monitoring)."""
-    # Only record metrics if not in test mode
-    if 'pytest' in sys.modules or 'unittest' in sys.modules:
-        return
-    try:
-        # pylint: disable=import-outside-toplevel
-        from api.metrics import get_metrics
-        get_metrics().record_event_processed('/astronomical-events', event_type, count)
-    except ImportError:
-        pass
 
 
 def _phase_angle_deg(time_obj):
@@ -137,14 +111,14 @@ def find_new_full_moons(start_time, end_time, sample_interval_hours=SAMPLE_INTER
 
     # Vectorized astropy calls - much faster than looping per-sample.
     sun = get_sun(sample_times)
-    _record_astropy_call('get_sun', 1)
+    record_astropy_call_safe('/astronomical-events', 'get_sun', 1)
 
     moon = get_body('moon', sample_times, location=GEOCENTRIC)
-    _record_astropy_call('get_body', 1)
+    record_astropy_call_safe('/astronomical-events', 'get_body', 1)
 
     sun_lon = sun.transform_to(GeocentricMeanEcliptic(equinox=sample_times)).lon.degree
     moon_lon = moon.transform_to(GeocentricMeanEcliptic(equinox=sample_times)).lon.degree
-    _record_astropy_call('transform_to', 2)
+    record_astropy_call_safe('/astronomical-events', 'transform_to', 2)
 
     phase_angles = (moon_lon - sun_lon) % 360
 
@@ -426,7 +400,7 @@ def stream_astronomical_events(
         # Track events processed
         for event in page_events:
             event_type = 'lunar' if event['is_lunar'] else 'solar'
-            _record_event_processed(event_type, 1)
+            record_event_processed_safe('/astronomical-events', event_type, 1)
         yield {'page': page, 'events': page_events}
 
     yield {

@@ -17,7 +17,7 @@ from prometheus_client import (
 )
 
 
-class MetricsCollector:
+class MetricsCollector:  # pylint: disable=too-many-instance-attributes
     """
     Singleton metrics collector using prometheus_client.
 
@@ -207,3 +207,46 @@ def _is_test_mode() -> bool:
     """Check if running in test mode."""
     import sys  # pylint: disable=import-outside-toplevel
     return 'pytest' in sys.modules or 'unittest' in sys.modules
+
+
+# Shared metric recording helpers to avoid code duplication
+
+
+def record_cache_hit_safe(endpoint: str) -> None:
+    """Safely record cache hit metric (Phase 3.2 monitoring)."""
+    if _is_test_mode():
+        return
+    try:
+        get_metrics().record_cache_hit(endpoint)
+    except ImportError:
+        pass
+
+
+def record_cache_miss_safe(endpoint: str) -> None:
+    """Safely record cache miss metric (Phase 3.2 monitoring)."""
+    if _is_test_mode():
+        return
+    try:
+        get_metrics().record_cache_miss(endpoint)
+    except ImportError:
+        pass
+
+
+def record_astropy_call_safe(endpoint: str, operation: str, count: int = 1) -> None:
+    """Safely record astropy call metric (Phase 3.2 monitoring)."""
+    if _is_test_mode():
+        return
+    try:
+        get_metrics().record_astropy_call(endpoint, operation, count)
+    except ImportError:
+        pass
+
+
+def record_event_processed_safe(endpoint: str, event_type: str, count: int = 1) -> None:
+    """Safely record event processing metric (Phase 3.2 monitoring)."""
+    if _is_test_mode():
+        return
+    try:
+        get_metrics().record_event_processed(endpoint, event_type, count)
+    except ImportError:
+        pass
