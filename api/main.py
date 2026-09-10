@@ -1,14 +1,29 @@
 """
 Main FastAPI application for Astronomy API
 """
-import os
 import logging
+import os
+
 from astropy.utils import iers
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from api.routes import router
-from api.i18n import set_request_locale, SUPPORTED_LOCALES
+
 from api.cache import get_cache_stats
+from api.i18n import SUPPORTED_LOCALES, set_request_locale
+from api.rate_limiter import limiter
+from api.routes import router
+
+# Only import RateLimitExceeded if we're using the real rate limiter
+# pylint: disable=invalid-name
+RateLimitExceeded = None
+rate_limit_exception_handler = None
+HAS_REAL_LIMITER = False  # pylint: disable=invalid-name
+
+if hasattr(limiter, '__class__') and limiter.__class__.__name__ == 'Limiter':
+    # pylint: disable=import-outside-toplevel,invalid-name,ungrouped-imports
+    from slowapi.errors import RateLimitExceeded
+    from api.rate_limiter import rate_limit_exception_handler
+    HAS_REAL_LIMITER = True  # pylint: disable=invalid-name
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -35,6 +50,13 @@ app = FastAPI(
     ),
     version="0.2.0"
 )
+
+# Attach rate limiter to app (Phase 3.1: DDoS Protection)
+app.state.limiter = limiter
+
+# Add exception handler for rate limit exceeded (only if using real limiter)
+if HAS_REAL_LIMITER:
+    app.add_exception_handler(RateLimitExceeded, rate_limit_exception_handler)
 
 # Configure CORS with environment-specific settings
 # For production, set ALLOWED_ORIGINS environment variable to comma-separated list of domains
@@ -219,3 +241,22 @@ async def cache_statistics():
     - utilization: Cache utilization percentage
     """
     return get_cache_stats()
+
+
+@app.get("/rate-limit-stats")
+async def rate_limit_statistics():
+    """Rate limiting statistics endpoint for monitoring DDoS protection.
+
+    Returns:
+    - cached_entries: Number of active rate limit entries
+    - storage_type: Storage backend used (memory for single instance)
+    - note: Information about multi-instance deployments
+    """
+    if not HAS_REAL_LIMITER:
+        return {
+            "message": "Rate limiting disabled (test mode)",
+            "storage_type": "mock",
+        }
+    # pylint: disable=import-outside-toplevel
+    from api.rate_limiter import get_cache_stats as get_rate_limit_stats
+    return get_rate_limit_stats()

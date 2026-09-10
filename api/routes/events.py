@@ -3,8 +3,10 @@ API routes for eclipse and astronomical event predictions.
 """
 import json
 from typing import Optional
-from fastapi import APIRouter, Query
+
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import StreamingResponse
+
 from api.cache import cache_response
 from api.models import (
     AstronomicalEventsRequest,
@@ -12,12 +14,19 @@ from api.models import (
     EclipseContactTimesRequest,
     EclipseContactTimesResponse,
 )
+from api.rate_limiter import (
+    LIMIT_CONTACT_TIMES,
+    LIMIT_EXPENSIVE_EVENTS,
+    LIMIT_STREAM_EVENTS,
+    limiter,
+)
 from api.services.astronomical_events import (
     get_astronomical_events,
-    stream_astronomical_events,
     get_contact_times_for_event,
+    stream_astronomical_events,
     validate_date_range,
 )
+
 from .helpers import handle_route_errors
 
 
@@ -46,6 +55,7 @@ router = APIRouter(tags=["astronomical-events"])
     - **event_types**: Optional filter - 'new_moon', 'full_moon', or omit for both
     """
 )
+@limiter.limit(LIMIT_EXPENSIVE_EVENTS)  # DDoS protection: 15 req/min per IP
 @cache_response(ttl=600)
 @handle_route_errors("calculating astronomical events")
 def get_astronomical_events_route(
@@ -82,8 +92,10 @@ def get_astronomical_events_route(
     - **event_types**: Optional filter - 'new_moon', 'full_moon', repeat param for both
     """
 )
+@limiter.limit(LIMIT_STREAM_EVENTS)  # DDoS protection: 10 req/min per IP
 @handle_route_errors("streaming astronomical events")
 def stream_astronomical_events_route(
+    request: Request,  # pylint: disable=unused-argument
     start_date: str = Query(...),
     end_date: str = Query(...),
     page_size: int = Query(10, ge=1, le=100),
@@ -152,6 +164,7 @@ def stream_astronomical_events_route(
     - **is_lunar**: true for lunar/full-moon events, false for solar/new-moon events
     """
 )
+@limiter.limit(LIMIT_CONTACT_TIMES)  # DDoS protection: 30 req/min per IP
 @cache_response(ttl=600)
 @handle_route_errors("calculating contact times")
 def get_contact_times_route(

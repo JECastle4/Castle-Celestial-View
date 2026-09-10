@@ -4,6 +4,7 @@ API routes for celestial body positions (sun, moon, planets, phases).
 from fastapi import APIRouter
 from api.cache import cache_response
 from api.i18n import get_i18n
+from api.rate_limiter import limiter, LIMIT_CHEAP
 from api.models import (
     DateTimeRequest,
     DayOfWeekResponse,
@@ -46,6 +47,7 @@ router = APIRouter(tags=["bodies"])
 
 
 @router.post("/day-of-week", response_model=DayOfWeekResponse)
+@limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
 @handle_route_errors("calculating day of week")
 async def get_day_of_week(request: DateTimeRequest):
     """
@@ -69,6 +71,7 @@ async def get_day_of_week(request: DateTimeRequest):
 
 
 @router.post("/sun-position", response_model=SunPositionResponse)
+@limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
 @cache_response(ttl=300)
 @handle_route_errors("calculating sun position")
 async def get_sun_position(request: SunPositionRequest):
@@ -103,6 +106,7 @@ async def get_sun_position(request: SunPositionRequest):
 
 
 @router.post("/moon-position", response_model=MoonPositionResponse)
+@limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
 @cache_response(ttl=300)
 @handle_route_errors("calculating moon position")
 async def get_moon_position(request: MoonPositionRequest):
@@ -137,6 +141,7 @@ async def get_moon_position(request: MoonPositionRequest):
 
 
 @router.post("/venus-position", response_model=VenusPositionResponse)
+@limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
 @cache_response(ttl=300)
 @handle_route_errors("calculating Venus position")
 async def get_venus_position(request: VenusPositionRequest):
@@ -197,6 +202,8 @@ async def get_venus_position(request: VenusPositionRequest):
 
 
 @router.post("/mercury-position", response_model=MercuryPositionResponse)
+@limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
+@cache_response(ttl=300)
 @handle_route_errors("calculating Mercury position")
 async def get_mercury_position(request: MercuryPositionRequest):
     """
@@ -257,6 +264,7 @@ async def get_mercury_position(request: MercuryPositionRequest):
 
 
 @router.post("/mars-position", response_model=MarsPositionResponse)
+@limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
 @cache_response(ttl=300)
 @handle_route_errors("calculating Mars position")
 async def get_mars_position(request: MarsPositionRequest):
@@ -320,6 +328,8 @@ async def get_mars_position(request: MarsPositionRequest):
 
 
 @router.post("/jupiter-position", response_model=JupiterPositionResponse)
+@limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
+@cache_response(ttl=300)
 @handle_route_errors("calculating Jupiter position")
 async def get_jupiter_position(request: JupiterPositionRequest):
     """
@@ -368,6 +378,8 @@ async def get_jupiter_position(request: JupiterPositionRequest):
 
 
 @router.post("/saturn-position", response_model=SaturnPositionResponse)
+@limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
+@cache_response(ttl=300)
 @handle_route_errors("calculating Saturn position")
 async def get_saturn_position(request: SaturnPositionRequest):
     """
@@ -417,6 +429,8 @@ async def get_saturn_position(request: SaturnPositionRequest):
 
 
 @router.post("/uranus-position", response_model=UranusPositionResponse)
+@limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
+@cache_response(ttl=300)
 @handle_route_errors("calculating Uranus position")
 async def get_uranus_position(request: UranusPositionRequest):
     """
@@ -466,6 +480,8 @@ async def get_uranus_position(request: UranusPositionRequest):
 
 
 @router.post("/neptune-position", response_model=NeptunePositionResponse)
+@limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
+@cache_response(ttl=300)
 @handle_route_errors("calculating Neptune position")
 async def get_neptune_position(request: NeptunePositionRequest):
     """
@@ -515,6 +531,7 @@ async def get_neptune_position(request: NeptunePositionRequest):
 
 
 @router.post("/moon-phase", response_model=MoonPhaseResponse)
+@limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
 @cache_response(ttl=300)
 @handle_route_errors("calculating moon phase")
 async def get_moon_phase(request: MoonPhaseRequest):

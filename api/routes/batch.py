@@ -6,6 +6,7 @@ from fastapi import APIRouter, Query
 from fastapi.responses import StreamingResponse
 from api.cache import cache_response
 from api.i18n import get_i18n
+from api.rate_limiter import limiter, LIMIT_EXPENSIVE_BATCH
 from api.models import (
     BatchEarthObservationsRequest,
     BatchEarthObservationsResponse,
@@ -132,6 +133,7 @@ async def stream_batch_earth_observations(
     Current implementation calls position services for each frame.
     """
 )
+@limiter.limit(LIMIT_EXPENSIVE_BATCH)  # DDoS protection: 20 req/min per IP
 @cache_response(ttl=300)
 @handle_route_errors("calculating batch observations")
 async def get_batch_earth_observations(request: BatchEarthObservationsRequest):
