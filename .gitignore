@@ -38,6 +38,11 @@ playwright-report/
 playwright-report-prod/
 phase2-test-results*.txt
 test_frame_count.py
+test-output.txt
+test_output_temp.txt
+test-results-final.txt
+test_batch_output.txt
+coverage.xml
 
 # Security scanning outputs (never commit - analysis only)
 bandit*.json
@@ -69,6 +74,5 @@ Thumbs.db
 .vite/
 
 # Project specific
-test_batch_output.txt
 OPTIMIZATION_NOTES.md
-coverage.xml
+performance-baseline.json
