@@ -59,7 +59,7 @@ router = APIRouter(tags=["astronomical-events"])
 @cache_response(ttl=600)
 @handle_route_errors("calculating astronomical events")
 def get_astronomical_events_route(
-    _request: Request,  # For SlowAPI rate limiting
+    request: Request,  # pylint: disable=unused-argument
     events_request: AstronomicalEventsRequest = Body(...),  # For caching and validation
     lang: Optional[str] = Query(None)
 ) -> AstronomicalEventsResponse:
@@ -169,7 +169,7 @@ def stream_astronomical_events_route(
 @cache_response(ttl=600)
 @handle_route_errors("calculating contact times")
 def get_contact_times_route(
-    _request: Request,  # For SlowAPI rate limiting
+    request: Request,  # pylint: disable=unused-argument
     contact_times_request: EclipseContactTimesRequest = Body(...),  # For caching and validation
     _lang: Optional[str] = Query(None)
 ) -> EclipseContactTimesResponse:

@@ -64,6 +64,7 @@ def _process_batch_frames_from_generator(gen, frame_count: int):
 @limiter.limit(LIMIT_EXPENSIVE_BATCH)  # DDoS: 20 req/min per IP (POST batch limit)
 @handle_route_errors("streaming batch observations")
 async def stream_batch_earth_observations(
+    request: Request,  # pylint: disable=unused-argument
     start_date: str = Query(...),
     start_time: str = Query(...),
     end_date: str = Query(...),
@@ -138,7 +139,7 @@ async def stream_batch_earth_observations(
 @cache_response(ttl=300)
 @handle_route_errors("calculating batch observations")
 async def get_batch_earth_observations(
-    _request: Request,  # For SlowAPI rate limiter
+    request: Request,  # pylint: disable=unused-argument
     batch_request: BatchEarthObservationsRequest = Body(...),  # Request model
 ) -> BatchEarthObservationsResponse:
     """Calculate batch observations of celestial positions from Earth"""
