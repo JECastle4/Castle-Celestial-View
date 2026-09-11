@@ -1,7 +1,7 @@
 """
 API routes for celestial body positions (sun, moon, planets, phases).
 """
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from api.cache import cache_response
 from api.i18n import get_i18n
 from api.rate_limiter import limiter, LIMIT_CHEAP
@@ -49,7 +49,7 @@ router = APIRouter(tags=["bodies"])
 @router.post("/day-of-week", response_model=DayOfWeekResponse)
 @limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
 @handle_route_errors("calculating day of week")
-async def get_day_of_week(request: DateTimeRequest):
+async def get_day_of_week(_request: Request, body: DateTimeRequest):
     """
     Calculate the day of the week from a given date and time.
 
@@ -65,7 +65,7 @@ async def get_day_of_week(request: DateTimeRequest):
     - **day_name**: Name of the day
     - **input_datetime**: The processed input
     """
-    obs_time = build_observation_datetime(request.date, request.time)
+    obs_time = build_observation_datetime(body.date, body.time)
     result = calculate_day_of_week(obs_time.date, obs_time.time)
     return DayOfWeekResponse(**result)
 
@@ -74,7 +74,7 @@ async def get_day_of_week(request: DateTimeRequest):
 @limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
 @cache_response(ttl=300)
 @handle_route_errors("calculating sun position")
-async def get_sun_position(request: SunPositionRequest):
+async def get_sun_position(_request: Request, body: SunPositionRequest):
     """
     Calculate the sun's position at a given time and location.
 
@@ -95,11 +95,11 @@ async def get_sun_position(request: SunPositionRequest):
     - **input_datetime**: The processed input
     - **location**: The location used for calculation
     """
-    observation_time = build_observation_datetime(request.date, request.time)
+    observation_time = build_observation_datetime(body.date, body.time)
     location = build_location_from_request(
-        request.latitude,
-        request.longitude,
-        request.elevation
+        body.latitude,
+        body.longitude,
+        body.elevation
     )
     result = calculate_sun_position(observation_time, location)
     return SunPositionResponse(**result)
@@ -109,7 +109,7 @@ async def get_sun_position(request: SunPositionRequest):
 @limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
 @cache_response(ttl=300)
 @handle_route_errors("calculating moon position")
-async def get_moon_position(request: MoonPositionRequest):
+async def get_moon_position(_request: Request, body: MoonPositionRequest):
     """
     Calculate the moon's position at a given time and location.
 
@@ -130,11 +130,11 @@ async def get_moon_position(request: MoonPositionRequest):
     - **input_datetime**: The processed input
     - **location**: The location used for calculation
     """
-    observation_time = build_observation_datetime(request.date, request.time)
+    observation_time = build_observation_datetime(body.date, body.time)
     location = build_location_from_request(
-        request.latitude,
-        request.longitude,
-        request.elevation
+        body.latitude,
+        body.longitude,
+        body.elevation
     )
     result = calculate_moon_position(observation_time, location)
     return MoonPositionResponse(**result)
@@ -144,7 +144,7 @@ async def get_moon_position(request: MoonPositionRequest):
 @limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
 @cache_response(ttl=300)
 @handle_route_errors("calculating Venus position")
-async def get_venus_position(request: VenusPositionRequest):
+async def get_venus_position(_request: Request, body: VenusPositionRequest):
     """
     Calculate Venus's position and phase at a given time and location.
 
@@ -187,11 +187,11 @@ async def get_venus_position(request: VenusPositionRequest):
     - **input_datetime**: The processed input
     - **location**: The location used for calculation
     """
-    observation_time = build_observation_datetime(request.date, request.time)
+    observation_time = build_observation_datetime(body.date, body.time)
     location = build_location_from_request(
-        request.latitude,
-        request.longitude,
-        request.elevation
+        body.latitude,
+        body.longitude,
+        body.elevation
     )
     result = calculate_venus_position(
         observation_time,
@@ -205,7 +205,7 @@ async def get_venus_position(request: VenusPositionRequest):
 @limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
 @cache_response(ttl=300)
 @handle_route_errors("calculating Mercury position")
-async def get_mercury_position(request: MercuryPositionRequest):
+async def get_mercury_position(_request: Request, body: MercuryPositionRequest):
     """
     Calculate Mercury's position and phase at a given time and location.
 
@@ -249,11 +249,11 @@ async def get_mercury_position(request: MercuryPositionRequest):
     - **input_datetime**: The processed input
     - **location**: The location used for calculation
     """
-    observation_time = build_observation_datetime(request.date, request.time)
+    observation_time = build_observation_datetime(body.date, body.time)
     location = build_location_from_request(
-        request.latitude,
-        request.longitude,
-        request.elevation
+        body.latitude,
+        body.longitude,
+        body.elevation
     )
     result = calculate_mercury_position(
         observation_time,
@@ -267,7 +267,7 @@ async def get_mercury_position(request: MercuryPositionRequest):
 @limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
 @cache_response(ttl=300)
 @handle_route_errors("calculating Mars position")
-async def get_mars_position(request: MarsPositionRequest):
+async def get_mars_position(_request: Request, body: MarsPositionRequest):
     """
     Calculate Mars's position and phase at a given time and location.
 
@@ -313,11 +313,11 @@ async def get_mars_position(request: MarsPositionRequest):
     - **input_datetime**: The processed input
     - **location**: The location used for calculation
     """
-    observation_time = build_observation_datetime(request.date, request.time)
+    observation_time = build_observation_datetime(body.date, body.time)
     location = build_location_from_request(
-        request.latitude,
-        request.longitude,
-        request.elevation
+        body.latitude,
+        body.longitude,
+        body.elevation
     )
     result = calculate_mars_position(
         observation_time,
@@ -331,7 +331,7 @@ async def get_mars_position(request: MarsPositionRequest):
 @limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
 @cache_response(ttl=300)
 @handle_route_errors("calculating Jupiter position")
-async def get_jupiter_position(request: JupiterPositionRequest):
+async def get_jupiter_position(_request: Request, body: JupiterPositionRequest):
     """
     Calculate Jupiter's position at a given time and location.
 
@@ -363,11 +363,11 @@ async def get_jupiter_position(request: JupiterPositionRequest):
     - **input_datetime**: The processed input
     - **location**: The location used for calculation
     """
-    observation_time = build_observation_datetime(request.date, request.time)
+    observation_time = build_observation_datetime(body.date, body.time)
     location = build_location_from_request(
-        request.latitude,
-        request.longitude,
-        request.elevation
+        body.latitude,
+        body.longitude,
+        body.elevation
     )
     result = calculate_jupiter_position(
         observation_time,
@@ -381,7 +381,7 @@ async def get_jupiter_position(request: JupiterPositionRequest):
 @limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
 @cache_response(ttl=300)
 @handle_route_errors("calculating Saturn position")
-async def get_saturn_position(request: SaturnPositionRequest):
+async def get_saturn_position(_request: Request, body: SaturnPositionRequest):
     """
     Calculate Saturn's position at a given time and location.
 
@@ -414,11 +414,11 @@ async def get_saturn_position(request: SaturnPositionRequest):
     - **input_datetime**: The processed input
     - **location**: The location used for calculation
     """
-    observation_time = build_observation_datetime(request.date, request.time)
+    observation_time = build_observation_datetime(body.date, body.time)
     location = build_location_from_request(
-        request.latitude,
-        request.longitude,
-        request.elevation
+        body.latitude,
+        body.longitude,
+        body.elevation
     )
     result = calculate_saturn_position(
         observation_time,
@@ -432,7 +432,7 @@ async def get_saturn_position(request: SaturnPositionRequest):
 @limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
 @cache_response(ttl=300)
 @handle_route_errors("calculating Uranus position")
-async def get_uranus_position(request: UranusPositionRequest):
+async def get_uranus_position(_request: Request, body: UranusPositionRequest):
     """
     Calculate Uranus's position at a given time and location.
 
@@ -465,11 +465,11 @@ async def get_uranus_position(request: UranusPositionRequest):
     - **input_datetime**: The processed input
     - **location**: The location used for calculation
     """
-    observation_time = build_observation_datetime(request.date, request.time)
+    observation_time = build_observation_datetime(body.date, body.time)
     location = build_location_from_request(
-        request.latitude,
-        request.longitude,
-        request.elevation
+        body.latitude,
+        body.longitude,
+        body.elevation
     )
     result = calculate_uranus_position(
         observation_time,
@@ -483,7 +483,7 @@ async def get_uranus_position(request: UranusPositionRequest):
 @limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
 @cache_response(ttl=300)
 @handle_route_errors("calculating Neptune position")
-async def get_neptune_position(request: NeptunePositionRequest):
+async def get_neptune_position(_request: Request, body: NeptunePositionRequest):
     """
     Calculate Neptune's position at a given time and location.
 
@@ -516,11 +516,11 @@ async def get_neptune_position(request: NeptunePositionRequest):
     - **input_datetime**: The processed input
     - **location**: The location used for calculation
     """
-    observation_time = build_observation_datetime(request.date, request.time)
+    observation_time = build_observation_datetime(body.date, body.time)
     location = build_location_from_request(
-        request.latitude,
-        request.longitude,
-        request.elevation
+        body.latitude,
+        body.longitude,
+        body.elevation
     )
     result = calculate_neptune_position(
         observation_time,
@@ -534,7 +534,7 @@ async def get_neptune_position(request: NeptunePositionRequest):
 @limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
 @cache_response(ttl=300)
 @handle_route_errors("calculating moon phase")
-async def get_moon_phase(request: MoonPhaseRequest):
+async def get_moon_phase(_request: Request, body: MoonPhaseRequest):
     """
     Calculate the moon's phase information at a given time and location.
 
@@ -558,11 +558,11 @@ async def get_moon_phase(request: MoonPhaseRequest):
     - **input_datetime**: The processed input
     - **location**: The location used for calculation
     """
-    observation_time = build_observation_datetime(request.date, request.time)
+    observation_time = build_observation_datetime(body.date, body.time)
     location = build_location_from_request(
-        request.latitude,
-        request.longitude,
-        request.elevation
+        body.latitude,
+        body.longitude,
+        body.elevation
     )
     result = calculate_moon_phase(
         observation_time,

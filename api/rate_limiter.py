@@ -8,8 +8,19 @@ In test mode (pytest), rate limiting is bypassed to avoid test flakiness.
 
 CRITICAL SECURITY NOTE - Reverse Proxy Deployments:
 When deployed behind a reverse proxy, you MUST configure trusted proxies to enable
-per-client rate limiting. The limiter extracts the real client IP from X-Forwarded-For
-headers, but ONLY if the immediate request peer (socket IP) is in the TRUSTED_PROXIES list.
+per-client rate limiting. The limiter extracts the real client IP by:
+  1. Verifying the direct peer is in TRUSTED_PROXIES
+  2. Parsing the X-Forwarded-For chain from the proxy outward
+  3. Removing all known trusted proxies from the chain
+  4. Taking the rightmost remaining IP as the real client
+
+This approach prevents rate-limit bypass when a proxy appends to client-supplied
+headers: attackers cannot vary the leftmost IP to bypass limits, because the 
+rightmost IP (added by the trusted proxy) is always used.
+
+Best Practice: Configure your reverse proxy to OVERWRITE X-Forwarded-For headers
+instead of appending. This is simpler and more robust than requiring the proxy
+to append the correct client IP. Either approach works with this implementation.
 
 If not configured correctly:
   - All external clients appear to come from the proxy's IP (e.g., 127.0.0.1)
@@ -20,6 +31,7 @@ To fix this:
   1. Set TRUSTED_PROXIES env var to the proxy's IP (comma-separated if multiple)
   2. Ensure your proxy sends X-Forwarded-For headers with real client IP
   3. Example: export TRUSTED_PROXIES=127.0.0.1,192.168.1.1
+
 
 Configuration (Environment Variables):
     RATE_LIMIT_ENABLED: Enable/disable rate limiting (default: "true")
@@ -136,7 +148,7 @@ else:
 # Format: "N/minute" where N is requests per minute
 LIMIT_EXPENSIVE_BATCH = os.getenv(
     "LIMIT_EXPENSIVE_BATCH",
-    "20/minute"  # batch-earth-observations: 40s avg × 20 = 800s CPU
+    "10/minute"  # batch-earth-observations: 40s avg × 10 = 400s CPU per DDoS policy
 )
 LIMIT_EXPENSIVE_EVENTS = os.getenv(
     "LIMIT_EXPENSIVE_EVENTS",
@@ -166,10 +178,14 @@ def _rate_limit_key_func(request: Request) -> str | None:
     """
     Custom key function for rate limiting that respects X-Forwarded-For headers.
     
-    Extracts the real client IP by:
+    Extracts the real client IP from a proxy chain by:
     1. Checking if the direct peer (socket IP) is in TRUSTED_PROXIES
-    2. If yes, extracting the leftmost IP from X-Forwarded-For header
-    3. If no, using the direct peer IP
+    2. If yes, parsing the X-Forwarded-For chain from the trusted peer OUTWARD
+    3. Removing all known trusted proxies from the chain
+    4. Taking the rightmost remaining IP as the client
+    
+    This prevents bypass attacks where clients vary the leftmost value in a 
+    client-supplied header that gets appended by the proxy.
     
     Returns:
         IP address string for rate limiting key (client's real IP)
@@ -177,23 +193,46 @@ def _rate_limit_key_func(request: Request) -> str | None:
     SECURITY: Only trusts X-Forwarded-For from explicitly configured trusted proxies.
     Behind reverse proxies, you MUST set TRUSTED_PROXIES environment variable.
     
+    CRITICAL: Proxies SHOULD overwrite X-Forwarded-For headers, not append.
+    If your proxy appends, ensure it adds the correct client IP so this function
+    can extract it from the rightmost position.
+    
     Examples:
         Direct client (no proxy):
             request.client.host = "203.0.113.45"
             TRUSTED_PROXIES = {} (empty)
             Returns: "203.0.113.45" (use direct peer)
         
-        Behind nginx proxy:
+        Single trusted proxy (correct - header replaced by proxy):
             request.client.host = "127.0.0.1" (proxy IP)
             TRUSTED_PROXIES = {"127.0.0.1"}
+            X-Forwarded-For = "203.0.113.45"
+            Chain: [203.0.113.45, 127.0.0.1]
+            Remove 127.0.0.1: [203.0.113.45]
+            Returns: "203.0.113.45" ✓
+        
+        Single proxy (unsafe - header appended by proxy, client-supplied attacker IP):
+            request.client.host = "127.0.0.1"
+            TRUSTED_PROXIES = {"127.0.0.1"}
+            X-Forwarded-For = "attacker_varied_ip, 203.0.113.45" (attacker controls first)
+            Chain: [attacker_varied_ip, 203.0.113.45, 127.0.0.1]
+            Remove 127.0.0.1: [attacker_varied_ip, 203.0.113.45]
+            Returns: "203.0.113.45" (rightmost before proxy) ✓ SECURE
+        
+        Multiple proxies (client → Proxy1:10.0.0.1 → Proxy2:127.0.0.1 → us):
+            request.client.host = "127.0.0.1"
+            TRUSTED_PROXIES = {"10.0.0.1", "127.0.0.1"}
             X-Forwarded-For = "203.0.113.45, 10.0.0.1"
-            Returns: "203.0.113.45" (leftmost from header)
+            Chain: [203.0.113.45, 10.0.0.1, 127.0.0.1]
+            Remove 127.0.0.1: [203.0.113.45, 10.0.0.1]
+            Remove 10.0.0.1: [203.0.113.45]
+            Returns: "203.0.113.45" ✓
         
         Proxy not in TRUSTED_PROXIES (spoofing attempt):
             request.client.host = "203.0.113.99" (untrusted)
             TRUSTED_PROXIES = {"127.0.0.1"}
             X-Forwarded-For = "203.0.113.45" (ignored - peer not trusted)
-            Returns: "203.0.113.99" (use direct peer)
+            Returns: "203.0.113.99" (use direct peer, ignore header)
     """
     if not request.client:
         return None
@@ -202,13 +241,26 @@ def _rate_limit_key_func(request: Request) -> str | None:
 
     # If peer is a trusted proxy, extract real client IP from X-Forwarded-For
     if TRUSTED_PROXIES and peer_ip in TRUSTED_PROXIES:
-        # Get X-Forwarded-For header (may contain multiple IPs)
+        # Get X-Forwarded-For header (may contain multiple IPs from proxy chain)
         forwarded_for = request.headers.get("x-forwarded-for")
         if forwarded_for:
-            # Take the leftmost IP (original client, before any proxy chain)
-            client_ip = forwarded_for.split(",")[0].strip()
-            if client_ip:
-                return client_ip
+            # Build full chain: X-Forwarded-For IPs + current peer (trusted proxy)
+            # This represents: [previous_clients..., last_proxy, current_peer]
+            ips = [ip.strip() for ip in forwarded_for.split(",")]
+            ips.append(peer_ip)
+
+            # Remove all known trusted proxies from the right (current → previous)
+            # This leaves only the client chain before the proxy infrastructure
+            while ips and ips[-1] in TRUSTED_PROXIES:
+                ips.pop()
+
+            # The rightmost remaining IP is the client just before the proxy chain
+            # This is secure even if earlier IPs were attacker-supplied, because
+            # those values cannot reach past the rightmost proxy
+            if ips:
+                client_ip = ips[-1]
+                if client_ip:
+                    return client_ip
 
     # Use direct peer IP (either not behind proxy, or peer not trusted)
     return peer_ip

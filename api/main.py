@@ -224,8 +224,8 @@ def _get_pre_route_label(request: Request) -> str:
 
     Returns a bounded label based on the request path structure:
     - "/api/v1/astronomical-events" → "/api/v1/astronomical-events"
-    - "/api/v1/astronomical-events-stream" → "/api/v1/astronomical-events-stream"
-    - "/api/v1/astronomical-events/contact-times" → "/api/v1/astronomical-events" (group by parent)
+    - "/api/v1/contact-times" → "/api/v1/contact-times" (separate from grouping)
+    - "/api/v1/batch-earth-observations" → "/api/v1/batch-earth-observations"
     - "/metrics" → "/metrics"
     - "/unknown/path" → "unknown" (bounded)
 
@@ -237,8 +237,17 @@ def _get_pre_route_label(request: Request) -> str:
     """
     path = request.url.path
 
+    # Strip query parameters if present (defensive; shouldn't be in request.url.path)
+    if "?" in path:
+        path = path.split("?")[0]
+
+    # Known full-path endpoints (preserve as-is before generic grouping)
+    # contact-times is a per-endpoint route that must report separate metrics
+    if path.startswith("/api/v1/contact-times"):
+        return "/api/v1/contact-times"
+
     # API v1 endpoints: extract the first path segment after /api/v1/
-    # This groups related endpoints (e.g., /contact-times sub-routes) together
+    # This groups related endpoints (e.g., /astronomical-events sub-routes) together
     if path.startswith("/api/v1/"):
         relative = path[8:]  # Remove "/api/v1/" prefix
         first_segment = relative.split("/")[0]
@@ -306,9 +315,9 @@ async def metrics_middleware(request: Request, call_next):
     status_code = 500  # Default to server error
 
     # Use bounded pre-route label for in-progress tracking
-    # (before route matching, so use "unknown" for any unmatched routes)
+    # (before route matching, extract the label from the request path)
     # This ensures in-progress counter increments before request is dispatched
-    pre_route_endpoint = "unknown"
+    pre_route_endpoint = _get_pre_route_label(request)
     metrics.record_request_start(pre_route_endpoint)
 
     try:

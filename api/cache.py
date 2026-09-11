@@ -6,9 +6,14 @@ based on request parameters. This layer sits above service-level caching to
 capture complete response caching, reducing redundant calculations for
 identical requests.
 
+Memory-aware caching: Cache is bounded by both entry count and total memory usage.
+Responses exceeding max_entry_bytes are not cached. When total memory exceeds
+max_memory_bytes, least-recently-used entries are evicted to stay within limits.
+
 Thread-safe implementation protects against concurrent access from
 synchronous routes running in the thread pool executor.
 """
+import sys
 import time
 import functools
 import inspect
@@ -20,29 +25,71 @@ from api.metrics import record_cache_hit_safe, record_cache_miss_safe
 from api.i18n import get_i18n
 
 
-class TTLCache:
+class TTLCache:  # pylint: disable=too-many-instance-attributes
     """
-    Thread-safe LRU cache with per-entry time-to-live (TTL) expiration.
+    Thread-safe LRU cache with per-entry time-to-live (TTL) expiration and memory limits.
 
     Entries automatically expire after their TTL elapses. Expired entries are
-    lazily removed on access. Cache size is limited by max_size; when full,
-    least-recently-used entries are evicted.
+    lazily removed on access. Cache is bounded by both:
+    - Entry count (max_size)
+    - Total memory usage (max_memory_bytes)
+
+    Individual responses exceeding max_entry_bytes are not cached (skip caching).
+    When total memory usage exceeds max_memory_bytes, least-recently-used entries
+    are evicted to stay within the memory limit.
 
     Thread safety: All cache operations are protected by a lock to prevent
     race conditions when multiple requests access the cache concurrently from
     the thread pool executor.
 
     Args:
-        max_size: Maximum number of entries to cache
-        default_ttl: Default time-to-live for entries in seconds
+        max_size: Maximum number of entries to cache (default: 128)
+        default_ttl: Default time-to-live for entries in seconds (default: 300)
+        max_memory_bytes: Maximum total memory for cache in bytes (default: 100MB)
+        max_entry_bytes: Maximum size of individual response to cache in bytes (default: 10MB)
     """
 
-    def __init__(self, max_size: int = 128, default_ttl: int = 300):
+    def __init__(self, max_size: int = 128, default_ttl: int = 300,
+                 max_memory_bytes: int = 100 * 1024 * 1024,
+                 max_entry_bytes: int = 10 * 1024 * 1024):
+        # Configuration limits
         self.max_size = max_size
         self.default_ttl = default_ttl
+        self.max_memory_bytes = max_memory_bytes
+        self.max_entry_bytes = max_entry_bytes
+        # Cache storage
         self.cache: OrderedDict = OrderedDict()
         self.expiry: dict = {}
+        self.entry_sizes: dict = {}  # Track memory usage per entry
+        self.total_memory_used: int = 0  # Track total memory in cache
+        # Thread safety
         self._lock = threading.RLock()  # Reentrant lock for nested lock acquisition
+
+    def _estimate_size(self, obj: Any) -> int:
+        """
+        Estimate memory usage of an object including nested structures.
+
+        Uses sys.getsizeof() for base estimate and recursively accounts for
+        memory in containers (dicts, lists, tuples). This provides a reasonable
+        approximation of actual memory usage for caching decisions.
+
+        Args:
+            obj: Object to estimate size of
+
+        Returns:
+            Estimated memory usage in bytes
+        """
+        size = sys.getsizeof(obj)
+
+        if isinstance(obj, dict):
+            for key, value in obj.items():
+                size += sys.getsizeof(key) + self._estimate_size(value)
+        elif isinstance(obj, (list, tuple)):
+            for item in obj:
+                size += self._estimate_size(item)
+        # For other types (strings, numbers, sets, etc.) getsizeof is sufficient
+
+        return size
 
     def _is_expired(self, key: Hashable) -> bool:
         """Check if an entry has expired."""
@@ -75,39 +122,83 @@ class TTLCache:
             self.cache.move_to_end(key)
             return self.cache[key]
 
-    def set(self, key: Hashable, value: Any, ttl: Optional[int] = None) -> None:
+    def purge_expired(self) -> int:
+        """
+        Remove all expired entries from cache.
+
+        Proactively purges expired entries to free capacity before evicting
+        live LRU entries. This prevents live entries from being evicted when
+        expired entries are consuming capacity.
+
+        Returns:
+            Number of expired entries removed
+        """
+        expired_keys = [key for key in self.cache if self._is_expired(key)]
+        for key in expired_keys:
+            self._delete(key)
+        return len(expired_keys)
+
+    def set(self, key: Hashable, value: Any, ttl: Optional[int] = None) -> bool:
         """
         Store a value in cache with TTL.
 
-        If cache is full, evicts least-recently-used entry.
+        Entries larger than max_entry_bytes are not cached (returns False).
+        If cache exceeds max_memory_bytes, evicts least-recently-used entries.
+        If cache exceeds max_size entries, evicts least-recently-used entries.
         Thread-safe: protected by internal lock.
 
         Args:
             key: Cache key
             value: Value to cache
             ttl: Time-to-live in seconds (uses default_ttl if None)
+
+        Returns:
+            True if value was cached, False if it exceeded max_entry_bytes
         """
         with self._lock:
+            # Estimate size of this entry
+            entry_size = self._estimate_size(value)
+
+            # Skip caching if entry exceeds max_entry_bytes threshold
+            if entry_size > self.max_entry_bytes:
+                return False
+
             if ttl is None:
                 ttl = self.default_ttl
 
             # Remove if already exists (will re-add as most recent)
             if key in self.cache:
+                old_size = self.entry_sizes.get(key, 0)
+                self.total_memory_used -= old_size
                 self.cache.pop(key)
                 self.expiry.pop(key, None)
+                self.entry_sizes.pop(key, None)
 
-            # Evict LRU if at capacity
-            if len(self.cache) >= self.max_size:
+            # Purge expired entries first to avoid evicting live LRU entries
+            self.purge_expired()
+
+            # Evict LRU entries until we have space for this entry
+            # Evict if: (a) by memory limit, or (b) by entry count
+            while ((self.total_memory_used + entry_size > self.max_memory_bytes or
+                    len(self.cache) >= self.max_size) and len(self.cache) > 0):
                 lru_key = next(iter(self.cache))
                 self._delete(lru_key)
 
             # Add new entry
             self.cache[key] = value
             self.expiry[key] = time.time() + ttl
+            self.entry_sizes[key] = entry_size
+            self.total_memory_used += entry_size
+            return True
 
     def _delete(self, key: Hashable) -> None:
-        """Remove an entry from cache."""
-        self.cache.pop(key, None)
+        """Remove an entry from cache and update memory tracking."""
+        if key in self.cache:
+            # Subtract from total memory used
+            entry_size = self.entry_sizes.get(key, 0)
+            self.total_memory_used -= entry_size
+            self.entry_sizes.pop(key, None)
+            self.cache.pop(key)
         self.expiry.pop(key, None)
 
     def clear(self) -> None:
@@ -115,6 +206,8 @@ class TTLCache:
         with self._lock:
             self.cache.clear()
             self.expiry.clear()
+            self.entry_sizes.clear()
+            self.total_memory_used = 0
 
     def __len__(self) -> int:
         """
@@ -133,7 +226,10 @@ class TTLCache:
 
 
 # Global response cache instance
-_response_cache = TTLCache(max_size=256, default_ttl=300)
+# max_memory_bytes=100MB, max_entry_bytes=10MB to prevent OOM from large batch responses
+_response_cache = TTLCache(max_size=256, default_ttl=300,
+                           max_memory_bytes=100 * 1024 * 1024,
+                           max_entry_bytes=10 * 1024 * 1024)
 
 
 def cache_response(ttl: int = 300):
@@ -353,10 +449,19 @@ def get_cache_stats() -> dict:
     Get cache statistics for monitoring and debugging.
 
     Returns:
-        Dict with cache size and capacity info
+        Dict with cache size, capacity, and memory usage info
     """
-    return {
-        "cached_entries": len(_response_cache),
-        "max_size": _response_cache.max_size,
-        "utilization": len(_response_cache) / _response_cache.max_size * 100
-    }
+    with _response_cache._lock:  # pylint: disable=protected-access
+        entry_count = len(_response_cache)
+        mem_pct = (
+            _response_cache.total_memory_used / _response_cache.max_memory_bytes * 100
+        )
+        return {
+            "cached_entries": entry_count,
+            "max_entries": _response_cache.max_size,
+            "entry_utilization_percent": entry_count / _response_cache.max_size * 100,
+            "memory_used_bytes": _response_cache.total_memory_used,
+            "max_memory_bytes": _response_cache.max_memory_bytes,
+            "memory_utilization_percent": mem_pct,
+            "max_entry_bytes": _response_cache.max_entry_bytes
+        }

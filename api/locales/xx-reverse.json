@@ -64,7 +64,7 @@
     "frameCountMinimum": "{value} tog ,2 tsael ta eb tsum tnuoc_emarf"
   },
   "errors": {
-    "unknown": "decurred rorre nwonknu nA",
-    "tooManyRequests": ".sdnoces {retry_after} retfa yerter esaelP .tseuqer ot ynam ooT"
+    "unknown": "derucco rorre nwonknu nA",
+    "tooManyRequests": ".sdnoces }retfa_yrter{ retfa yerter esaelP .tseuqer ot ynam ooT"
   }
 }

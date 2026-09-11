@@ -60,7 +60,9 @@
     "apply": "ylppA",
     "cancel": "lecnaC",
     "selectBody": "sliated weiv ot {body} tceleS",
-    "zoomToBody": "{body} ot mooZ"
+    "zoomToBody": "{body} ot mooZ",
+    "downloadAsCSV": "VCS sa semit tcatnoc esplice daolnwoD",
+    "downloadAsJSON": "NOSJ sa semit tcatnoc esplice daolnwoD"
   },
   "views": {
     "solar3d": "weiV metsyS raloS",

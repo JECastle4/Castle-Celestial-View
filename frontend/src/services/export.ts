@@ -27,7 +27,7 @@ export function exportContactTimesToCSV(
 
   // CSV rows - one per contact time
   events.forEach((event) => {
-    if (event.eclipse_occurs && event.contact_times) {
+    if (event.eclipse_occurs && event.contact_times && Object.keys(event.contact_times).length > 0) {
       Object.entries(event.contact_times).forEach(([contactType, timeStr]) => {
         lines.push(
           [

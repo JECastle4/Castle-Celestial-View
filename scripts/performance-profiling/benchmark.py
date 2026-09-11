@@ -58,7 +58,7 @@ class PerformanceBenchmark:
             "summary": {},
         }
 
-        frame_counts = [50, 100, 200, 500]
+        frame_counts = [1000, 5000]
         times = []
 
         for frame_count in frame_counts:
@@ -68,7 +68,7 @@ class PerformanceBenchmark:
                 "latitude": 40.0,
                 "longitude": -74.0,
                 "start_date": "2026-01-01",
-                "end_date": "2026-01-31",
+                "end_date": "2026-12-31",
                 "frame_count": frame_count,
             }
 
@@ -98,8 +98,10 @@ class PerformanceBenchmark:
 
                     # Check success criteria and set status
                     status = "pass"
-                    if frame_count == 500 and elapsed > 40.0:
-                        status = "⚠️ SLOW (>40s for 500 frames)"
+                    if frame_count == 1000 and elapsed > 10.0:
+                        status = "⚠️ SLOW (>10s for 1000 frames)"
+                    elif frame_count == 5000 and elapsed > 50.0:
+                        status = "⚠️ SLOW (>50s for 5000 frames)"
 
                     test_result = {
                         "frame_count": frame_count,
