@@ -49,7 +49,7 @@ router = APIRouter(tags=["bodies"])
 @router.post("/day-of-week", response_model=DayOfWeekResponse)
 @limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
 @handle_route_errors("calculating day of week")
-async def get_day_of_week(_request: Request, body: DateTimeRequest):
+async def get_day_of_week(request: Request, body: DateTimeRequest):  # pylint: disable=unused-argument
     """
     Calculate the day of the week from a given date and time.
 
@@ -74,7 +74,7 @@ async def get_day_of_week(_request: Request, body: DateTimeRequest):
 @limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
 @cache_response(ttl=300)
 @handle_route_errors("calculating sun position")
-async def get_sun_position(_request: Request, body: SunPositionRequest):
+async def get_sun_position(request: Request, body: SunPositionRequest):  # pylint: disable=unused-argument
     """
     Calculate the sun's position at a given time and location.
 
@@ -109,7 +109,7 @@ async def get_sun_position(_request: Request, body: SunPositionRequest):
 @limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
 @cache_response(ttl=300)
 @handle_route_errors("calculating moon position")
-async def get_moon_position(_request: Request, body: MoonPositionRequest):
+async def get_moon_position(request: Request, body: MoonPositionRequest):  # pylint: disable=unused-argument
     """
     Calculate the moon's position at a given time and location.
 
@@ -144,7 +144,7 @@ async def get_moon_position(_request: Request, body: MoonPositionRequest):
 @limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
 @cache_response(ttl=300)
 @handle_route_errors("calculating Venus position")
-async def get_venus_position(_request: Request, body: VenusPositionRequest):
+async def get_venus_position(request: Request, body: VenusPositionRequest):  # pylint: disable=unused-argument
     """
     Calculate Venus's position and phase at a given time and location.
 
@@ -205,7 +205,7 @@ async def get_venus_position(_request: Request, body: VenusPositionRequest):
 @limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
 @cache_response(ttl=300)
 @handle_route_errors("calculating Mercury position")
-async def get_mercury_position(_request: Request, body: MercuryPositionRequest):
+async def get_mercury_position(request: Request, body: MercuryPositionRequest):  # pylint: disable=unused-argument
     """
     Calculate Mercury's position and phase at a given time and location.
 
@@ -267,7 +267,7 @@ async def get_mercury_position(_request: Request, body: MercuryPositionRequest):
 @limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
 @cache_response(ttl=300)
 @handle_route_errors("calculating Mars position")
-async def get_mars_position(_request: Request, body: MarsPositionRequest):
+async def get_mars_position(request: Request, body: MarsPositionRequest):  # pylint: disable=unused-argument
     """
     Calculate Mars's position and phase at a given time and location.
 
@@ -331,7 +331,7 @@ async def get_mars_position(_request: Request, body: MarsPositionRequest):
 @limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
 @cache_response(ttl=300)
 @handle_route_errors("calculating Jupiter position")
-async def get_jupiter_position(_request: Request, body: JupiterPositionRequest):
+async def get_jupiter_position(request: Request, body: JupiterPositionRequest):  # pylint: disable=unused-argument
     """
     Calculate Jupiter's position at a given time and location.
 
@@ -381,7 +381,7 @@ async def get_jupiter_position(_request: Request, body: JupiterPositionRequest):
 @limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
 @cache_response(ttl=300)
 @handle_route_errors("calculating Saturn position")
-async def get_saturn_position(_request: Request, body: SaturnPositionRequest):
+async def get_saturn_position(request: Request, body: SaturnPositionRequest):  # pylint: disable=unused-argument
     """
     Calculate Saturn's position at a given time and location.
 
@@ -432,7 +432,7 @@ async def get_saturn_position(_request: Request, body: SaturnPositionRequest):
 @limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
 @cache_response(ttl=300)
 @handle_route_errors("calculating Uranus position")
-async def get_uranus_position(_request: Request, body: UranusPositionRequest):
+async def get_uranus_position(request: Request, body: UranusPositionRequest):  # pylint: disable=unused-argument
     """
     Calculate Uranus's position at a given time and location.
 
@@ -483,7 +483,7 @@ async def get_uranus_position(_request: Request, body: UranusPositionRequest):
 @limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
 @cache_response(ttl=300)
 @handle_route_errors("calculating Neptune position")
-async def get_neptune_position(_request: Request, body: NeptunePositionRequest):
+async def get_neptune_position(request: Request, body: NeptunePositionRequest):  # pylint: disable=unused-argument
     """
     Calculate Neptune's position at a given time and location.
 
@@ -534,7 +534,7 @@ async def get_neptune_position(_request: Request, body: NeptunePositionRequest):
 @limiter.limit(LIMIT_CHEAP)  # DDoS protection: 100 req/min per IP
 @cache_response(ttl=300)
 @handle_route_errors("calculating moon phase")
-async def get_moon_phase(_request: Request, body: MoonPhaseRequest):
+async def get_moon_phase(request: Request, body: MoonPhaseRequest):  # pylint: disable=unused-argument
     """
     Calculate the moon's phase information at a given time and location.
 
