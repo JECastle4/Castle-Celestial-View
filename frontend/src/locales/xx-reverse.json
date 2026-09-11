@@ -60,7 +60,9 @@
     "apply": "ylppA",
     "cancel": "lecnaC",
     "selectBody": "sliated weiv ot {body} tceleS",
-    "zoomToBody": "{body} ot mooZ"
+    "zoomToBody": "{body} ot mooZ",
+    "downloadAsCSV": "VCS sa semit tcatnoc esplice daolnwoD",
+    "downloadAsJSON": "NOSJ sa semit tcatnoc esplice daolnwoD"
   },
   "views": {
     "solar3d": "weiV metsyS raloS",
@@ -217,6 +219,10 @@
     "noResults": ".egnar etad detceles eht ni dnuof stneve oN",
     "allTimesLocal": "enoz emit lacol ruoy ni era semit llA",
     "loadingContactTimes": "...semit tcatnoc gnidaoL",
+    "noDataToExport": ".tsrif hcraes esaelP .trope ot stneve oN",
+    "loadingContactTimesForExport": "...trope rof semit tcatnoc gnidaoL",
+    "exportSuccess": "yllufsseccus detelpmoC tropxE",
+    "exportError": "}rorre{ :deliaF tropxE",
     "pageOf": "{total} fo {page} egaP",
     "searchParameters": "sretemaraP hcraeS",
     "resultsFound": "dnuoF stluseR",

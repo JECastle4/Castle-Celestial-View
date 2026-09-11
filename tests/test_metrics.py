@@ -332,6 +332,60 @@ class TestErrorMetrics:
         metrics.record_error('/api/events', 'validation_error', 400)
         metrics.record_error('/api/events', 'computation_error', 500)
         metrics.record_error('/api/batch', 'timeout_error', 504)
+
+
+class TestMetricsExceptionHandling:
+    """Test metrics recording in exception and error paths."""
+
+    def test_record_request_with_timeout_status(self):
+        """Test recording timeout responses (504) as metrics."""
+        metrics = get_metrics()
+        # Should record timeout responses
+        metrics.record_request('/api/test', 'GET', 504, 0.5)
+        
+        # Verify no exception is raised
+        text = metrics.get_metrics_text().decode('utf-8')
+        assert 'http_requests_total' in text
+
+    def test_record_request_with_error_status(self):
+        """Test recording error responses (500, 503) as metrics."""
+        metrics = get_metrics()
+        # Should record error responses
+        metrics.record_request('/api/test', 'GET', 500, 0.1)
+        metrics.record_request('/api/test', 'POST', 503, 0.2)
+        
+        # Verify no exception is raised
+        text = metrics.get_metrics_text().decode('utf-8')
+        assert 'http_requests_total' in text
+
+    def test_record_multiple_error_codes(self):
+        """Test recording various error status codes."""
+        metrics = get_metrics()
+        error_codes = [400, 401, 403, 404, 422, 429, 500, 502, 503, 504]
+        
+        for code in error_codes:
+            metrics.record_request('/api/test', 'GET', code, 0.1)
+        
+        # Verify metrics include all status codes
+        text = metrics.get_metrics_text().decode('utf-8')
+        assert 'http_requests_total' in text
+        # All codes should appear in metrics (they won't necessarily all appear
+        # in text representation, but recording should not crash)
+
+    def test_metrics_recorded_for_all_status_classes(self):
+        """Test that metrics are recorded for 1xx through 5xx responses."""
+        metrics = get_metrics()
+        
+        # Record representative status codes from each class
+        status_codes = [200, 201, 301, 400, 401, 500, 502, 503]
+        
+        for status in status_codes:
+            metrics.record_request('/api/test', 'GET', status, 0.1)
+        
+        text = metrics.get_metrics_text().decode('utf-8')
+        assert 'http_requests_total' in text
+        # Should have metrics for successful and error responses
+        assert b'http_requests_total' in metrics.get_metrics_text()
         
         text = metrics.get_metrics_text().decode('utf-8')
         

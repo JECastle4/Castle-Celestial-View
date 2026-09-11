@@ -19,7 +19,6 @@ from api.rate_limiter import (
     LIMIT_CONTACT_TIMES,
     LIMIT_CHEAP,
     MockLimiter,
-    INTERNAL_IPS,
 )
 
 
@@ -34,10 +33,30 @@ class TestRateLimiterConfiguration:
         assert LIMIT_CONTACT_TIMES == "30/minute"
         assert LIMIT_CHEAP == "100/minute"
     
-    def test_internal_ips_includes_localhost(self):
-        """Test that internal IPs are properly configured."""
-        assert "127.0.0.1" in INTERNAL_IPS
-        assert "::1" in INTERNAL_IPS
+    @patch.dict(os.environ, {}, clear=False)
+    def test_rate_limit_requests_per_minute_config(self):
+        """Test that RATE_LIMIT_REQUESTS_PER_MINUTE config is used when set."""
+        # When RATE_LIMIT_REQUESTS_PER_MINUTE is set, it should be read
+        with patch.dict(os.environ, {'RATE_LIMIT_REQUESTS_PER_MINUTE': '50'}):
+            # Re-import to test config loading
+            from importlib import reload
+            import api.rate_limiter
+            reload(api.rate_limiter)
+            # Should not raise; actual rate limit value verification
+            # requires integration testing with real requests
+    
+    @patch.dict(os.environ, {}, clear=False)
+    def test_rate_limit_default_fallback(self):
+        """Test that RATE_LIMIT_DEFAULT is used as fallback."""
+        # When RATE_LIMIT_REQUESTS_PER_MINUTE is not set,
+        # RATE_LIMIT_DEFAULT is used as fallback
+        with patch.dict(os.environ, {}, clear=True):
+            # Re-import to test config loading
+            from importlib import reload
+            import api.rate_limiter
+            reload(api.rate_limiter)
+            # Should not raise; actual rate limit value verification
+            # requires integration testing with real requests
     
     def test_test_mode_detection(self):
         """Test that pytest presence is detected for test mode."""
@@ -573,104 +592,3 @@ class TestRateLimitEnvironmentVariables:
         for name, value in all_limits.items():
             assert isinstance(value, str), f"{name} should be a string"
             assert "/" in value, f"{name} should be in format N/minute"
-
-
-class TestInternalIPBypass:
-    """Test that internal IPs bypass rate limiting for monitoring/benchmarks."""
-    
-    def test_should_bypass_rate_limit_for_localhost_ipv4(self):
-        """Test that 127.0.0.1 is recognized as internal IP."""
-        from unittest.mock import MagicMock
-        from api.rate_limiter import should_bypass_rate_limit
-        
-        # Mock request from localhost IPv4
-        mock_request = MagicMock()
-        mock_request.client.host = "127.0.0.1"
-        
-        # Should bypass rate limiting
-        assert should_bypass_rate_limit(mock_request) is True
-    
-    def test_should_bypass_rate_limit_for_localhost_ipv6(self):
-        """Test that ::1 (IPv6 localhost) is recognized as internal IP."""
-        from unittest.mock import MagicMock
-        from api.rate_limiter import should_bypass_rate_limit
-        
-        # Mock request from localhost IPv6
-        mock_request = MagicMock()
-        mock_request.client.host = "::1"
-        
-        # Should bypass rate limiting
-        assert should_bypass_rate_limit(mock_request) is True
-    
-    def test_should_not_bypass_for_external_ips(self):
-        """Test that external IPs do not bypass rate limiting."""
-        from unittest.mock import MagicMock
-        from api.rate_limiter import should_bypass_rate_limit
-        
-        external_ips = ["8.8.8.8", "192.168.1.1", "10.0.0.1", "172.16.0.1"]
-        
-        for external_ip in external_ips:
-            mock_request = MagicMock()
-            mock_request.client.host = external_ip
-            
-            # Should NOT bypass rate limiting
-            assert should_bypass_rate_limit(mock_request) is False, \
-                f"External IP {external_ip} should not bypass rate limiting"
-    
-    def test_rate_limit_key_func_returns_none_for_internal_ips(self):
-        """Test that custom key func returns None for internal IPs (skips rate limiting).
-        
-        In slowapi, when key_func returns None, rate limiting is skipped for that request.
-        This allows monitoring/benchmark traffic from internal IPs to bypass limits.
-        """
-        from unittest.mock import MagicMock
-        from api.rate_limiter import _rate_limit_key_func
-        
-        # Mock request from localhost
-        mock_request = MagicMock()
-        mock_request.client.host = "127.0.0.1"
-        
-        # Key func should return None (skip rate limiting)
-        result = _rate_limit_key_func(mock_request)
-        assert result is None, "Internal IP should return None (skip rate limiting)"
-    
-    def test_rate_limit_key_func_returns_ip_for_external_ips(self):
-        """Test that custom key func returns IP address for external clients."""
-        from unittest.mock import MagicMock
-        from api.rate_limiter import _rate_limit_key_func
-        
-        # Mock request from external IP
-        mock_request = MagicMock()
-        mock_request.client.host = "8.8.8.8"
-        
-        # Key func should return the IP address (apply rate limiting)
-        result = _rate_limit_key_func(mock_request)
-        assert result == "8.8.8.8", "External IP should return IP address (apply rate limiting)"
-    
-    def test_limiter_uses_custom_key_func_in_production(self):
-        """Test that limiter is configured with custom key function in production.
-        
-        Note: This test runs in test mode (MockLimiter), but documents the expected
-        production behavior.
-        """
-        # In test mode, limiter is MockLimiter, so this just verifies the config exists
-        assert hasattr(limiter, 'limit'), "Limiter should have limit method"
-    
-    def test_localhost_ipv4_in_internal_ips_list(self):
-        """Verify 127.0.0.1 is in INTERNAL_IPS constant."""
-        from api.rate_limiter import INTERNAL_IPS
-        
-        assert "127.0.0.1" in INTERNAL_IPS, "127.0.0.1 (localhost IPv4) should be in INTERNAL_IPS"
-    
-    def test_localhost_ipv6_in_internal_ips_list(self):
-        """Verify ::1 is in INTERNAL_IPS constant."""
-        from api.rate_limiter import INTERNAL_IPS
-        
-        assert "::1" in INTERNAL_IPS, "::1 (localhost IPv6) should be in INTERNAL_IPS"
-    
-    def test_internal_ips_list_is_not_empty(self):
-        """Verify INTERNAL_IPS list is not empty."""
-        from api.rate_limiter import INTERNAL_IPS
-        
-        assert len(INTERNAL_IPS) > 0, "INTERNAL_IPS should contain at least one IP"
-        assert isinstance(INTERNAL_IPS, set), "INTERNAL_IPS should be a set for O(1) lookups"

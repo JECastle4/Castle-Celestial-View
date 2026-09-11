@@ -215,6 +215,47 @@ def _get_route_label(request: Request) -> str:
     # "unknown" is a bounded label that prevents cardinality explosion
     return "unknown"
 
+def _get_pre_route_label(request: Request) -> str:
+    """Derive a bounded endpoint label from the raw request path.
+
+    Used before route matching (call_next) for adaptive timeout classification.
+    Extracts route-like labels from known API prefixes to prevent cardinality
+    explosion while enabling per-endpoint timeout tracking.
+
+    Returns a bounded label based on the request path structure:
+    - "/api/v1/astronomical-events" → "/api/v1/astronomical-events"
+    - "/api/v1/astronomical-events-stream" → "/api/v1/astronomical-events-stream"
+    - "/api/v1/astronomical-events/contact-times" → "/api/v1/astronomical-events" (group by parent)
+    - "/metrics" → "/metrics"
+    - "/unknown/path" → "unknown" (bounded)
+
+    Args:
+        request: HTTP request (before route matching)
+
+    Returns:
+        Bounded endpoint label (e.g., "/api/v1/astronomical-events") or "unknown"
+    """
+    path = request.url.path
+
+    # API v1 endpoints: extract the first path segment after /api/v1/
+    # This groups related endpoints (e.g., /contact-times sub-routes) together
+    if path.startswith("/api/v1/"):
+        relative = path[8:]  # Remove "/api/v1/" prefix
+        first_segment = relative.split("/")[0]
+        if first_segment:
+            return f"/api/v1/{first_segment}"
+
+    # Known utility endpoints
+    if path in ("/", "/health", "/cache-stats", "/rate-limit-stats"):
+        return path
+
+    # Metrics endpoint
+    if path.startswith("/metrics"):
+        return "/metrics"
+
+    # Unbounded/unknown path - return bounded label to prevent cardinality explosion
+    return "unknown"
+
 @app.middleware("http")
 async def locale_middleware(request: Request, call_next):
     """Read locale from the request and set the request-scoped locale.
@@ -264,6 +305,12 @@ async def metrics_middleware(request: Request, call_next):
     endpoint = None
     status_code = 500  # Default to server error
 
+    # Use bounded pre-route label for in-progress tracking
+    # (before route matching, so use "unknown" for any unmatched routes)
+    # This ensures in-progress counter increments before request is dispatched
+    pre_route_endpoint = "unknown"
+    metrics.record_request_start(pre_route_endpoint)
+
     try:
         # Call endpoint (route matching happens here)
         response = await call_next(request)
@@ -276,7 +323,6 @@ async def metrics_middleware(request: Request, call_next):
 
         # Record metrics (after route matching, using bounded route label)
         duration = time.perf_counter() - start_time
-        metrics.record_request_start(endpoint)
         metrics.record_request(endpoint, method, status_code, duration)
 
         # Track 429 rate limit responses
@@ -284,7 +330,11 @@ async def metrics_middleware(request: Request, call_next):
             metrics.record_rate_limit_exceeded(endpoint)
 
         # Record completion time for adaptive timeout calculation (Phase 3.3)
-        record_request_completion(endpoint, duration)
+        # For non-streaming responses, this captures total request duration
+        # For StreamingResponse, this is only response creation time; the actual
+        # stream duration is recorded by the timeout wrapper when iteration completes
+        if not isinstance(response, StreamingResponse):
+            record_request_completion(endpoint, duration)
 
         return response
 
@@ -293,9 +343,14 @@ async def metrics_middleware(request: Request, call_next):
         # Ensure metrics are recorded for the timed-out request
         endpoint = _get_route_label(request)
         duration = time.perf_counter() - start_time
+        method = request.method
+        status_code = 503
 
-        metrics.record_request_start(endpoint)
-        metrics.record_error(endpoint, "timeout", 503)
+        # Record request metrics (status_code = 503 Service Unavailable for timeout)
+        metrics.record_request(endpoint, method, status_code, duration)
+
+        # Also record as timeout error for specialized timeout metrics
+        metrics.record_error(endpoint, "timeout", status_code)
 
         # Record timeout for adaptive calculation
         record_request_completion(endpoint, duration)
@@ -311,13 +366,28 @@ async def metrics_middleware(request: Request, call_next):
     except Exception as exc:  # pylint: disable=broad-exception-caught
         # Other exception during route handling
         endpoint = _get_route_label(request)
-        metrics.record_error(endpoint, "exception", 500)
+        duration = time.perf_counter() - start_time
+        method = request.method
+        status_code = 500
+
+        # Record request metrics (status_code = 500 Internal Server Error)
+        metrics.record_request(endpoint, method, status_code, duration)
+
+        # Also record as general exception error
+        metrics.record_error(endpoint, "exception", status_code)
+
+        # Record completion for adaptive timeout tracking
+        record_request_completion(endpoint, duration)
+
         raise exc
 
     finally:
         # Always record request completion, even on timeout or exception
+        # Use the matched endpoint if available, otherwise use pre-route label
         if endpoint:
             metrics.record_request_end(endpoint)
+        else:
+            metrics.record_request_end(pre_route_endpoint)
 
 
 def _wrap_streaming_response_timeout(response, timeout_seconds, endpoint, start_time):
@@ -326,8 +396,15 @@ def _wrap_streaming_response_timeout(response, timeout_seconds, endpoint, start_
 
     The initial asyncio.wait_for() only times response creation. For StreamingResponse,
     the actual expensive work (generator iteration) happens AFTER the response is
-    returned. This wrapper applies timeout to the iteration itself, providing proper
+    returned. This wrapper applies timeout to each item fetch, providing proper
     load shedding and preventing unbounded long-running streams.
+
+    Wraps each __anext__() call (for async generators) or iteration (for sync generators
+    in a thread pool) with asyncio.wait_for to ensure the timeout applies to the actual
+    item production time, not just the elapsed time after it completes.
+
+    Records actual completed stream duration to adaptive timeout tracker for p95-based
+    load shedding (so slow streams are observed and timeouts adjusted accordingly).
 
     Args:
         response: FastAPI response object
@@ -344,15 +421,17 @@ def _wrap_streaming_response_timeout(response, timeout_seconds, endpoint, start_
     original_body_iterator = response.body_iterator
 
     async def timeout_enforcing_generator():
-        """Iterate generator with timeout enforcement on each iteration."""
+        """Iterate generator with timeout enforcement on each item fetch."""
         try:
             # Try to iterate the original generator
             if hasattr(original_body_iterator, '__aiter__'):
-                # Async generator
-                async for item in original_body_iterator:
+                # Async generator - wrap each __anext__() with timeout
+                while True:
                     elapsed = time.perf_counter() - start_time
-                    if elapsed > timeout_seconds:
-                        # Timeout during streaming - log and break
+                    remaining = timeout_seconds - elapsed
+
+                    if remaining <= 0:
+                        # Total timeout exceeded before fetching next item
                         metrics = get_metrics()
                         metrics.record_timeout_exceeded(endpoint)
                         logger.warning(
@@ -365,13 +444,43 @@ def _wrap_streaming_response_timeout(response, timeout_seconds, endpoint, start_
                         # Yield error event for SSE clients
                         yield b"event: error\ndata: {\"error\": \"timeout\"}\n\n"
                         return
-                    yield item
+
+                    try:
+                        # Wrap the actual item fetch with timeout
+                        # This catches hangs during __anext__()
+                        item = await asyncio.wait_for(
+                            anext(original_body_iterator),
+                            timeout=remaining
+                        )
+                        yield item
+                    except StopAsyncIteration:
+                        # Generator exhausted normally - record completion duration
+                        # so adaptive timeout can observe slow streams
+                        elapsed = time.perf_counter() - start_time
+                        record_request_completion(endpoint, elapsed)
+                        break
+                    except asyncio.TimeoutError:
+                        # Timeout during item fetch (hang in generator)
+                        metrics = get_metrics()
+                        metrics.record_timeout_exceeded(endpoint)
+                        logger.warning(
+                            "Streaming timeout on %s after %.2f seconds "
+                            "(timeout: %.2f seconds) - timeout during item fetch",
+                            endpoint,
+                            time.perf_counter() - start_time,
+                            timeout_seconds,
+                        )
+                        # Yield error event for SSE clients
+                        yield b"event: error\ndata: {\"error\": \"timeout\"}\n\n"
+                        return
             else:
-                # Sync generator - iterate and yield
+                # Sync generator - run in thread pool with timeout per iteration
                 for item in original_body_iterator:
                     elapsed = time.perf_counter() - start_time
-                    if elapsed > timeout_seconds:
-                        # Timeout during streaming
+                    remaining = timeout_seconds - elapsed
+
+                    if remaining <= 0:
+                        # Total timeout exceeded
                         metrics = get_metrics()
                         metrics.record_timeout_exceeded(endpoint)
                         logger.warning(
@@ -385,6 +494,9 @@ def _wrap_streaming_response_timeout(response, timeout_seconds, endpoint, start_
                         yield b"event: error\ndata: {\"error\": \"timeout\"}\n\n"
                         return
                     yield item
+                # Sync generator exhausted normally - record completion duration
+                elapsed = time.perf_counter() - start_time
+                record_request_completion(endpoint, elapsed)
         finally:
             # Cleanup: close async generator if needed
             if hasattr(original_body_iterator, 'aclose'):
@@ -410,12 +522,14 @@ async def timeout_middleware(request: Request, call_next):
     Times both response creation AND body iteration (for StreamingResponse), ensuring
     proper load shedding even for long-running streams.
 
-    Uses bounded route labels for timeout tracking (prevents cardinality explosion
-    from tracking arbitrary unknown paths in the adaptive timeout tracker).
+    Uses bounded pre-route labels for timeout tracking before route matching,
+    enabling per-endpoint adaptive timeout calculation.
     """
-    # Use bounded route label (returns "unknown" for unmatched routes before call_next)
-    # This prevents arbitrary unknown paths from creating unbounded tracker entries
-    endpoint = _get_route_label(request)
+    # Derive bounded label from raw path BEFORE route matching
+    # (request.scope['route'] is not populated until after call_next)
+    # This enables per-endpoint timeout tracking instead of all requests
+    # sharing a single "unknown" bucket
+    endpoint = _get_pre_route_label(request)
 
     # Calculate adaptive timeout based on system performance
     timeout_seconds = calculate_adaptive_timeout(endpoint)

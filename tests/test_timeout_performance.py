@@ -14,6 +14,7 @@ import time
 import pytest
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import sys
+import tracemalloc
 
 from api.timeout_logic import (
     get_tracker,
@@ -239,9 +240,11 @@ class TestMemoryOverhead:
 
     def test_tracker_memory_scaling(self):
         """Memory usage should scale reasonably with observation count."""
-        import sys
-
         tracker = PercentileTracker()
+
+        # Start memory tracking
+        tracemalloc.start()
+        snapshot_before = tracemalloc.take_snapshot()
 
         # Create tracker with many observations
         total_observations = 0
@@ -251,19 +254,22 @@ class TestMemoryOverhead:
                 tracker.record_completion(endpoint, float(10 + (i % 20)))
                 total_observations += 1
 
-        # Measure total memory used by tracker's observation storage
-        # Note: sys.getsizeof() measures the dict container + shallow contents
-        # This is a conservative (lower) bound; actual memory is higher due to deques
-        size_bytes = sys.getsizeof(tracker._observations)
+        # Take snapshot after populating
+        snapshot_after = tracemalloc.take_snapshot()
+        tracemalloc.stop()
+
+        # Calculate delta (memory allocated for observations)
+        top_stats = snapshot_after.compare_to(snapshot_before, 'lineno')
+        total_allocated = sum(stat.size_diff for stat in top_stats)
 
         # Each observation is a (timestamp, duration) tuple stored in a deque
-        # Expected: ~100-150 bytes per observation (tuple overhead + deque overhead)
+        # Expected: ~100-150 bytes per observation (tuple + deque overhead)
         # If this exceeds 200 bytes/obs, we likely have a memory leak
-        bytes_per_observation = size_bytes / max(1, total_observations)
+        bytes_per_observation = total_allocated / max(1, total_observations)
 
         assert (
             bytes_per_observation < 200
-        ), f"Memory usage too high: {bytes_per_observation:.1f} bytes/observation (total: {size_bytes} bytes for {total_observations} observations)"
+        ), f"Memory usage too high: {bytes_per_observation:.1f} bytes/observation (total: {total_allocated} bytes for {total_observations} observations)"
 
         # Cleanup
         tracker.clear()

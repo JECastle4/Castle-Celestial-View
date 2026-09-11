@@ -576,3 +576,98 @@ def test_route_contact_times_unexpected_error_handling():
 
         assert resp.status_code == 500
         assert "Error calculating contact times" in resp.json()["detail"]
+
+
+class TestLocaleNormalization:
+    """Tests for locale parameter normalization (en-US → en-us for backend matching)."""
+
+    def test_get_events_locale_uppercase_normalized(self):
+        """Locale parameter should be normalized to lowercase in POST events endpoint."""
+        # Request with uppercase locale (events search is POST, not GET)
+        resp = client.post(
+            "/api/v1/astronomical-events?lang=en-US",
+            json={
+                "start_date": "2025-09-01",
+                "end_date": "2025-09-30",
+                "include_contact_times": False,
+            }
+        )
+        
+        # Should not fail due to locale mismatch
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "events" in data
+
+    def test_post_events_locale_uppercase_normalized(self):
+        """Locale parameter should be normalized to lowercase in POST events endpoint."""
+        # Request with uppercase locale
+        resp = client.post(
+            "/api/v1/astronomical-events?lang=en-US",
+            json={
+                "start_date": "2025-09-01",
+                "end_date": "2025-09-30",
+                "include_contact_times": False,
+            }
+        )
+        
+        # Should not fail due to locale mismatch
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "events" in data
+
+    def test_contact_times_locale_uppercase_normalized(self):
+        """Locale parameter should be normalized to lowercase in contact-times endpoint."""
+        resp = client.post(
+            "/api/v1/astronomical-events/contact-times?lang=en-US",
+            json={
+                "event_date": "2025-09-07 12:00:00",
+                "is_lunar": True,
+            }
+        )
+        
+        # Should not fail due to locale mismatch
+        assert resp.status_code in [200, 422]  # 200 if valid eclipse, 422 if invalid date
+
+    def test_stream_events_locale_uppercase_normalized(self):
+        """Locale parameter should be normalized to lowercase in stream endpoint."""
+        resp = client.get(
+            "/api/v1/astronomical-events-stream?"
+            "start_date=2025-09-01&"
+            "end_date=2025-09-30&"
+            "include_contact_times=false&"
+            "lang=en-UK"
+        )
+        
+        # Should successfully start stream with normalized locale
+        assert resp.status_code == 200
+
+    def test_locale_mixed_case_normalized(self):
+        """Mixed-case locales should be normalized consistently."""
+        # Test with en-Us (mixed case)
+        resp = client.post(
+            "/api/v1/astronomical-events?lang=en-Us",
+            json={
+                "start_date": "2025-09-01",
+                "end_date": "2025-09-30",
+                "include_contact_times": False,
+            }
+        )
+        
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "events" in data
+
+    def test_locale_all_uppercase_normalized(self):
+        """All-uppercase locales should be normalized to lowercase."""
+        resp = client.post(
+            "/api/v1/astronomical-events?lang=EN-US",
+            json={
+                "start_date": "2025-09-01",
+                "end_date": "2025-09-30",
+                "include_contact_times": False,
+            }
+        )
+        
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "events" in data

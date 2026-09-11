@@ -222,6 +222,10 @@
 		"pageOf": "Page {page} of {total}",
 		"searchParameters": "Search Parameters",
 		"resultsFound": "Results Found",
+		"noDataToExport": "No events to export. Please search first.",
+		"loadingContactTimesForExport": "Loading contact times for export...",
+		"exportSuccess": "Export completed successfully",
+		"exportError": "Export failed: {error}",
 		"noEclipse": "No Eclipse",
 		"eclipseDetails": "Eclipse Details",
 		"eclipseTypes": {

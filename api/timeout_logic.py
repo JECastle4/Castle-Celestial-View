@@ -23,13 +23,22 @@ from api.timeout_config import (
     TIMEOUT_MULTIPLIERS,
 )
 
+# Maximum observations per endpoint to prevent unbounded memory growth at high throughput
+# At 1000 req/s, 5000 samples = ~5 seconds of data; sorted every 5 seconds is acceptable.
+# At normal rates (10 req/s), 5000 samples = ~500 seconds of data, well within sliding window.
+MAX_OBSERVATIONS_PER_ENDPOINT = 5000
+
 
 class PercentileTracker:
     """
     Thread-safe in-memory tracker for request completion times.
 
-    Maintains a sliding window of recent completion times per endpoint.
-    Calculates p95 (95th percentile) efficiently.
+    Maintains a sliding window of recent completion times per endpoint,
+    bounded by both elapsed time (SLIDING_WINDOW_SECONDS) and sample count
+    (MAX_OBSERVATIONS_PER_ENDPOINT) to prevent unbounded memory growth at
+    high request rates.
+
+    Calculates p95 (95th percentile) efficiently with sorted samples.
     """
 
     def __init__(self):
@@ -66,6 +75,11 @@ class PercentileTracker:
                 self._observations[endpoint]
                 and self._observations[endpoint][0][0] < cutoff
             ):
+                self._observations[endpoint].popleft()
+
+            # Enforce maximum sample count to prevent unbounded memory growth
+            # at high request rates. When cap is exceeded, remove oldest samples.
+            while len(self._observations[endpoint]) > MAX_OBSERVATIONS_PER_ENDPOINT:
                 self._observations[endpoint].popleft()
 
     def _prune_stale_observations(self, endpoint: str, now: float) -> bool:

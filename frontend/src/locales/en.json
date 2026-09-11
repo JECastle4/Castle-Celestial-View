@@ -55,7 +55,9 @@
     "apply": "Apply",
     "cancel": "Cancel",
     "selectBody": "Select {body} to view details",
-    "zoomToBody": "Zoom to {body}"
+    "zoomToBody": "Zoom to {body}",
+    "downloadAsCSV": "Download eclipse contact times as CSV",
+    "downloadAsJSON": "Download eclipse contact times as JSON"
   },
   "views": {
     "solar3d": "Solar System View",
@@ -204,7 +206,20 @@
     }
   },
   "events": {
+    "title": "Astronomical Events",
+    "description": "Search for eclipses, new moons, and full moons within a date range.",
+    "search": "Search",
+    "searching": "Searching...",
+    "eventsReceived": "Events received: {count}",
+    "searchParameters": "Search Parameters",
+    "resultsFound": "Results Found",
+    "noResults": "No events found in the selected date range.",
+    "noDataToExport": "No events to export. Please search first.",
+    "loadingContactTimesForExport": "Loading contact times for export...",
+    "exportSuccess": "Export completed successfully",
+    "exportError": "Export failed: {error}",
     "loadingContactTimes": "Loading contact times...",
-    "allTimesLocal": "All times shown in local time"
+    "allTimesLocal": "All times shown in local time",
+    "pageOf": "Page {page} of {total}"
   }
 }

@@ -66,7 +66,7 @@
                 class="export-btn"
                 :title="t('buttons.downloadAsCSV') || 'Download as CSV'"
                 @click="handleExport('csv')"
-                :disabled="!events.length"
+                :disabled="!events.length || isPreparingExport"
               >
                 <i class="fa fa-download" aria-hidden="true"></i>
                 CSV
@@ -76,12 +76,15 @@
                 class="export-btn"
                 :title="t('buttons.downloadAsJSON') || 'Download as JSON'"
                 @click="handleExport('json')"
-                :disabled="!events.length"
+                :disabled="!events.length || isPreparingExport"
               >
                 <i class="fa fa-download" aria-hidden="true"></i>
                 JSON
               </button>
             </div>
+          </div>
+          <div v-if="exportMessage" class="export-message" :class="{ 'export-success': exportMessage.includes('successfully'), 'export-error': exportMessage.includes('error') }">
+            {{ exportMessage }}
           </div>
         </div>
         <ul v-if="events.length" class="event-list">
@@ -162,6 +165,8 @@ const oneYearFromToday = new Date(today);
 oneYearFromToday.setFullYear(today.getFullYear() + 1);
 const startDate = ref(toDateString(today));
 const endDate = ref(toDateString(oneYearFromToday));
+const isPreparingExport = ref(false);
+const exportMessage = ref<string | null>(null);
 
 function toDateString(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -223,6 +228,47 @@ async function loadContactTimesForEvent(event: any) {
 
 function handleExport(format: 'csv' | 'json') {
   if (!events.value || events.value.length === 0) {
+    exportMessage.value = t('events.noDataToExport') || 'No events to export';
+    return;
+  }
+
+  // Check if any eclipse events are missing contact times
+  const eclipsesNeedingContactTimes = events.value.filter(
+    (ev: any) => ev.eclipse_occurs && !ev.contact_times
+  );
+
+  if (eclipsesNeedingContactTimes.length > 0) {
+    exportMessage.value = t('events.loadingContactTimesForExport') || 'Loading contact times for export...';
+    isPreparingExport.value = true;
+
+    // Fetch all missing contact times before export
+    Promise.all(
+      eclipsesNeedingContactTimes.map((ev: any) =>
+        fetchContactTimesForEvent(ev.date, ev.is_lunar).catch(() => {
+          // Continue even if individual fetch fails; export what we have
+        })
+      )
+    )
+      .then(() => {
+        exportMessage.value = null;
+        performExport(format);
+      })
+      .catch((err) => {
+        const errorMsg = err instanceof Error ? err.message : 'Failed to load contact times';
+        exportMessage.value = t('events.exportError', { error: errorMsg }) || `Export error: ${errorMsg}`;
+      })
+      .finally(() => {
+        isPreparingExport.value = false;
+      });
+  } else {
+    // All contact times available, proceed with export
+    exportMessage.value = null;
+    performExport(format);
+  }
+}
+
+function performExport(format: 'csv' | 'json') {
+  if (!events.value || events.value.length === 0) {
     return;
   }
 
@@ -234,9 +280,14 @@ function handleExport(format: 'csv' | 'json') {
     } else {
       exportContactTimesToJSON(events.value, filename);
     }
+    exportMessage.value = t('events.exportSuccess') || 'Export completed successfully';
+    setTimeout(() => {
+      exportMessage.value = null;
+    }, 3000);
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : 'Export failed';
     console.error('Export error:', errorMsg);
+    exportMessage.value = t('events.exportError', { error: errorMsg }) || `Export error: ${errorMsg}`;
   }
 }
 </script>
@@ -469,5 +520,27 @@ function handleExport(format: 'csv' | 'json') {
   background: #555;
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+.export-message {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 4px;
+  font-size: 0.9em;
+  background: rgba(255, 193, 7, 0.2);
+  border: 1px solid rgba(255, 193, 7, 0.5);
+  color: #ffc107;
+}
+
+.export-message.export-success {
+  background: rgba(76, 175, 80, 0.2);
+  border: 1px solid rgba(76, 175, 80, 0.5);
+  color: #4caf50;
+}
+
+.export-message.export-error {
+  background: rgba(255, 0, 0, 0.2);
+  border: 1px solid rgba(255, 0, 0, 0.5);
+  color: #ff0000;
 }
 </style>

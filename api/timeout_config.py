@@ -7,11 +7,15 @@ observed system performance (p95 request duration).
 """
 
 # Endpoint cost tier classification (for adaptive timeout calculation)
-# Paths must match what the middleware receives: full paths with /api/v1 prefix
+# Paths must match what middleware receives: /api/v1 prefix for routed endpoints,
+# direct paths for root-level endpoints
 ENDPOINT_COSTS = {
     # Cheap: lightweight responses, typically <100ms
-    '/api/v1/health': 'cheap',
-    '/metrics': 'cheap',  # Not under /api/v1 (separate metrics_router)
+    '/health': 'cheap',  # Registered directly on app, not under /api/v1
+    '/metrics': 'cheap',  # Metrics router (separate from /api/v1)
+    '/': 'cheap',        # Root endpoint
+    '/cache-stats': 'cheap',
+    '/rate-limit-stats': 'cheap',
 
     # Medium: simple position/phase queries, typically 0.5-2s
     '/api/v1/day-of-week': 'medium',
@@ -31,7 +35,7 @@ ENDPOINT_COSTS = {
     '/api/v1/batch-earth-observations-stream': 'expensive',
     '/api/v1/astronomical-events': 'expensive',
     '/api/v1/astronomical-events-stream': 'expensive',
-    '/api/v1/contact-times': 'expensive',
+    '/api/v1/astronomical-events/contact-times': 'expensive',
 }
 
 # Base timeouts (before adaptive scaling based on system performance)

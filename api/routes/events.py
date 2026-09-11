@@ -64,6 +64,9 @@ def get_astronomical_events_route(
     lang: Optional[str] = Query(None)
 ) -> AstronomicalEventsResponse:
     """Find new/full moons and classify eclipses within a date range."""
+    # Normalize locale to lowercase (frontend sends mixed case like en-US,
+    # backend whitelist uses lowercase like en-us)
+    normalized_locale = lang.lower() if lang else None
     result = get_astronomical_events(
         start_date_str=events_request.start_date,
         end_date_str=events_request.end_date,
@@ -71,7 +74,7 @@ def get_astronomical_events_route(
         page_size=events_request.page_size,
         include_contact_times=events_request.include_contact_times,
         event_types=events_request.event_types,
-        locale=lang,
+        locale=normalized_locale,
     )
     return AstronomicalEventsResponse(**result)
 
@@ -123,6 +126,10 @@ def stream_astronomical_events_route(
     # Each endpoint has domain-specific generator logic (idx-based vs
     # content-based event type detection) coupled to its service function.
     # Extracting would reduce readability without practical benefit.
+    # Normalize locale to lowercase (frontend sends mixed case like en-US,
+    # backend whitelist uses lowercase like en-us)
+    normalized_locale = lang.lower() if lang else None
+
     def event_generator():
         gen = stream_astronomical_events(
             start_date_str=start_date,
@@ -130,7 +137,7 @@ def stream_astronomical_events_route(
             page_size=page_size,
             include_contact_times=include_contact_times,
             event_types=event_types,
-            locale=lang,
+            locale=normalized_locale,
         )
         for item in gen:
             if 'events' in item:

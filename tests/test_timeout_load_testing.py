@@ -96,7 +96,7 @@ class TestDegradedLoadScenario:
         tracker = get_tracker()
         tracker.clear()
 
-        endpoint = "/api/v1/health"
+        endpoint = "/health"
         base = BASE_TIMEOUTS["cheap"]  # 3s
 
         # Health checks are fast even under load
@@ -117,7 +117,7 @@ class TestMixedWorkloadScenario:
         tracker = get_tracker()
         tracker.clear()
 
-        cheap = "/api/v1/health"
+        cheap = "/health"
         expensive = "/api/v1/batch-earth-observations"
 
         # Cheap endpoint: always fast
@@ -146,7 +146,7 @@ class TestDDoSMitigationScenario:
         tracker = get_tracker()
         tracker.clear()
 
-        cheap_endpoint = "/api/v1/health"
+        cheap_endpoint = "/health"
         expensive_endpoint = "/api/v1/batch-earth-observations"
 
         # Simulate severe DDoS: cheap requests are flooding server
