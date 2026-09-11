@@ -10,7 +10,11 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from api.main import app
-from api.services.astronomical_events import get_astronomical_events, stream_astronomical_events
+from api.services.astronomical_events import (
+    get_astronomical_events,
+    stream_astronomical_events,
+    get_contact_times_for_event,
+)
 
 client = TestClient(app)
 
@@ -332,7 +336,7 @@ def test_route_stream_event_types_filter():
 
 def test_route_get_astronomical_events_value_error_handling():
     """Test ValueError exception handling in GET astronomical-events endpoint."""
-    with patch("api.routes.get_astronomical_events") as mock_get:
+    with patch("api.routes.events.get_astronomical_events") as mock_get:
         mock_get.side_effect = ValueError("Test calculation error")
 
         resp = client.post("/api/v1/astronomical-events", json={
@@ -346,7 +350,7 @@ def test_route_get_astronomical_events_value_error_handling():
 
 def test_route_get_astronomical_events_unexpected_error_handling():
     """Test unexpected exception handling in GET astronomical-events endpoint."""
-    with patch("api.routes.get_astronomical_events") as mock_get:
+    with patch("api.routes.events.get_astronomical_events") as mock_get:
         mock_get.side_effect = RuntimeError("Unexpected error")
 
         resp = client.post("/api/v1/astronomical-events", json={
@@ -355,7 +359,7 @@ def test_route_get_astronomical_events_unexpected_error_handling():
         })
 
         assert resp.status_code == 500
-        assert "Error calculating astronomical events" in resp.json()["detail"]
+        assert "An internal error occurred" in resp.json()["detail"]
 
 
 def test_route_stream_astronomical_events_unexpected_error_handling():
@@ -365,7 +369,7 @@ def test_route_stream_astronomical_events_unexpected_error_handling():
     are caught by the route's exception handlers. Errors during streaming iteration
     happen after response is sent and are handled by the streaming middleware.
     """
-    with patch("api.routes.validate_date_range") as mock_validate:
+    with patch("api.routes.events.validate_date_range") as mock_validate:
         mock_validate.side_effect = RuntimeError("Unexpected validation error")
 
         resp = client.get("/api/v1/astronomical-events-stream", params={
@@ -374,4 +378,296 @@ def test_route_stream_astronomical_events_unexpected_error_handling():
         })
 
         assert resp.status_code == 500
-        assert "Error streaming astronomical events" in resp.json()["detail"]
+        assert "An internal error occurred" in resp.json()["detail"]
+
+
+# ============================================================================
+# Tests for lazy-loading contact-times endpoint and service function
+# ============================================================================
+
+@pytest.fixture
+def eclipse_event_with_date():
+    """Get a real eclipse event and its full ISO datetime for testing."""
+    result = get_astronomical_events(
+        start_date_str=FULL_RANGE_START,
+        end_date_str=FULL_RANGE_END,
+        page=1,
+        page_size=100,
+        include_contact_times=False,
+    )
+    eclipse_events = [e for e in result["events"] if e["eclipse_occurs"]]
+    assert len(eclipse_events) >= 2, "Need at least 2 eclipse events for testing"
+    
+    # Return lunar and solar eclipses
+    lunar_event = next((e for e in eclipse_events if e["is_lunar"]), None)
+    solar_event = next((e for e in eclipse_events if not e["is_lunar"]), None)
+    
+    return {
+        "lunar": lunar_event,
+        "solar": solar_event,
+    }
+
+
+def test_service_contact_times_for_valid_lunar_eclipse(eclipse_event_with_date):
+    """Service function should return contact times for a valid lunar eclipse."""
+    event = eclipse_event_with_date["lunar"]
+    assert event is not None, "Test requires a lunar eclipse event"
+    
+    contact_times = get_contact_times_for_event(
+        event_date_iso=event["date"],
+        is_lunar=True,
+    )
+    
+    assert contact_times is not None
+    assert isinstance(contact_times, dict)
+    # Lunar eclipses should have some contact time keys (p1, u1, u2, u3, u4, p4)
+    assert len(contact_times) > 0
+
+
+def test_service_contact_times_for_valid_solar_eclipse(eclipse_event_with_date):
+    """Service function should return contact times for a valid solar eclipse."""
+    event = eclipse_event_with_date["solar"]
+    assert event is not None, "Test requires a solar eclipse event"
+    
+    contact_times = get_contact_times_for_event(
+        event_date_iso=event["date"],
+        is_lunar=False,
+    )
+    
+    assert contact_times is not None
+    assert isinstance(contact_times, dict)
+    # Solar eclipses should have contact time keys (c1, c2, c3, c4 or similar)
+    assert len(contact_times) > 0
+
+
+def test_service_contact_times_invalid_date_format():
+    """Service function should raise ValueError for malformed ISO datetime."""
+    with pytest.raises(ValueError, match="Invalid event_date"):
+        get_contact_times_for_event(
+            event_date_iso="not-a-date",
+            is_lunar=True,
+        )
+
+
+def test_service_contact_times_invalid_date_format_wrong_separator():
+    """ISO datetime with T separator instead of space should fail."""
+    with pytest.raises(ValueError, match="Invalid event_date"):
+        get_contact_times_for_event(
+            event_date_iso="2025-09-07T12:00:00",
+            is_lunar=True,
+        )
+
+
+def test_service_contact_times_far_future_date():
+    """Contact time calculation should handle dates far outside eclipse periods gracefully."""
+    # A date with no eclipse nearby should either return empty dict or raise ValueError
+    # depending on the calculation logic. Both are acceptable.
+    try:
+        contact_times = get_contact_times_for_event(
+            event_date_iso="2050-01-01 12:00:00",
+            is_lunar=True,
+        )
+        # If it succeeds, it should be a dict (possibly empty)
+        assert isinstance(contact_times, dict)
+    except ValueError:
+        # If it fails, that's also acceptable - not every date is an eclipse
+        pass
+
+
+def test_route_contact_times_for_valid_lunar_eclipse(eclipse_event_with_date):
+    """Route endpoint should return contact times for valid lunar eclipse request."""
+    event = eclipse_event_with_date["lunar"]
+    assert event is not None
+    
+    resp = client.post("/api/v1/astronomical-events/contact-times", json={
+        "event_date": event["date"],
+        "is_lunar": True,
+    })
+    
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "contact_times" in data
+    assert data["contact_times"] is not None
+
+
+def test_route_contact_times_for_valid_solar_eclipse(eclipse_event_with_date):
+    """Route endpoint should return contact times for valid solar eclipse request."""
+    event = eclipse_event_with_date["solar"]
+    assert event is not None
+    
+    resp = client.post("/api/v1/astronomical-events/contact-times", json={
+        "event_date": event["date"],
+        "is_lunar": False,
+    })
+    
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "contact_times" in data
+    assert data["contact_times"] is not None
+
+
+def test_route_contact_times_invalid_request_missing_field():
+    """Route should return 422 for missing required field."""
+    resp = client.post("/api/v1/astronomical-events/contact-times", json={
+        "event_date": "2025-09-07 12:00:00",
+        # Missing is_lunar
+    })
+    
+    assert resp.status_code == 422
+
+
+def test_route_contact_times_invalid_date_format_returns_422():
+    """Route should return 422 for invalid ISO datetime format (Pydantic validation)."""
+    resp = client.post("/api/v1/astronomical-events/contact-times", json={
+        "event_date": "not-a-date",
+        "is_lunar": True,
+    })
+    
+    # Pydantic catches format validation first, returns 422
+    assert resp.status_code == 422
+
+
+def test_route_contact_times_with_lang_parameter(eclipse_event_with_date):
+    """Contact times endpoint should accept lang query parameter."""
+    event = eclipse_event_with_date["lunar"]
+    assert event is not None
+    
+    resp = client.post("/api/v1/astronomical-events/contact-times?lang=es", json={
+        "event_date": event["date"],
+        "is_lunar": True,
+    })
+    
+    assert resp.status_code == 200
+
+
+def test_route_contact_times_cache_behavior(eclipse_event_with_date):
+    """Same request should be cached (fast second call)."""
+    event = eclipse_event_with_date["lunar"]
+    assert event is not None
+    
+    payload = {
+        "event_date": event["date"],
+        "is_lunar": True,
+    }
+    
+    # First request
+    resp1 = client.post("/api/v1/astronomical-events/contact-times", json=payload)
+    assert resp1.status_code == 200
+    data1 = resp1.json()
+    
+    # Second identical request should get cached result
+    resp2 = client.post("/api/v1/astronomical-events/contact-times", json=payload)
+    assert resp2.status_code == 200
+    data2 = resp2.json()
+    
+    # Results should be identical
+    assert data1 == data2
+
+
+def test_route_contact_times_unexpected_error_handling():
+    """Test unexpected exception handling in contact-times endpoint."""
+    with patch("api.routes.events.get_contact_times_for_event") as mock_service:
+        mock_service.side_effect = RuntimeError("Unexpected calculation error")
+
+        resp = client.post("/api/v1/astronomical-events/contact-times", json={
+            "event_date": "2025-09-07 12:00:00",
+            "is_lunar": True,
+        })
+
+        assert resp.status_code == 500
+        assert "An internal error occurred" in resp.json()["detail"]
+
+
+class TestLocaleNormalization:
+    """Tests for locale parameter normalization (en-US → en-us for backend matching)."""
+
+    def test_get_events_locale_uppercase_normalized(self):
+        """Locale parameter should be normalized to lowercase in POST events endpoint."""
+        # Request with uppercase locale (events search is POST, not GET)
+        resp = client.post(
+            "/api/v1/astronomical-events?lang=en-US",
+            json={
+                "start_date": "2025-09-01",
+                "end_date": "2025-09-30",
+                "include_contact_times": False,
+            }
+        )
+        
+        # Should not fail due to locale mismatch
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "events" in data
+
+    def test_post_events_locale_uppercase_normalized(self):
+        """Locale parameter should be normalized to lowercase in POST events endpoint."""
+        # Request with uppercase locale
+        resp = client.post(
+            "/api/v1/astronomical-events?lang=en-US",
+            json={
+                "start_date": "2025-09-01",
+                "end_date": "2025-09-30",
+                "include_contact_times": False,
+            }
+        )
+        
+        # Should not fail due to locale mismatch
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "events" in data
+
+    def test_contact_times_locale_uppercase_normalized(self):
+        """Locale parameter should be normalized to lowercase in contact-times endpoint."""
+        resp = client.post(
+            "/api/v1/astronomical-events/contact-times?lang=en-US",
+            json={
+                "event_date": "2025-09-07 12:00:00",
+                "is_lunar": True,
+            }
+        )
+        
+        # Should not fail due to locale mismatch
+        assert resp.status_code in [200, 422]  # 200 if valid eclipse, 422 if invalid date
+
+    def test_stream_events_locale_uppercase_normalized(self):
+        """Locale parameter should be normalized to lowercase in stream endpoint."""
+        resp = client.get(
+            "/api/v1/astronomical-events-stream?"
+            "start_date=2025-09-01&"
+            "end_date=2025-09-30&"
+            "include_contact_times=false&"
+            "lang=en-UK"
+        )
+        
+        # Should successfully start stream with normalized locale
+        assert resp.status_code == 200
+
+    def test_locale_mixed_case_normalized(self):
+        """Mixed-case locales should be normalized consistently."""
+        # Test with en-Us (mixed case)
+        resp = client.post(
+            "/api/v1/astronomical-events?lang=en-Us",
+            json={
+                "start_date": "2025-09-01",
+                "end_date": "2025-09-30",
+                "include_contact_times": False,
+            }
+        )
+        
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "events" in data
+
+    def test_locale_all_uppercase_normalized(self):
+        """All-uppercase locales should be normalized to lowercase."""
+        resp = client.post(
+            "/api/v1/astronomical-events?lang=EN-US",
+            json={
+                "start_date": "2025-09-01",
+                "end_date": "2025-09-30",
+                "include_contact_times": False,
+            }
+        )
+        
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "events" in data

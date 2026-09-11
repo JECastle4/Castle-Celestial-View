@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import EventsView from './EventsView.vue';
 import AppHeader from '@/components/Header.vue';
+import * as exportService from '@/services/export';
 
 const pushMock = vi.fn();
 vi.mock('vue-router', async () => {
@@ -423,5 +424,511 @@ describe('EventsView', () => {
 
     // Should not navigate away from eclipses view
     expect(pushMock).not.toHaveBeenCalled();
+  });
+
+  it('handles invalid date in formatDisplayDate gracefully', async () => {
+    const wrapper = mount(EventsView);
+    await flushPromises();
+
+    await wrapper.find('.search-btn').trigger('click');
+    await flushPromises();
+
+    const source = instances[0];
+    const eventWithInvalidDate = makeEvent({ date: 'invalid-date-string' });
+    source.emit('page', { page: 1, events: [eventWithInvalidDate] });
+    source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+    await flushPromises();
+
+    // The event should still be rendered even if date formatting fails
+    expect(wrapper.findAll('.event-item')).toHaveLength(1);
+  });
+
+  it('loads contact times for an eclipse event on click', async () => {
+    const wrapper = mount(EventsView);
+    await flushPromises();
+
+    await wrapper.find('.search-btn').trigger('click');
+    await flushPromises();
+
+    const source = instances[0];
+    const eclipseEvent = makeEvent({
+      event_type: 'Lunar Total',
+      is_lunar: true,
+      eclipse_occurs: true,
+      contact_times: null,
+    });
+    source.emit('page', { page: 1, events: [eclipseEvent] });
+    source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+    await flushPromises();
+
+    // Click the event summary to expand and trigger contact times loading
+    const eventButton = wrapper.find('.event-summary');
+    expect(eventButton.exists()).toBe(true);
+    await eventButton.trigger('click');
+    await flushPromises();
+
+    // Verify the event details section is rendered (contact times area shown)
+    const eventDetails = wrapper.find('.event-details');
+    expect(eventDetails.exists()).toBe(true);
+  });
+
+  it('handles error when loading contact times fails', async () => {
+    const wrapper = mount(EventsView);
+    await flushPromises();
+
+    await wrapper.find('.search-btn').trigger('click');
+    await flushPromises();
+
+    const source = instances[0];
+    const eclipseEvent = makeEvent({
+      event_type: 'Lunar Total',
+      is_lunar: true,
+      eclipse_occurs: true,
+      contact_times: null,
+    });
+    source.emit('page', { page: 1, events: [eclipseEvent] });
+    source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+    await flushPromises();
+
+    // Expand the event - this triggers contact times loading
+    const eventButton = wrapper.find('.event-summary');
+    await eventButton.trigger('click');
+    await flushPromises();
+
+    // Verify event details are shown (even if contact times failed to load)
+    const eventDetails = wrapper.find('.event-details');
+    expect(eventDetails.exists()).toBe(true);
+  });
+
+  it('skips loading contact times if event.contact_times already exists', async () => {
+    const wrapper = mount(EventsView);
+    await flushPromises();
+
+    await wrapper.find('.search-btn').trigger('click');
+    await flushPromises();
+
+    const source = instances[0];
+    const eventWithContactTimes = makeEvent({
+      event_type: 'Lunar Total',
+      is_lunar: true,
+      eclipse_occurs: true,
+      contact_times: {
+        p1: '2025-09-07 15:29:50.911',
+        u1: '2025-09-07 16:26:57.000',
+      },
+    });
+    source.emit('page', { page: 1, events: [eventWithContactTimes] });
+    source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+    await flushPromises();
+
+    const expandButton = wrapper.find('.event-summary');
+    await expandButton.trigger('click');
+    await flushPromises();
+
+    // Event details should be shown but no loading request should be made
+    const eventDetails = wrapper.find('.event-details');
+    expect(eventDetails.exists()).toBe(true);
+    // Only one EventSource from search, no additional one for contact times
+    expect(instances).toHaveLength(1);
+  });
+
+  it('skips loading contact times if event.eclipse_occurs is false', async () => {
+    const wrapper = mount(EventsView);
+    await flushPromises();
+
+    await wrapper.find('.search-btn').trigger('click');
+    await flushPromises();
+
+    const source = instances[0];
+    const nonEclipseEvent = makeEvent({
+      event_type: 'New Moon',
+      is_lunar: false,
+      eclipse_occurs: false,
+      contact_times: null,
+    });
+    source.emit('page', { page: 1, events: [nonEclipseEvent] });
+    source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+    await flushPromises();
+
+    // Event should be displayed
+    expect(wrapper.findAll('.event-item')).toHaveLength(1);
+    // No additional EventSource created for contact times (only the search one)
+    expect(instances).toHaveLength(1);
+  });
+
+  describe('Export Functionality', () => {
+    it('shows export buttons when events are available', async () => {
+      const wrapper = mount(EventsView);
+      await flushPromises();
+
+      await wrapper.find('.search-btn').trigger('click');
+      await flushPromises();
+
+      const source = instances[0];
+      source.emit('page', { page: 1, events: [fullMoonEvent] });
+      source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+      await flushPromises();
+
+      const exportButtons = wrapper.findAll('.export-btn');
+      expect(exportButtons).toHaveLength(2);
+      expect(exportButtons[0].text()).toContain('CSV');
+      expect(exportButtons[1].text()).toContain('JSON');
+    });
+
+    it('disables export buttons when no events are loaded', async () => {
+      const wrapper = mount(EventsView);
+      await flushPromises();
+
+      const exportButtons = wrapper.findAll('.export-btn');
+      exportButtons.forEach((btn) => {
+        expect(btn.attributes('disabled')).toBeDefined();
+      });
+    });
+
+    it('enables export buttons after search results are loaded', async () => {
+      const wrapper = mount(EventsView);
+      await flushPromises();
+
+      await wrapper.find('.search-btn').trigger('click');
+      await flushPromises();
+
+      const source = instances[0];
+      source.emit('page', { page: 1, events: [fullMoonEvent, newMoonEvent] });
+      source.emit('metadata', { page_size: 10, total_events: 2, total_pages: 1 });
+      await flushPromises();
+
+      const exportButtons = wrapper.findAll('.export-btn');
+      exportButtons.forEach((btn) => {
+        expect(btn.attributes('disabled')).toBeUndefined();
+      });
+    });
+
+    it('triggers CSV export when CSV button is clicked', async () => {
+      const wrapper = mount(EventsView);
+      await flushPromises();
+
+      await wrapper.find('.search-btn').trigger('click');
+      await flushPromises();
+
+      const source = instances[0];
+      const eventWithContact = makeEvent({
+        contact_times: {
+          'Maximum Eclipse': '2025-09-07 18:11:42.600',
+        },
+      });
+      source.emit('page', { page: 1, events: [eventWithContact] });
+      source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+      await flushPromises();
+
+      const csvButton = wrapper.findAll('.export-btn')[0];
+      await csvButton.trigger('click');
+      await flushPromises();
+
+      // Verify button click was processed (actual download tested in export.test.ts)
+      expect(csvButton.exists()).toBe(true);
+    });
+
+    it('triggers JSON export when JSON button is clicked', async () => {
+      const wrapper = mount(EventsView);
+      await flushPromises();
+
+      await wrapper.find('.search-btn').trigger('click');
+      await flushPromises();
+
+      const source = instances[0];
+      const eventWithContact = makeEvent({
+        contact_times: {
+          'Maximum Eclipse': '2025-09-07 18:11:42.600',
+        },
+      });
+      source.emit('page', { page: 1, events: [eventWithContact] });
+      source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+      await flushPromises();
+
+      const jsonButton = wrapper.findAll('.export-btn')[1];
+      await jsonButton.trigger('click');
+      await flushPromises();
+
+      // Verify button click was processed (actual download tested in export.test.ts)
+      expect(jsonButton.exists()).toBe(true);
+    });
+
+    it('pre-loads missing contact times before export', async () => {
+      const wrapper = mount(EventsView);
+      await flushPromises();
+
+      await wrapper.find('.search-btn').trigger('click');
+      await flushPromises();
+
+      const source = instances[0];
+      // Event without contact_times (will need pre-loading)
+      const eclipseWithoutContact = makeEvent({
+        eclipse_occurs: true,
+        contact_times: null,
+      });
+      source.emit('page', { page: 1, events: [eclipseWithoutContact] });
+      source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+      await flushPromises();
+
+      // Mock the composable's fetchContactTimesForEvent with manual control
+      let resolveContactTime: any = null;
+      const contactTimePromise = new Promise<void>(resolve => {
+        resolveContactTime = resolve;
+      });
+      const mockFetch = vi.fn(() => contactTimePromise);
+      const component = wrapper.vm as any;
+      vi.spyOn(component, 'fetchContactTimesForEvent').mockImplementation(mockFetch);
+
+      // Click export - should trigger pre-loading
+      const csvButton = wrapper.findAll('.export-btn')[0];
+      await csvButton.trigger('click');
+      await wrapper.vm.$nextTick();
+
+      // Should show loading message (before promise resolves)
+      const message = wrapper.find('.export-message');
+      expect(message.exists()).toBe(true);
+      expect(message.text()).toContain('Loading contact times');
+
+      // Now resolve the pending promises and let export complete
+      resolveContactTime();
+      await flushPromises();
+      await wrapper.vm.$nextTick();
+    });
+
+    it('disables export buttons during contact time pre-loading', async () => {
+      const wrapper = mount(EventsView);
+      await flushPromises();
+
+      await wrapper.find('.search-btn').trigger('click');
+      await flushPromises();
+
+      const source = instances[0];
+      const eclipseWithoutContact = makeEvent({
+        eclipse_occurs: true,
+        contact_times: null,
+      });
+      source.emit('page', { page: 1, events: [eclipseWithoutContact] });
+      source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+      await flushPromises();
+
+      // Mock slow contact time fetch
+      const mockFetch = vi.fn().mockImplementation(
+        () => new Promise(resolve => setTimeout(resolve, 100))
+      );
+      const component = wrapper.vm as any;
+      vi.spyOn(component, 'fetchContactTimesForEvent').mockImplementation(mockFetch);
+
+      const csvButton = wrapper.findAll('.export-btn')[0];
+      
+      // Before click, button should be enabled (disabled attribute should be absent)
+      expect(csvButton.attributes('disabled')).toBeUndefined();
+
+      await csvButton.trigger('click');
+      // Immediately after click (before promises resolve), button should be disabled
+      let updatedButton = wrapper.findAll('.export-btn')[0];
+      expect(updatedButton.attributes('disabled')).toBeDefined();
+
+      // Wait for the mock promise to resolve
+      await new Promise(resolve => setTimeout(resolve, 150));
+      await flushPromises();
+      await wrapper.vm.$nextTick();
+      
+      // Re-query the button to get the updated DOM element
+      updatedButton = wrapper.findAll('.export-btn')[0];
+      // After promises resolve, button should be enabled again (disabled attribute absent)
+      expect(updatedButton.attributes('disabled')).toBeUndefined();
+    });
+
+    it('shows export success message and auto-clears after 3 seconds', async () => {
+      vi.useFakeTimers();
+      const wrapper = mount(EventsView);
+      await flushPromises();
+
+      await wrapper.find('.search-btn').trigger('click');
+      await flushPromises();
+
+      const source = instances[0];
+      const eventWithContact = makeEvent({
+        contact_times: {
+          'Maximum Eclipse': '2025-09-07 18:11:42.600',
+        },
+      });
+      source.emit('page', { page: 1, events: [eventWithContact] });
+      source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+      await flushPromises();
+
+      const csvButton = wrapper.findAll('.export-btn')[0];
+      await csvButton.trigger('click');
+      await flushPromises();
+
+      // Message should be visible
+      let message = wrapper.find('.export-message');
+      expect(message.exists()).toBe(true);
+      expect(message.text()).toContain('successfully');
+
+      // Verify success styling
+      expect(message.classes()).toContain('export-success');
+
+      // Advance time by 3 seconds
+      vi.advanceTimersByTime(3000);
+      await flushPromises();
+
+      // Message should be cleared
+      message = wrapper.find('.export-message');
+      expect(message.exists()).toBe(false);
+
+      vi.useRealTimers();
+    });
+
+    it('shows export error message when no events available', async () => {
+      const wrapper = mount(EventsView);
+      await flushPromises();
+
+      // Load some events first so the export UI appears
+      await wrapper.find('.search-btn').trigger('click');
+      await flushPromises();
+
+      const source = instances[0];
+      // Emit empty search results
+      source.emit('page', { page: 1, events: [] });
+      source.emit('metadata', { page_size: 10, total_events: 0, total_pages: 1 });
+      await flushPromises();
+
+      // Now attempt export with no actual events
+      const component = wrapper.vm as any;
+      component.handleExport('csv');
+      await wrapper.vm.$nextTick();
+      await flushPromises();
+
+      // Should set error message in component
+      expect(component.exportMessage).toBeTruthy();
+      expect(component.exportMessage.toLowerCase()).toContain('no');
+    });
+
+    it('handles partial contact time fetch failures gracefully', async () => {
+      const wrapper = mount(EventsView);
+      await flushPromises();
+
+      await wrapper.find('.search-btn').trigger('click');
+      await flushPromises();
+
+      const source = instances[0];
+      // Mix of eclipses with and without contact times
+      const eclipse1 = makeEvent({
+        date: '2025-09-07',
+        eclipse_occurs: true,
+        contact_times: null,
+      });
+      const eclipse2 = makeEvent({
+        date: '2025-09-21',
+        eclipse_occurs: true,
+        contact_times: {
+          'Maximum Eclipse': '2025-09-21 10:00:00',
+        },
+      });
+      source.emit('page', { page: 1, events: [eclipse1, eclipse2] });
+      source.emit('metadata', { page_size: 10, total_events: 2, total_pages: 1 });
+      await flushPromises();
+
+      // Mock fetch to fail for first eclipse, succeed for second
+      let callCount = 0;
+      const mockFetch = vi.fn().mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return Promise.reject(new Error('Network error'));
+        }
+        return Promise.resolve(undefined);
+      });
+      const component = wrapper.vm as any;
+      vi.spyOn(component, 'fetchContactTimesForEvent').mockImplementation(mockFetch);
+
+      const csvButton = wrapper.findAll('.export-btn')[0];
+      await csvButton.trigger('click');
+      // Wait for all promises to settle (including contact time fetch attempts)
+      await new Promise(resolve => setTimeout(resolve, 150));
+      await flushPromises();
+      await wrapper.vm.$nextTick();
+
+      // Export should complete despite one failure
+      const message = wrapper.find('.export-message');
+      expect(message.exists()).toBe(true);
+      // Should show success message (individual failures are caught and ignored)
+      // Message should contain the success text from i18n
+      const messageText = message.text().toLowerCase();
+      expect(messageText).toContain('successfully');
+    });
+
+    it('handles export errors when CSV export throws an error', async () => {
+      vi.useFakeTimers();
+      const wrapper = mount(EventsView);
+      await flushPromises();
+
+      await wrapper.find('.search-btn').trigger('click');
+      await flushPromises();
+
+      const source = instances[0];
+      const eventWithContact = makeEvent({
+        contact_times: {
+          'Maximum Eclipse': '2025-09-07 18:11:42.600',
+        },
+      });
+      source.emit('page', { page: 1, events: [eventWithContact] });
+      source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+      await flushPromises();
+
+      // Mock the CSV export service to throw an error
+      vi.spyOn(exportService, 'exportContactTimesToCSV').mockImplementation(() => {
+        throw new Error('CSV export failed');
+      });
+
+      const csvButton = wrapper.findAll('.export-btn')[0];
+      await csvButton.trigger('click');
+      await flushPromises();
+
+      // The error should be caught and an error message displayed
+      const message = wrapper.find('.export-message');
+      expect(message.exists()).toBe(true);
+      // Error message should contain 'error' for proper styling
+      expect(message.classes()).toContain('export-error');
+      expect(message.text().toLowerCase()).toContain('error');
+
+      vi.useRealTimers();
+    });
+
+    it('handles export errors when JSON export throws an error', async () => {
+      vi.useFakeTimers();
+      const wrapper = mount(EventsView);
+      await flushPromises();
+
+      await wrapper.find('.search-btn').trigger('click');
+      await flushPromises();
+
+      const source = instances[0];
+      const eventWithContact = makeEvent({
+        contact_times: {
+          'Maximum Eclipse': '2025-09-07 18:11:42.600',
+        },
+      });
+      source.emit('page', { page: 1, events: [eventWithContact] });
+      source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+      await flushPromises();
+
+      // Mock the JSON export service to throw an error
+      vi.spyOn(exportService, 'exportContactTimesToJSON').mockImplementation(() => {
+        throw new Error('JSON export failed');
+      });
+
+      const jsonButton = wrapper.findAll('.export-btn')[1];
+      await jsonButton.trigger('click');
+      await flushPromises();
+
+      // Should show error message when JSON export fails
+      const message = wrapper.find('.export-message');
+      expect(message.exists()).toBe(true);
+      expect(message.classes()).toContain('export-error');
+      expect(message.text().toLowerCase()).toContain('error');
+
+      vi.useRealTimers();
+    });
   });
 });

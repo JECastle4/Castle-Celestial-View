@@ -555,7 +555,7 @@ class TestMarsPositionErrorHandling:
         """Test ValueError exception handling in Mars endpoint."""
         from unittest.mock import patch
 
-        with patch("api.routes.calculate_mars_position") as mock_calc:
+        with patch("api.routes.bodies.calculate_mars_position") as mock_calc:
             mock_calc.side_effect = ValueError("Test calculation error")
 
             response = client.post(
@@ -575,7 +575,7 @@ class TestMarsPositionErrorHandling:
         """Test unexpected exception handling in Mars endpoint."""
         from unittest.mock import patch
 
-        with patch("api.routes.calculate_mars_position") as mock_calc:
+        with patch("api.routes.bodies.calculate_mars_position") as mock_calc:
             mock_calc.side_effect = RuntimeError("Unexpected error")
 
             response = client.post(
@@ -589,7 +589,7 @@ class TestMarsPositionErrorHandling:
             )
 
             assert response.status_code == 500
-            assert "Error calculating Mars position" in response.json()["detail"]
+            assert "An internal error occurred" in response.json()["detail"]
 
 
 class TestMarsPositionLocalization:

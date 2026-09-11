@@ -1075,7 +1075,8 @@ class AstronomicalEventsRequest(BaseModel):
     include_contact_times: bool = Field(
         default=True,
         description="Whether to compute eclipse contact times (penumbral/umbral or "
-                     "global penumbral/central shadow boundary crossings)"
+                     "global penumbral/central shadow boundary crossings). Defaults to True "
+                     "for backward compatibility; set to False to omit for performance."
     )
     event_types: Optional[list[str]] = Field(
         default=None,
@@ -1182,3 +1183,39 @@ class AstronomicalEventsResponse(BaseModel):
     """Response model for astronomical events (new/full moons + eclipse detection)"""
     events: list[AstronomicalEvent] = Field(..., description="Events on the requested page")
     pagination: PaginationInfo = Field(..., description="Pagination metadata")
+
+
+class EclipseContactTimesRequest(BaseModel):
+    """Request model for fetching eclipse contact times for a single event"""
+    event_date: str = Field(
+        ...,
+        description="ISO datetime of the eclipse (from AstronomicalEvent.date)",
+        examples=["2026-08-12 17:45:49.662"]
+    )
+    is_lunar: bool = Field(
+        ...,
+        description="Whether this is a lunar (True) or solar (False) eclipse"
+    )
+
+    @field_validator('event_date')
+    @classmethod
+    def validate_event_date_format(cls, v: str) -> str:
+        """Validate event_date is in ISO format (YYYY-MM-DD HH:MM:SS.sss)"""
+        if not isinstance(v, str):
+            raise ValueError("event_date must be a string")
+        # Accept both formats: with and without milliseconds
+        if not re.match(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d{3})?$', v):
+            raise ValueError(
+                f"event_date must be in ISO format (YYYY-MM-DD HH:MM:SS.sss), got '{v}'"
+            )
+        return v
+
+
+class EclipseContactTimesResponse(BaseModel):
+    """Response model for eclipse contact times"""
+    contact_times: Optional[dict] = Field(
+        None,
+        description="Eclipse contact times. Lunar: p1/u1/u2/u3/u4/p4. "
+                     "Solar: eclipse_begins/central_phase_begins/central_phase_ends/eclipse_ends. "
+                     "None if calculation fails or event_date is invalid."
+    )
