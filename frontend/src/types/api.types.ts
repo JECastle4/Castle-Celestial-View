@@ -129,7 +129,7 @@ export interface EclipseContactTimesRequest {
 }
 
 export interface EclipseContactTimesResponse {
-  contact_times: Record<string, string> | null;
+  contact_times: EclipseContactTimes | null;
 }
 
 // Configuration

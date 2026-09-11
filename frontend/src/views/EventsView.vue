@@ -83,7 +83,7 @@
               </button>
             </div>
           </div>
-          <div v-if="exportMessage" class="export-message" :class="{ 'export-success': exportMessage.includes('successfully'), 'export-error': exportMessage.includes('error') }">
+          <div v-if="exportMessage" role="status" class="export-message" :class="{ 'export-success': exportMessage.includes('successfully'), 'export-error': exportMessage.includes('error') }">
             {{ exportMessage }}
           </div>
         </div>
@@ -241,17 +241,38 @@ function handleExport(format: 'csv' | 'json') {
     exportMessage.value = t('events.loadingContactTimesForExport') || 'Loading contact times for export...';
     isPreparingExport.value = true;
 
-    // Fetch all missing contact times before export
+    // Fetch all missing contact times before export, tracking success/failure for each
     Promise.all(
       eclipsesNeedingContactTimes.map((ev: any) =>
-        fetchContactTimesForEvent(ev.date, ev.is_lunar).catch(() => {
-          // Continue even if individual fetch fails; export what we have
-        })
+        fetchContactTimesForEvent(ev.date, ev.is_lunar)
+          .then(() => ({ success: true, date: ev.date }))
+          .catch((err) => ({ success: false, date: ev.date, error: err }))
       )
     )
-      .then(() => {
+      .then((results) => {
+        // Check if any fetches failed
+        const failures = results.filter((r: any) => !r.success);
+        
         exportMessage.value = null;
         performExport(format);
+        
+        // Display appropriate message after export
+        if (failures.length > 0) {
+          const failureCount = failures.length;
+          const totalCount = eclipsesNeedingContactTimes.length;
+          exportMessage.value = t('events.partialExportWarning', { 
+            failed: failureCount, 
+            total: totalCount 
+          }) || `Export completed with warnings: ${failureCount}/${totalCount} contact times could not be loaded`;
+          setTimeout(() => {
+            exportMessage.value = null;
+          }, 5000);
+        } else {
+          exportMessage.value = t('events.exportSuccess') || 'Export completed successfully';
+          setTimeout(() => {
+            exportMessage.value = null;
+          }, 3000);
+        }
       })
       .catch((err) => {
         const errorMsg = err instanceof Error ? err.message : 'Failed to load contact times';
@@ -264,6 +285,10 @@ function handleExport(format: 'csv' | 'json') {
     // All contact times available, proceed with export
     exportMessage.value = null;
     performExport(format);
+    exportMessage.value = t('events.exportSuccess') || 'Export completed successfully';
+    setTimeout(() => {
+      exportMessage.value = null;
+    }, 3000);
   }
 }
 

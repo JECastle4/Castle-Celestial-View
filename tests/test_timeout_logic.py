@@ -256,15 +256,23 @@ class TestTimeoutMiddleware:
         assert response.status_code == 200
 
     def test_timeout_exceeded_returns_503(self):
-        """Test that timeout exceeded returns 503."""
-        # This is tricky to test without a slow endpoint
-        # We'll patch the timeout calculation to return very small value
-        with patch('api.main.calculate_adaptive_timeout', return_value=0.001):
-            client = TestClient(app)
-            # Try an endpoint that does some work
-            response = client.get('/health')
-            # May timeout or succeed depending on timing
-            # The important thing is that middleware doesn't crash
+        """Test that timeout exceeded returns 503 with proper payload."""
+        # Patch asyncio.wait_for to raise TimeoutError, simulating a timeout
+        with patch('asyncio.wait_for', side_effect=asyncio.TimeoutError()):
+            with patch('api.main.calculate_adaptive_timeout', return_value=0.001):
+                client = TestClient(app)
+                response = client.get('/health')
+                
+                # Should timeout and return 503
+                assert response.status_code == 503
+                
+                # Verify timeout response payload
+                data = response.json()
+                assert 'error' in data
+                assert data['error'] == 'Request timeout'
+                assert 'message' in data
+                assert 'timeout_seconds' in data
+                assert data['timeout_seconds'] == 0.001
 
 
 class TestPreRouteTimeout:
@@ -340,25 +348,40 @@ class TestTimeoutMetrics:
     """Test that timeout events are properly tracked."""
 
     def test_timeout_exceeded_recorded_in_metrics(self):
-        """Test that timeout_exceeded_total is incremented."""
+        """Test that timeout_exceeded_total is incremented with endpoint label."""
         metrics = get_metrics()
         
-        # Record a timeout occurrence
-        metrics.record_request('/api/test', 'GET', 504, 0.5)
+        # Record a timeout occurrence directly via record_timeout_exceeded
+        endpoint = '/api/v1/batch-earth-observations'
+        metrics.record_timeout_exceeded(endpoint)
         
         text = metrics.get_metrics_text().decode('utf-8')
-        assert 'http_requests_total' in text
+        # Should have timeout_exceeded_total metric
+        assert 'timeout_exceeded_total' in text
+        # Should include the endpoint label
+        assert f'endpoint="{endpoint}"' in text or 'batch-earth-observations' in text
 
     def test_multiple_timeouts_tracked(self):
-        """Test that multiple timeout occurrences are tracked."""
+        """Test that multiple timeout occurrences are tracked with different endpoints."""
         metrics = get_metrics()
         
-        # Record multiple timeout responses
-        for i in range(3):
-            metrics.record_request('/api/test', 'GET', 504, 0.5 + i * 0.1)
+        # Record multiple timeout occurrences for different endpoints
+        endpoints = [
+            '/api/v1/batch-earth-observations',
+            '/api/v1/astronomical-events',
+            '/api/v1/sun-position'
+        ]
+        
+        for endpoint in endpoints:
+            metrics.record_timeout_exceeded(endpoint)
+            metrics.record_timeout_exceeded(endpoint)  # Record twice for first endpoint
         
         text = metrics.get_metrics_text().decode('utf-8')
-        assert 'http_requests_total' in text
+        # Should have timeout_exceeded_total metric
+        assert 'timeout_exceeded_total' in text
+        # Should track counts for different endpoints
+        for endpoint in endpoints:
+            assert endpoint in text
 
 
 @pytest.fixture(autouse=True)

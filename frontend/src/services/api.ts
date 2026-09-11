@@ -1,6 +1,6 @@
 import { API_CONFIG, API_ENDPOINTS } from './config';
 export { API_CONFIG };
-import type { AstronomicalEventsResponse, BatchEarthObservationsResponse } from '@/types/api.types';
+import type { AstronomicalEventsResponse, BatchEarthObservationsResponse, EclipseContactTimesResponse } from '@/types/api.types';
 import { getCurrentLocale } from '@/i18n';
 
 /**
@@ -73,13 +73,13 @@ export class AstronomyApiClient {
   async getContactTimesForEvent(
     eventDate: string,
     isLunar: boolean
-  ): Promise<{ contact_times: Record<string, string> | null }> {
+  ): Promise<EclipseContactTimesResponse> {
     const url = `${this.baseUrl}${API_ENDPOINTS.contactTimes}?lang=${getCurrentLocale()}`;
     const body = {
       event_date: eventDate,
       is_lunar: isLunar,
     };
-    return this.postJson<{ contact_times: Record<string, string> | null }>(url, body);
+    return this.postJson<EclipseContactTimesResponse>(url, body);
   }
 
   private async postJson<T>(url: string, body: unknown): Promise<T> {
@@ -131,7 +131,7 @@ export class AstronomyApiClient {
 export interface AstronomyApi {
   getBatchEarthObservations(params: BatchObservationsParams): Promise<BatchEarthObservationsResponse>;
   getAstronomicalEvents(params: AstronomicalEventsParams): Promise<AstronomicalEventsResponse>;
-  getContactTimesForEvent(eventDate: string, isLunar: boolean): Promise<{ contact_times: Record<string, string> | null }>;
+  getContactTimesForEvent(eventDate: string, isLunar: boolean): Promise<EclipseContactTimesResponse>;
 }
 
 // Export singleton instance

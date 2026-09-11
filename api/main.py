@@ -383,11 +383,10 @@ async def metrics_middleware(request: Request, call_next):
 
     finally:
         # Always record request completion, even on timeout or exception
-        # Use the matched endpoint if available, otherwise use pre-route label
-        if endpoint:
-            metrics.record_request_end(endpoint)
-        else:
-            metrics.record_request_end(pre_route_endpoint)
+        # Use the same bounded pre-route label that was used in record_request_start()
+        # to ensure the in-progress gauge is consistent (incremented and decremented
+        # under the same label). Completed-request metrics use the matched endpoint label.
+        metrics.record_request_end(pre_route_endpoint)
 
 
 def _wrap_streaming_response_timeout(response, timeout_seconds, endpoint, start_time):

@@ -183,7 +183,7 @@ def cache_response(ttl: int = 300):
                 # If not found in positional args, check kwargs for common request names
                 if request is None:
                     req_keys = ['request', 'batch_request', 'events_request',
-                                'astronomical_events_request']
+                                'astronomical_events_request', 'contact_times_request']
                     for key in req_keys:
                         if key in kwargs and (
                             hasattr(kwargs[key], 'model_dump') or hasattr(kwargs[key], 'dict')
@@ -233,7 +233,7 @@ def cache_response(ttl: int = 300):
             # If not found in positional args, check kwargs for common request names
             if request is None:
                 req_keys = ['request', 'batch_request', 'events_request',
-                            'astronomical_events_request']
+                            'astronomical_events_request', 'contact_times_request']
                 for key in req_keys:
                     if key in kwargs and (
                         hasattr(kwargs[key], 'model_dump') or hasattr(kwargs[key], 'dict')
