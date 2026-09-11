@@ -669,20 +669,29 @@ describe('EventsView', () => {
       source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
       await flushPromises();
 
-      // Mock the composable's fetchContactTimesForEvent
-      const mockFetch = vi.fn().mockResolvedValue(undefined);
+      // Mock the composable's fetchContactTimesForEvent with manual control
+      let resolveContactTime: any = null;
+      const contactTimePromise = new Promise<void>(resolve => {
+        resolveContactTime = resolve;
+      });
+      const mockFetch = vi.fn(() => contactTimePromise);
       const component = wrapper.vm as any;
       vi.spyOn(component, 'fetchContactTimesForEvent').mockImplementation(mockFetch);
 
       // Click export - should trigger pre-loading
       const csvButton = wrapper.findAll('.export-btn')[0];
       await csvButton.trigger('click');
-      await flushPromises();
+      await wrapper.vm.$nextTick();
 
-      // Should show loading message
+      // Should show loading message (before promise resolves)
       const message = wrapper.find('.export-message');
       expect(message.exists()).toBe(true);
       expect(message.text()).toContain('Loading contact times');
+
+      // Now resolve the pending promises and let export complete
+      resolveContactTime();
+      await flushPromises();
+      await wrapper.vm.$nextTick();
     });
 
     it('disables export buttons during contact time pre-loading', async () => {
