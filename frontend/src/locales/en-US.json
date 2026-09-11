@@ -225,7 +225,8 @@
 		"noDataToExport": "No events to export. Please search first.",
 		"loadingContactTimesForExport": "Loading contact times for export...",
 		"exportSuccess": "Export completed successfully",
-		"exportError": "Export failed: {error}",
+		"exportError": "Export error: {error}",
+		"partialExportWarning": "Export completed successfully, but {failed} of {total} contact times could not be loaded",
 		"noEclipse": "No Eclipse",
 		"eclipseDetails": "Eclipse Details",
 		"eclipseTypes": {

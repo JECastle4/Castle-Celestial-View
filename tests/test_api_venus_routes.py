@@ -850,4 +850,4 @@ class TestVenusPositionErrorHandling:
             )
             
             assert response.status_code == 500
-            assert "Error calculating Venus position" in response.json()["detail"]
+            assert "An internal error occurred" in response.json()["detail"]

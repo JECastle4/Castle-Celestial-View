@@ -5,10 +5,22 @@ Implements tiered, endpoint-specific rate limiting based on computational cost.
 Uses slowapi for per-IP request throttling with graceful 429 responses.
 
 In test mode (pytest), rate limiting is bypassed to avoid test flakiness.
-Security Note: This limiter applies rate limiting to all requests based on client IP.
-When deployed behind a reverse proxy, ensure the proxy is configured to forward
-X-Forwarded-For headers. Using request.client.host directly is unsafe because
-all external requests appear to come from the proxy's localhost IP.
+
+CRITICAL SECURITY NOTE - Reverse Proxy Deployments:
+When deployed behind a reverse proxy, you MUST configure trusted proxies to enable
+per-client rate limiting. The limiter extracts the real client IP from X-Forwarded-For
+headers, but ONLY if the immediate request peer (socket IP) is in the TRUSTED_PROXIES list.
+
+If not configured correctly:
+  - All external clients appear to come from the proxy's IP (e.g., 127.0.0.1)
+  - All clients share one rate limit key
+  - One attacker can exhaust the limit for all other users
+  
+To fix this:
+  1. Set TRUSTED_PROXIES env var to the proxy's IP (comma-separated if multiple)
+  2. Ensure your proxy sends X-Forwarded-For headers with real client IP
+  3. Example: export TRUSTED_PROXIES=127.0.0.1,192.168.1.1
+
 Configuration (Environment Variables):
     RATE_LIMIT_ENABLED: Enable/disable rate limiting (default: "true")
         Set to "false" to disable all rate limiting without code changes.
@@ -39,12 +51,28 @@ Configuration (Environment Variables):
     LIMIT_CHEAP: position/phase endpoints (default: "100/minute")
         Fast operations: <500ms per request.
         Example: export LIMIT_CHEAP=150/minute
+    
+    TRUSTED_PROXIES: Comma-separated list of proxy IPs to trust for X-Forwarded-For
+        When behind a reverse proxy, set this to the proxy's IP address.
+        CRITICAL: Only X-Forwarded-For from these IPs will be trusted for rate limiting.
+        Example: export TRUSTED_PROXIES=127.0.0.1,192.168.1.1
+        If not set, rate limiting uses direct socket peer IP (only works for direct clients).
 
 Typical Deployment Scenarios:
+    - Direct deployment (no proxy):
+        No configuration needed; limiter uses socket peer IP
+    
+    - Behind reverse proxy (nginx, Caddy, etc.):
+        1. Set TRUSTED_PROXIES to proxy IP
+        2. Ensure proxy sends X-Forwarded-For header
+        3. Test by checking if different clients get independent rate limits
+        Example: export TRUSTED_PROXIES=127.0.0.1
+    
     - Reduce limits during high-load events: adjust env vars, restart container
     - Disable rate limiting for internal testing: RATE_LIMIT_ENABLED=false
     - Increase limits for enterprise deployments: adjust endpoint-specific vars
 """
+
 
 import logging
 import os
@@ -53,7 +81,6 @@ from typing import Callable
 from fastapi import Request
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 from starlette.responses import JSONResponse
 
 from api.i18n import get_i18n
@@ -128,29 +155,63 @@ LIMIT_CHEAP = os.getenv(
     "100/minute"  # position/phase: <500ms each
 )
 
+# Parse trusted proxies from environment variable
+# Only X-Forwarded-For headers from these IPs will be trusted
+_TRUSTED_PROXIES_STR = os.getenv("TRUSTED_PROXIES", "")
+TRUSTED_PROXIES = set(
+    ip.strip() for ip in _TRUSTED_PROXIES_STR.split(",") if ip.strip()
+) if _TRUSTED_PROXIES_STR else set()
+
 def _rate_limit_key_func(request: Request) -> str | None:
     """
-    Custom key function for rate limiting.
+    Custom key function for rate limiting that respects X-Forwarded-For headers.
+    
+    Extracts the real client IP by:
+    1. Checking if the direct peer (socket IP) is in TRUSTED_PROXIES
+    2. If yes, extracting the leftmost IP from X-Forwarded-For header
+    3. If no, using the direct peer IP
     
     Returns:
-        IP address string for all requests (applies rate limiting)
+        IP address string for rate limiting key (client's real IP)
     
-    Usage: passed to Limiter(key_func=_rate_limit_key_func)
+    SECURITY: Only trusts X-Forwarded-For from explicitly configured trusted proxies.
+    Behind reverse proxies, you MUST set TRUSTED_PROXIES environment variable.
     
-    IMPORTANT: This function does NOT bypass rate limiting based on request.client.host
-    because that is unsafe when running behind a reverse proxy. When deployed behind
-    a local proxy, all external requests appear to come from 127.0.0.1/::1, causing
-    the bypass to trigger and disabling rate limiting for all traffic.
-    
-    To disable rate limiting entirely in trusted environments, use the
-    RATE_LIMIT_ENABLED environment variable instead:
-        export RATE_LIMIT_ENABLED=false
-    
-    For multi-tier deployments with trusted internal proxies, configure the proxy
-    to send X-Forwarded-For headers and use a proxy configuration library that
-    respects explicitly trusted proxy IPs (not implemented in this limiter).
+    Examples:
+        Direct client (no proxy):
+            request.client.host = "203.0.113.45"
+            TRUSTED_PROXIES = {} (empty)
+            Returns: "203.0.113.45" (use direct peer)
+        
+        Behind nginx proxy:
+            request.client.host = "127.0.0.1" (proxy IP)
+            TRUSTED_PROXIES = {"127.0.0.1"}
+            X-Forwarded-For = "203.0.113.45, 10.0.0.1"
+            Returns: "203.0.113.45" (leftmost from header)
+        
+        Proxy not in TRUSTED_PROXIES (spoofing attempt):
+            request.client.host = "203.0.113.99" (untrusted)
+            TRUSTED_PROXIES = {"127.0.0.1"}
+            X-Forwarded-For = "203.0.113.45" (ignored - peer not trusted)
+            Returns: "203.0.113.99" (use direct peer)
     """
-    return get_remote_address(request)  # Apply rate limiting for all requests
+    if not request.client:
+        return None
+
+    peer_ip = request.client.host
+
+    # If peer is a trusted proxy, extract real client IP from X-Forwarded-For
+    if TRUSTED_PROXIES and peer_ip in TRUSTED_PROXIES:
+        # Get X-Forwarded-For header (may contain multiple IPs)
+        forwarded_for = request.headers.get("x-forwarded-for")
+        if forwarded_for:
+            # Take the leftmost IP (original client, before any proxy chain)
+            client_ip = forwarded_for.split(",")[0].strip()
+            if client_ip:
+                return client_ip
+
+    # Use direct peer IP (either not behind proxy, or peer not trusted)
+    return peer_ip
 
 
 # Create appropriate limiter based on environment
@@ -248,4 +309,5 @@ __all__ = [
     "LIMIT_STREAM_EVENTS",
     "LIMIT_CONTACT_TIMES",
     "LIMIT_CHEAP",
+    "TRUSTED_PROXIES",
 ]

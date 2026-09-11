@@ -7,12 +7,14 @@ Provides:
 """
 import asyncio
 import functools
+import logging
 from typing import Callable, TypeVar
 from fastapi import HTTPException
 from pydantic import ValidationError
 
 from api.models import LocationModel, ObservationDateTime, TimeRange
 
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
@@ -28,13 +30,18 @@ def handle_route_errors(action: str = "processing request"):
 
     Args:
         action: Description of what was being done (e.g., "calculating sun position")
-                Used in error messages.
+                Used in error messages for client-facing errors.
 
     Example:
         @handle_route_errors("calculating sun position")
         async def get_sun_position(request):
             result = calculate_sun_position(...)
             return SunPositionResponse(**result)
+    
+    Security Note:
+        - Unexpected exceptions are logged server-side with full details
+        - Clients receive a generic 500 error message to prevent information disclosure
+        - This prevents database errors, library internals, etc. from being exposed
     """
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @functools.wraps(func)
@@ -52,9 +59,16 @@ def handle_route_errors(action: str = "processing request"):
                     detail=f"Invalid input: {str(e)}"
                 ) from e
             except Exception as e:
+                # Log full exception server-side for debugging
+                logger.error(
+                    "Unexpected error while %s",
+                    action,
+                    exc_info=True
+                )
+                # Return generic error message to client (prevent information disclosure)
                 raise HTTPException(
                     status_code=500,
-                    detail=f"Error {action}: {str(e)}"
+                    detail="An internal error occurred. Please try again later."
                 ) from e
 
         @functools.wraps(func)
@@ -72,9 +86,16 @@ def handle_route_errors(action: str = "processing request"):
                     detail=f"Invalid input: {str(e)}"
                 ) from e
             except Exception as e:
+                # Log full exception server-side for debugging
+                logger.error(
+                    "Unexpected error while %s",
+                    action,
+                    exc_info=True
+                )
+                # Return generic error message to client (prevent information disclosure)
                 raise HTTPException(
                     status_code=500,
-                    detail=f"Error {action}: {str(e)}"
+                    detail="An internal error occurred. Please try again later."
                 ) from e
 
         # Return appropriate wrapper based on whether function is async

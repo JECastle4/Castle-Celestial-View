@@ -248,7 +248,8 @@ def find_greatest_eclipse_time(approx_time, is_lunar, search_window_hours=24, it
 
     Phase 2.2 Optimization: Results are cached to avoid redundant calculations
     when the same eclipse time is queried multiple times (common in batch processing
-    or when contact times request additional analysis).
+    or when contact times request additional analysis). Cache key includes all
+    parameters that affect the result.
 
     Args:
         approx_time: astropy Time object, approximate new/full moon instant
@@ -260,8 +261,9 @@ def find_greatest_eclipse_time(approx_time, is_lunar, search_window_hours=24, it
     Returns:
         astropy Time object at the (refined) instant of greatest eclipse
     """
-    # Cache key: ISO string + eclipse type
-    cache_key = (approx_time.iso, is_lunar)
+    # Cache key: includes all parameters that affect the result
+    # Different search windows or iteration counts may produce different results
+    cache_key = (approx_time.iso, is_lunar, search_window_hours, iterations)
 
     # Check cache first (Phase 2.2 optimization)
     cached_result = _GREATEST_ECLIPSE_CACHE.get(cache_key)

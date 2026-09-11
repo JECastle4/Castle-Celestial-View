@@ -359,7 +359,7 @@ def test_route_get_astronomical_events_unexpected_error_handling():
         })
 
         assert resp.status_code == 500
-        assert "Error calculating astronomical events" in resp.json()["detail"]
+        assert "An internal error occurred" in resp.json()["detail"]
 
 
 def test_route_stream_astronomical_events_unexpected_error_handling():
@@ -378,7 +378,7 @@ def test_route_stream_astronomical_events_unexpected_error_handling():
         })
 
         assert resp.status_code == 500
-        assert "Error streaming astronomical events" in resp.json()["detail"]
+        assert "An internal error occurred" in resp.json()["detail"]
 
 
 # ============================================================================
@@ -575,7 +575,7 @@ def test_route_contact_times_unexpected_error_handling():
         })
 
         assert resp.status_code == 500
-        assert "Error calculating contact times" in resp.json()["detail"]
+        assert "An internal error occurred" in resp.json()["detail"]
 
 
 class TestLocaleNormalization:

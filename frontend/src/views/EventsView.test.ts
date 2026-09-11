@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import EventsView from './EventsView.vue';
 import AppHeader from '@/components/Header.vue';
+import * as exportService from '@/services/export';
 
 const pushMock = vi.fn();
 vi.mock('vue-router', async () => {
@@ -855,6 +856,79 @@ describe('EventsView', () => {
       // Message should contain the success text from i18n
       const messageText = message.text().toLowerCase();
       expect(messageText).toContain('successfully');
+    });
+
+    it('handles export errors when CSV export throws an error', async () => {
+      vi.useFakeTimers();
+      const wrapper = mount(EventsView);
+      await flushPromises();
+
+      await wrapper.find('.search-btn').trigger('click');
+      await flushPromises();
+
+      const source = instances[0];
+      const eventWithContact = makeEvent({
+        contact_times: {
+          'Maximum Eclipse': '2025-09-07 18:11:42.600',
+        },
+      });
+      source.emit('page', { page: 1, events: [eventWithContact] });
+      source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+      await flushPromises();
+
+      // Mock the CSV export service to throw an error
+      vi.spyOn(exportService, 'exportContactTimesToCSV').mockImplementation(() => {
+        throw new Error('CSV export failed');
+      });
+
+      const csvButton = wrapper.findAll('.export-btn')[0];
+      await csvButton.trigger('click');
+      await flushPromises();
+
+      // The error should be caught and an error message displayed
+      const message = wrapper.find('.export-message');
+      expect(message.exists()).toBe(true);
+      // Error message should contain 'error' for proper styling
+      expect(message.classes()).toContain('export-error');
+      expect(message.text().toLowerCase()).toContain('error');
+
+      vi.useRealTimers();
+    });
+
+    it('handles export errors when JSON export throws an error', async () => {
+      vi.useFakeTimers();
+      const wrapper = mount(EventsView);
+      await flushPromises();
+
+      await wrapper.find('.search-btn').trigger('click');
+      await flushPromises();
+
+      const source = instances[0];
+      const eventWithContact = makeEvent({
+        contact_times: {
+          'Maximum Eclipse': '2025-09-07 18:11:42.600',
+        },
+      });
+      source.emit('page', { page: 1, events: [eventWithContact] });
+      source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+      await flushPromises();
+
+      // Mock the JSON export service to throw an error
+      vi.spyOn(exportService, 'exportContactTimesToJSON').mockImplementation(() => {
+        throw new Error('JSON export failed');
+      });
+
+      const jsonButton = wrapper.findAll('.export-btn')[1];
+      await jsonButton.trigger('click');
+      await flushPromises();
+
+      // Should show error message when JSON export fails
+      const message = wrapper.find('.export-message');
+      expect(message.exists()).toBe(true);
+      expect(message.classes()).toContain('export-error');
+      expect(message.text().toLowerCase()).toContain('error');
+
+      vi.useRealTimers();
     });
   });
 });

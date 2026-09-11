@@ -64,7 +64,7 @@
               <button
                 type="button"
                 class="export-btn"
-                :title="t('buttons.downloadAsCSV') || 'Download as CSV'"
+                :title="t('buttons.downloadAsCSV')"
                 @click="handleExport('csv')"
                 :disabled="!events.length || isPreparingExport"
               >
@@ -74,7 +74,7 @@
               <button
                 type="button"
                 class="export-btn"
-                :title="t('buttons.downloadAsJSON') || 'Download as JSON'"
+                :title="t('buttons.downloadAsJSON')"
                 @click="handleExport('json')"
                 :disabled="!events.length || isPreparingExport"
               >
@@ -83,7 +83,7 @@
               </button>
             </div>
           </div>
-          <div v-if="exportMessage" role="status" class="export-message" :class="{ 'export-success': exportMessage.includes('successfully'), 'export-error': exportMessage.includes('error') }">
+          <div v-if="exportMessage" role="status" class="export-message" :class="{ 'export-success': exportStatus === 'success', 'export-error': exportStatus === 'error', 'export-warning': exportStatus === 'warning' }">
             {{ exportMessage }}
           </div>
         </div>
@@ -167,6 +167,7 @@ const startDate = ref(toDateString(today));
 const endDate = ref(toDateString(oneYearFromToday));
 const isPreparingExport = ref(false);
 const exportMessage = ref<string | null>(null);
+const exportStatus = ref<'success' | 'error' | 'warning' | null>(null);
 
 function toDateString(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -217,7 +218,7 @@ async function loadContactTimesForEvent(event: any) {
     
     await fetchContactTimesForEvent(dateStr, event.is_lunar);
   } catch (err) {
-    const errorMsg = err instanceof Error ? err.message : 'Failed to load contact times';
+    const errorMsg = err instanceof Error ? err.message : t('errors.unknown');
     contactTimesErrors.value[dateStr] = errorMsg;
   } finally {
     const newSet = new Set(loadingEventDates.value);
@@ -228,7 +229,8 @@ async function loadContactTimesForEvent(event: any) {
 
 function handleExport(format: 'csv' | 'json') {
   if (!events.value || events.value.length === 0) {
-    exportMessage.value = t('events.noDataToExport') || 'No events to export';
+    exportMessage.value = t('events.noDataToExport');
+    exportStatus.value = 'error';
     return;
   }
 
@@ -238,7 +240,8 @@ function handleExport(format: 'csv' | 'json') {
   );
 
   if (eclipsesNeedingContactTimes.length > 0) {
-    exportMessage.value = t('events.loadingContactTimesForExport') || 'Loading contact times for export...';
+    exportMessage.value = t('events.loadingContactTimesForExport');
+    exportStatus.value = null;  // Loading state, no styling
     isPreparingExport.value = true;
 
     // Fetch all missing contact times before export, tracking success/failure for each
@@ -254,29 +257,40 @@ function handleExport(format: 'csv' | 'json') {
         const failures = results.filter((r: any) => !r.success);
         
         exportMessage.value = null;
-        performExport(format);
+        exportStatus.value = null;
+        const exportSuccess = performExport(format);
         
-        // Display appropriate message after export
+        // Display appropriate message after export (but don't overwrite if export failed)
+        if (!exportSuccess) {
+          // performExport already set the error message and status, don't overwrite it
+          return;
+        }
+        
         if (failures.length > 0) {
           const failureCount = failures.length;
           const totalCount = eclipsesNeedingContactTimes.length;
           exportMessage.value = t('events.partialExportWarning', { 
             failed: failureCount, 
             total: totalCount 
-          }) || `Export completed with warnings: ${failureCount}/${totalCount} contact times could not be loaded`;
+          });
+          exportStatus.value = 'warning';
           setTimeout(() => {
             exportMessage.value = null;
+            exportStatus.value = null;
           }, 5000);
         } else {
-          exportMessage.value = t('events.exportSuccess') || 'Export completed successfully';
+          exportMessage.value = t('events.exportSuccess');
+          exportStatus.value = 'success';
           setTimeout(() => {
             exportMessage.value = null;
+            exportStatus.value = null;
           }, 3000);
         }
       })
       .catch((err) => {
-        const errorMsg = err instanceof Error ? err.message : 'Failed to load contact times';
-        exportMessage.value = t('events.exportError', { error: errorMsg }) || `Export error: ${errorMsg}`;
+        const errorMsg = err instanceof Error ? err.message : t('errors.unknown');
+        exportMessage.value = t('events.exportError', { error: errorMsg });
+        exportStatus.value = 'error';
       })
       .finally(() => {
         isPreparingExport.value = false;
@@ -284,17 +298,27 @@ function handleExport(format: 'csv' | 'json') {
   } else {
     // All contact times available, proceed with export
     exportMessage.value = null;
-    performExport(format);
-    exportMessage.value = t('events.exportSuccess') || 'Export completed successfully';
+    exportStatus.value = null;
+    const exportSuccess = performExport(format);
+    
+    // Only show success message if export actually succeeded
+    if (!exportSuccess) {
+      // performExport already set the error message and status, no need to show success
+      return;
+    }
+    
+    exportMessage.value = t('events.exportSuccess');
+    exportStatus.value = 'success';
     setTimeout(() => {
       exportMessage.value = null;
+      exportStatus.value = null;
     }, 3000);
   }
 }
 
 function performExport(format: 'csv' | 'json') {
   if (!events.value || events.value.length === 0) {
-    return;
+    return false;
   }
 
   const filename = generateFilename(format);
@@ -305,16 +329,16 @@ function performExport(format: 'csv' | 'json') {
     } else {
       exportContactTimesToJSON(events.value, filename);
     }
-    exportMessage.value = t('events.exportSuccess') || 'Export completed successfully';
-    setTimeout(() => {
-      exportMessage.value = null;
-    }, 3000);
+    return true;
   } catch (err) {
-    const errorMsg = err instanceof Error ? err.message : 'Export failed';
+    const errorMsg = err instanceof Error ? err.message : t('errors.unknown');
     console.error('Export error:', errorMsg);
-    exportMessage.value = t('events.exportError', { error: errorMsg }) || `Export error: ${errorMsg}`;
+    exportMessage.value = t('events.exportError', { error: errorMsg });
+    exportStatus.value = 'error';
+    return false;
   }
 }
+
 </script>
 
 <style scoped>
@@ -561,6 +585,12 @@ function performExport(format: 'csv' | 'json') {
   background: rgba(76, 175, 80, 0.2);
   border: 1px solid rgba(76, 175, 80, 0.5);
   color: #4caf50;
+}
+
+.export-message.export-warning {
+  background: rgba(255, 193, 7, 0.2);
+  border: 1px solid rgba(255, 193, 7, 0.5);
+  color: #ffc107;
 }
 
 .export-message.export-error {
