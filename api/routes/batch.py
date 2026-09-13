@@ -61,7 +61,7 @@ def _process_batch_frames_from_generator(gen, frame_count: int):
     Each frame is sent as a separate SSE event.
     """
 )
-@limiter.limit(LIMIT_EXPENSIVE_BATCH)  # DDoS: 20 req/min per IP (POST batch limit)
+@limiter.limit(LIMIT_EXPENSIVE_BATCH)  # DDoS protection: rate limited per IP
 @handle_route_errors("streaming batch observations")
 def stream_batch_earth_observations(
     request: Request,  # pylint: disable=unused-argument
@@ -135,7 +135,7 @@ def stream_batch_earth_observations(
     Current implementation calls position services for each frame.
     """
 )
-@limiter.limit(LIMIT_EXPENSIVE_BATCH)  # DDoS protection: 20 req/min per IP
+@limiter.limit(LIMIT_EXPENSIVE_BATCH)  # DDoS protection: rate limited per IP
 @cache_response(ttl=300)
 @handle_route_errors("calculating batch observations")
 def get_batch_earth_observations(

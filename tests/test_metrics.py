@@ -112,17 +112,59 @@ class TestMetricsMiddleware:
         """Test that HTTP requests are recorded by middleware."""
         client = TestClient(app)
         
+        # Get baseline metrics
+        metrics_before = client.get('/metrics')
+        baseline_value = self._extract_metric_value(
+            metrics_before.text,
+            'http_requests_total',
+            {'endpoint': '/health', 'method': 'GET', 'status': '200'}
+        )
+        
         # Make a request to health endpoint
         response = client.get('/health')
         assert response.status_code == 200
         
-        # Check metrics were recorded
-        metrics_response = client.get('/metrics')
-        text = metrics_response.text
+        # Check metrics after request
+        metrics_after = client.get('/metrics')
+        after_value = self._extract_metric_value(
+            metrics_after.text,
+            'http_requests_total',
+            {'endpoint': '/health', 'method': 'GET', 'status': '200'}
+        )
         
-        # Should have recorded request to /health
-        assert 'http_requests_total' in text
-        assert 'endpoint="/' in text or '/health' in text
+        # Verify the specific sample for /health GET 200 increased
+        assert after_value > baseline_value, (
+            f"GET /health 200 counter did not increase: "
+            f"before={baseline_value}, after={after_value}"
+        )
+
+    @staticmethod
+    def _extract_metric_value(metrics_text: str, metric_name: str, labels: dict) -> float:
+        """Extract a specific metric sample value from Prometheus text format.
+        
+        Args:
+            metrics_text: Raw Prometheus text format output
+            metric_name: Name of the metric (e.g., 'http_requests_total')
+            labels: Dict of label names and expected values
+        
+        Returns:
+            Float value of the matching sample, or 0.0 if not found
+        """
+        labels_str = ','.join(f'{k}="{v}"' for k, v in sorted(labels.items()))
+        pattern = f'{metric_name}{{{labels_str}}}'
+        
+        for line in metrics_text.split('\n'):
+            if line.startswith(pattern):
+                # Line format: metric_name{labels} value timestamp
+                parts = line.split()
+                if len(parts) >= 2:
+                    try:
+                        return float(parts[1])
+                    except (ValueError, IndexError):
+                        pass
+        
+        # Not found yet; value is 0 (not recorded)
+        return 0.0
 
     def test_metrics_root_endpoint(self):
         """Test that root endpoint is tracked in metrics."""

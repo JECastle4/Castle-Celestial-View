@@ -181,7 +181,7 @@ class TestMetricLabelForInProgressRequests:
         test_cases = [
             ("/api/v1/batch-earth-observations", "/api/v1/batch-earth-observations"),
             ("/api/v1/astronomical-events", "/api/v1/astronomical-events"),
-            ("/api/v1/contact-times/123", "/api/v1/contact-times"),
+            ("/api/v1/astronomical-events/contact-times/2025-09-07", "/api/v1/astronomical-events/contact-times"),
             ("/health", "/health"),
         ]
         
@@ -205,7 +205,7 @@ class TestMetricLabelForInProgressRequests:
             "/api/v1/batch-earth-observations",
             "/api/v1/astronomical-events",
             "/api/v1/moon-phase",
-            "/api/v1/contact-times/event1",
+            "/api/v1/astronomical-events/contact-times/2025-09-07",
         ]
         
         labels = set()

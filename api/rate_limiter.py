@@ -44,7 +44,7 @@ Configuration (Environment Variables):
         Example: export RATE_LIMIT_REQUESTS_PER_MINUTE=300
         Backwards compatibility: RATE_LIMIT_DEFAULT env var supported if not set.
     
-    LIMIT_EXPENSIVE_BATCH: batch-earth-observations endpoint (default: "20/minute")
+    LIMIT_EXPENSIVE_BATCH: batch-earth-observations endpoint (default: "10/minute")
         Expensive operation: ~40s avg CPU per request.
         Example: export LIMIT_EXPENSIVE_BATCH=30/minute
     

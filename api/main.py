@@ -7,7 +7,7 @@ import time
 import os
 
 from astropy.utils import iers
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from slowapi.errors import RateLimitExceeded
@@ -15,7 +15,7 @@ from slowapi.errors import RateLimitExceeded
 from api.cache import get_cache_stats
 from api.i18n import SUPPORTED_LOCALES, set_request_locale
 from api.metrics import get_metrics
-from api.middleware.streaming_registry import streaming_registry, StreamingMetadata
+from api.middleware.streaming_registry import StreamingMetadata
 from api.rate_limiter import limiter, rate_limit_exception_handler, get_rate_limit_stats
 from api.rate_limiter import MockLimiter
 from api.routes import router
@@ -47,6 +47,27 @@ app = FastAPI(
     ),
     version="0.2.0"
 )
+
+# Allowlist of known first-segment values for /api/v1/ endpoints
+# Used by _get_pre_route_label() to prevent cardinality explosion in metrics
+# Maps to body-position, event-detection, and batch-observation endpoints
+ALLOWED_API_V1_SEGMENTS = {
+    "day-of-week",
+    "sun-position",
+    "moon-position",
+    "venus-position",
+    "mercury-position",
+    "mars-position",
+    "jupiter-position",
+    "saturn-position",
+    "uranus-position",
+    "neptune-position",
+    "moon-phase",
+    "astronomical-events",
+    "astronomical-events-stream",
+    "batch-earth-observations",
+    "batch-earth-observations-stream",
+}
 
 # Attach rate limiter to app (Phase 3.1: DDoS Protection)
 app.state.limiter = limiter
@@ -93,26 +114,90 @@ app.add_middleware(
 MAX_REQUEST_SIZE_BYTES = int(os.getenv("MAX_REQUEST_SIZE_MB", "5")) * 1024 * 1024
 
 
-@app.middleware("http")
-async def request_size_limit_middleware(request: Request, call_next):
-    """Limit request body size to prevent DOS attacks.
+class RequestSizeLimitMiddleware:  # pylint: disable=too-few-public-methods
+    """ASGI middleware to enforce request body size limits at the stream level.
 
-    Checks Content-Length header and rejects oversized requests.
-    Limit is configurable via MAX_REQUEST_SIZE_MB environment variable (default: 5 MB).
+    Protects against DOS attacks from:
+    - Clients with false Content-Length headers (understated)
+    - Clients using chunked transfer encoding
+    - Clients omitting the Content-Length header entirely
+
+    By intercepting at the ASGI receive() stream, we enforce the limit regardless
+    of headers. This is critical for security in single-instance deployments.
+
+    In production with a reverse proxy (nginx, HAProxy, etc.) that enforces request
+    size limits independently, this provides defense-in-depth.
+
+    Responds with HTTP 413 (Payload Too Large) if body exceeds MAX_REQUEST_SIZE_BYTES.
     """
-    content_length = request.headers.get("content-length")
-    if content_length and int(content_length) > MAX_REQUEST_SIZE_BYTES:
-        logger.warning(
-            "Request rejected: Content-Length %s exceeds limit of %s bytes from %s",
-            content_length,
-            MAX_REQUEST_SIZE_BYTES,
-            request.client.host if request.client else "unknown"
-        )
-        raise HTTPException(
-            status_code=413,
-            detail=f"Payload too large. Maximum size: {MAX_REQUEST_SIZE_BYTES // (1024*1024)} MB"
-        )
-    return await call_next(request)
+
+    def __init__(self, asgi_app):
+        self.asgi_app = asgi_app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.asgi_app(scope, receive, send)
+            return
+
+        # Track bytes read from request body
+        bytes_received = 0
+        original_receive = receive
+
+        async def size_limited_receive():
+            """Intercept ASGI receive() to enforce request body size limit."""
+            nonlocal bytes_received
+
+            message = await original_receive()
+
+            # Only count body chunks, not headers or other metadata
+            if message["type"] == "http.request":
+                chunk_size = len(message.get("body", b""))
+                bytes_received += chunk_size
+
+                if bytes_received > MAX_REQUEST_SIZE_BYTES:
+                    # Reject: too many bytes received
+                    client_host = scope.get("client", ("unknown", 0))[0]
+                    logger.warning(
+                        "Request rejected: Body size %d bytes exceeds limit of %d bytes from %s",
+                        bytes_received,
+                        MAX_REQUEST_SIZE_BYTES,
+                        client_host
+                    )
+
+                    # Send 413 Payload Too Large response
+                    await send({
+                        "type": "http.response.start",
+                        "status": 413,
+                        "headers": [
+                            [b"content-type", b"application/json"],
+                            [b"content-length", b"0"],
+                        ],
+                    })
+                    await send({
+                        "type": "http.response.body",
+                        "body": b"",
+                    })
+
+                    # Drain remaining body to clean up connection
+                    # (required by ASGI spec: handler must consume remaining messages)
+                    async def drain():
+                        while True:
+                            msg = await original_receive()
+                            if msg["type"] == "http.disconnect" or not msg.get("more_body", False):
+                                break
+
+                    asyncio.create_task(drain())
+                    return
+
+            return message
+
+        # Pass the wrapped receive to the app
+        await self.asgi_app(scope, size_limited_receive, send)
+
+
+# Insert the ASGI middleware at the beginning (before other middleware)
+# This ensures size limits are enforced before any request processing
+app.add_middleware(RequestSizeLimitMiddleware)
 
 
 def _parse_accept_language_tags(header: str) -> list[tuple[float, str]]:
@@ -213,10 +298,14 @@ def _get_pre_route_label(request: Request) -> str:
     Extracts route-like labels from known API prefixes to prevent cardinality
     explosion while enabling per-endpoint timeout tracking.
 
+    Only returns labels from an explicit allowlist; maps all other first segments
+    to 'unknown' to prevent cardinality explosion from arbitrary paths.
+
     Returns a bounded label based on the request path structure:
     - "/api/v1/astronomical-events" → "/api/v1/astronomical-events"
     - "/api/v1/astronomical-events/contact-times" (separate endpoint)
     - "/api/v1/batch-earth-observations" → "/api/v1/batch-earth-observations"
+    - "/api/v1/random-nonce" → "unknown" (not in allowlist)
     - "/metrics" → "/metrics"
     - "/unknown/path" → "unknown" (bounded)
 
@@ -237,13 +326,15 @@ def _get_pre_route_label(request: Request) -> str:
     if path.startswith("/api/v1/astronomical-events/contact-times"):
         return "/api/v1/astronomical-events/contact-times"
 
-    # API v1 endpoints: extract the first path segment after /api/v1/
-    # This groups related endpoints (e.g., /astronomical-events sub-routes) together
+    # API v1 endpoints: extract and validate the first path segment
+    # Only return labels for allowlisted segments; map others to "unknown"
     if path.startswith("/api/v1/"):
         relative = path[8:]  # Remove "/api/v1/" prefix
         first_segment = relative.split("/")[0]
-        if first_segment:
+        if first_segment in ALLOWED_API_V1_SEGMENTS:
             return f"/api/v1/{first_segment}"
+        # Unknown or malicious first segment - return bounded label
+        return "unknown"
 
     # Known utility endpoints
     if path in ("/", "/health", "/cache-stats", "/rate-limit-stats"):
@@ -329,8 +420,10 @@ async def metrics_middleware(request: Request, call_next):  # pylint: disable=to
             metrics.record_request(endpoint, method, status_code, duration)
             record_request_completion(endpoint, duration)
         else:
-            # Store metadata in registry for deferred metrics recording
+            # Store metadata on request.state for deferred metrics recording
             # The wrapped iterator will retrieve this and record metrics when iteration completes
+            # Using request.state (not response identity as weak-map key) ensures metadata
+            # survives Starlette's response object replacement in BaseHTTPMiddleware
             metadata = StreamingMetadata(
                 endpoint=endpoint,
                 method=method,
@@ -339,7 +432,7 @@ async def metrics_middleware(request: Request, call_next):  # pylint: disable=to
                 pre_route_endpoint=pre_route_endpoint,
                 start_time=start_time
             )
-            streaming_registry.set(response, metadata)
+            request.state.streaming_metadata = metadata
 
         # Track 429 rate limit responses (applies to both streaming and non-streaming)
         if status_code == 429:
@@ -396,11 +489,11 @@ async def metrics_middleware(request: Request, call_next):  # pylint: disable=to
         # Use the same bounded pre-route label that was used in record_request_start()
         # to ensure the in-progress gauge is consistent (incremented and decremented
         # under the same label). Completed-request metrics use the matched endpoint label.
-        if response is None or not getattr(response, '_metrics_deferred', False):
+        if response is None or not isinstance(response, StreamingResponse):
             metrics.record_request_end(pre_route_endpoint)
 
 
-def _wrap_streaming_response_timeout(response, timeout_seconds, endpoint, start_time):
+def _wrap_streaming_response_timeout(response, timeout_seconds, endpoint, start_time, request):
     """
     Wrap a StreamingResponse to enforce timeout during body iteration.
 
@@ -423,6 +516,7 @@ def _wrap_streaming_response_timeout(response, timeout_seconds, endpoint, start_
         timeout_seconds: timeout budget (in seconds)
         endpoint: endpoint label for logging
         start_time: time when request started (perf_counter)
+        request: HTTP request (for retrieving metadata from request.state)
 
     Returns:
         Response object (wrapped if it was StreamingResponse)
@@ -438,11 +532,12 @@ def _wrap_streaming_response_timeout(response, timeout_seconds, endpoint, start_
         Records Prometheus metrics (histogram, counter, in-progress gauge) when iteration
         completes, ensuring accurate tracking of long-lived streaming responses.
         
-        Uses streaming_registry to retrieve metadata without protected-access pattern.
+        Retrieves metadata from request.state, which survives Starlette's response
+        object replacement in BaseHTTPMiddleware (unlike response identity keying).
         """
         try:
-            # Retrieve metadata from registry (contains all needed info for metric recording)
-            metadata = streaming_registry.get(response)
+            # Retrieve metadata from request.state (stable across middleware layers)
+            metadata = getattr(request.state, 'streaming_metadata', None)
 
             # Try to iterate the original generator
             if hasattr(original_body_iterator, '__aiter__'):
@@ -528,6 +623,10 @@ def _record_streaming_timeout_metrics(
         elapsed: Elapsed time in seconds
         timeout_seconds: Timeout budget in seconds
     """
+    # Record timeout duration for adaptive timeout tracker (p95 calculation)
+    # Timed-out requests must contribute to load assessment just like successful requests
+    record_request_completion(endpoint, elapsed)
+
     metrics = get_metrics()
     metrics.record_timeout_exceeded(endpoint)
     logger.warning(
@@ -573,6 +672,21 @@ async def timeout_middleware(request: Request, call_next):
 
     Uses bounded pre-route labels for timeout tracking before route matching,
     enabling per-endpoint adaptive timeout calculation.
+
+    LIMITATION (Phase 4 - Load Balancing):
+    The current asyncio.wait_for() timeout does not interrupt CPU-bound Astropy
+    calculations in worker threads or async code without yields. When timeout fires:
+    - Client receives 503 after timeout_seconds
+    - Handler continues executing in background thread/event loop
+    - Full CPU work is consumed even though request was rejected
+    - Under attack volume, this worsens exhaustion rather than preventing it
+
+    This is acceptable for single-instance deployments where rate limiting (10 req/min)
+    spaces requests across time. Multi-instance deployments require admission control
+    (reject before accepting) and cancellable work (ProcessPoolExecutor with SIGTERM).
+
+    See LOAD_BALANCING_STRATEGY.md for Phase 4.1 (Admission Control) and Phase 4.2
+    (Cancellable Work) design and dependencies.
     """
     # Derive bounded label from raw path BEFORE route matching
     # (request.scope['route'] is not populated until after call_next)
@@ -596,7 +710,7 @@ async def timeout_middleware(request: Request, call_next):
 
         # Wrap StreamingResponse to enforce timeout on body iteration as well
         response = _wrap_streaming_response_timeout(
-            response, timeout_seconds, endpoint, start_time
+            response, timeout_seconds, endpoint, start_time, request
         )
 
         return response

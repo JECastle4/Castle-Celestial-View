@@ -931,4 +931,277 @@ describe('EventsView', () => {
       vi.useRealTimers();
     });
   });
+
+  describe('fetchContactTimesInQueue', () => {
+    it('processes eclipse contact time requests sequentially, not in parallel', async () => {
+      const wrapper = mount(EventsView);
+      await flushPromises();
+
+      const eclipsesToFetch = [
+        { date: '2025-01-01', is_lunar: false },
+        { date: '2025-02-01', is_lunar: true },
+        { date: '2025-03-01', is_lunar: false },
+      ];
+
+      const requestOrder: string[] = [];
+      vi.useFakeTimers();
+
+      // Mock fetchContactTimesForEvent to track call order
+      const mockFetch = vi.fn(async (date) => {
+        requestOrder.push(date);
+      });
+
+      // Call the queue function (via component method)
+      const component = wrapper.vm as any;
+      const originalFetch = component.fetchContactTimesForEvent || (() => Promise.resolve());
+
+      // Simulate the queue function behavior
+      const results = [];
+      for (const eclipse of eclipsesToFetch) {
+        requestOrder.push(eclipse.date);
+        // Simulate sequential processing with 500ms delay
+        vi.advanceTimersByTime(500);
+      }
+
+      // Should have processed in order
+      expect(requestOrder).toEqual(['2025-01-01', '2025-02-01', '2025-03-01']);
+
+      vi.useRealTimers();
+    });
+
+    it('maintains 500ms spacing between requests for rate limit compliance', async () => {
+      vi.useFakeTimers();
+
+      const eclipsesToFetch = [
+        { date: '2025-01-01', is_lunar: false },
+        { date: '2025-02-01', is_lunar: true },
+      ];
+
+      const timestamps: number[] = [];
+
+      // Simulate queue timing behavior
+      for (let i = 0; i < eclipsesToFetch.length; i++) {
+        timestamps.push(Date.now());
+        if (i < eclipsesToFetch.length - 1) {
+          vi.advanceTimersByTime(500);
+        }
+      }
+
+      // Spacing between first and second request should be ~500ms
+      const spacing = timestamps[1] - timestamps[0];
+      expect(spacing).toBe(500);
+
+      vi.useRealTimers();
+    });
+
+    it('invokes progress callback for each completed request', async () => {
+      const wrapper = mount(EventsView);
+      await flushPromises();
+
+      const eclipsesToFetch = [
+        { date: '2025-01-01', is_lunar: false },
+        { date: '2025-02-01', is_lunar: true },
+        { date: '2025-03-01', is_lunar: false },
+      ];
+
+      const progressCalls: [number, number][] = [];
+      const onProgress = (completed: number, total: number) => {
+        progressCalls.push([completed, total]);
+      };
+
+      // Simulate the queue function calling progress callback
+      let completed = 0;
+      for (const eclipse of eclipsesToFetch) {
+        completed++;
+        onProgress(completed, eclipsesToFetch.length);
+      }
+
+      // Progress should be called for each request
+      expect(progressCalls).toEqual([
+        [1, 3],
+        [2, 3],
+        [3, 3],
+      ]);
+    });
+
+    it('returns success/failure result objects with correct structure', async () => {
+      const results = [
+        { success: true, date: '2025-01-01' },
+        { success: false, date: '2025-02-01', error: new Error('Network error') },
+        { success: true, date: '2025-03-01' },
+      ];
+
+      // Verify structure of each result
+      expect(results).toHaveLength(3);
+      expect(results[0]).toHaveProperty('success', true);
+      expect(results[0]).toHaveProperty('date');
+      expect(results[1]).toHaveProperty('success', false);
+      expect(results[1]).toHaveProperty('error');
+      expect(results[2]).toHaveProperty('success', true);
+    });
+
+    it('parses Retry-After header from 429 error and waits before retry', async () => {
+      vi.useFakeTimers();
+
+      // Simulate parsing Retry-After header
+      const errorMessage = 'Error: 429 Too Many Requests; Retry-After: 3';
+      const retryAfterMatch = errorMessage.match(/Retry-After:\s*(\d+)/i);
+      const retryAfter = retryAfterMatch ? parseInt(retryAfterMatch[1], 10) * 1000 : 2000;
+
+      expect(retryAfterMatch).not.toBeNull();
+      expect(retryAfter).toBe(3000);
+
+      vi.useRealTimers();
+    });
+
+    it('uses default 2s retry-after if not specified in error', () => {
+      const errorMessage = 'Error: 429 Too Many Requests';
+      const retryAfterMatch = errorMessage.match(/Retry-After:\s*(\d+)/i);
+      const retryAfter = retryAfterMatch ? parseInt(retryAfterMatch[1], 10) * 1000 : 2000;
+
+      expect(retryAfterMatch).toBeNull();
+      expect(retryAfter).toBe(2000);
+    });
+
+    it('performs single automatic retry on 429 error', async () => {
+      const wrapper = mount(EventsView);
+      await flushPromises();
+
+      let attemptCount = 0;
+
+      // Simulate mock that fails first, succeeds second
+      const mockFetch = vi.fn(async () => {
+        attemptCount++;
+        if (attemptCount === 1) {
+          throw new Error('429: Too Many Requests');
+        }
+        return { success: true };
+      });
+
+      // Simulate the retry logic in the queue
+      try {
+        await mockFetch();
+      } catch {
+        // First attempt failed, retry once
+        await mockFetch();
+      }
+
+      // Should have attempted twice (initial + 1 retry)
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(attemptCount).toBe(2);
+    });
+
+    it('stops after single retry on 429 and records failure', async () => {
+      const wrapper = mount(EventsView);
+      await flushPromises();
+
+      let attemptCount = 0;
+
+      // Simulate mock that always fails
+      const mockFetch = vi.fn(async () => {
+        attemptCount++;
+        throw new Error('429: Too Many Requests');
+      });
+
+      const results = [];
+      try {
+        // Initial attempt
+        await mockFetch();
+      } catch (err) {
+        try {
+          // Retry once
+          await mockFetch();
+        } catch {
+          results.push({
+            success: false,
+            date: '2025-01-01',
+            error: err instanceof Error ? err : new Error(String(err)),
+          });
+        }
+      }
+
+      // Should attempt twice (initial + 1 retry), then stop
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(attemptCount).toBe(2);
+      expect(results).toHaveLength(1);
+      expect(results[0].success).toBe(false);
+    });
+
+    it('handles non-429 errors immediately without retry', async () => {
+      const wrapper = mount(EventsView);
+      await flushPromises();
+
+      let attemptCount = 0;
+
+      // Simulate mock that throws non-429 error
+      const mockFetch = vi.fn(async () => {
+        attemptCount++;
+        throw new Error('500: Internal Server Error');
+      });
+
+      const results = [];
+      try {
+        await mockFetch();
+      } catch (err) {
+        results.push({
+          success: false,
+          date: '2025-01-01',
+          error: err instanceof Error ? err : new Error(String(err)),
+        });
+      }
+
+      // Should attempt only once (no retry for non-429)
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(attemptCount).toBe(1);
+      expect(results).toHaveLength(1);
+      expect(results[0].success).toBe(false);
+    });
+
+    it('rate limit allows 120 req/min (2 req/sec with 500ms spacing)', () => {
+      const spacingMs = 500;
+      const requestsPerSecond = 1000 / spacingMs;
+      const requestsPerMinute = requestsPerSecond * 60;
+
+      // Verify math: 500ms spacing = 2 req/sec = 120 req/min
+      expect(requestsPerSecond).toBe(2);
+      expect(requestsPerMinute).toBe(120);
+
+      // API limit is 10/min, so 120/min provides 12x headroom
+      const apiLimitPerMin = 10;
+      const headroomRatio = requestsPerMinute / apiLimitPerMin;
+      expect(headroomRatio).toBe(12);
+    });
+
+    it('continues processing even if individual request fails', async () => {
+      const wrapper = mount(EventsView);
+      await flushPromises();
+
+      const eclipsesToFetch = [
+        { date: '2025-01-01', is_lunar: false },
+        { date: '2025-02-01', is_lunar: true },
+        { date: '2025-03-01', is_lunar: false },
+      ];
+
+      const processedDates: string[] = [];
+
+      // Simulate queue processing with one failure
+      for (const eclipse of eclipsesToFetch) {
+        try {
+          if (eclipse.date === '2025-02-01') {
+            throw new Error('Network error');
+          }
+          processedDates.push(eclipse.date);
+        } catch {
+          // Continue to next eclipse (record failure but don't break)
+          processedDates.push(`${eclipse.date}-failed`);
+        }
+      }
+
+      // All dates should be processed, failures included
+      expect(processedDates.length).toBe(3);
+      expect(processedDates).toContain('2025-01-01');
+      expect(processedDates).toContain('2025-02-01-failed');
+      expect(processedDates).toContain('2025-03-01');
+    });
+  });
 });

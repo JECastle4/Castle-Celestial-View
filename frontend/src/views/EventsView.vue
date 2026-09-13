@@ -227,6 +227,60 @@ async function loadContactTimesForEvent(event: any) {
   }
 }
 
+async function fetchContactTimesInQueue(
+  eclipsesToFetch: Array<{ date: string; is_lunar: boolean }>,
+  onProgress?: (completed: number, total: number) => void
+): Promise<Array<{ success: boolean; date: string; error?: Error }>> {
+  const results: Array<{ success: boolean; date: string; error?: Error }> = [];
+  let completed = 0;
+
+  // Process requests sequentially with rate limit awareness
+  for (const eclipse of eclipsesToFetch) {
+    try {
+      await fetchContactTimesForEvent(eclipse.date, eclipse.is_lunar);
+      results.push({ success: true, date: eclipse.date });
+    } catch (err) {
+      // Check if error is a 429 with Retry-After header
+      if (err instanceof Error && err.message.includes('429')) {
+        // Extract retry-after value (default to 2 seconds if not specified)
+        const retryAfterMatch = err.message.match(/Retry-After:\s*(\d+)/i);
+        const retryAfter = retryAfterMatch ? parseInt(retryAfterMatch[1], 10) * 1000 : 2000;
+        
+        // Wait before retrying this request
+        await new Promise(resolve => setTimeout(resolve, retryAfter));
+        
+        try {
+          // Retry once
+          await fetchContactTimesForEvent(eclipse.date, eclipse.is_lunar);
+          results.push({ success: true, date: eclipse.date });
+        } catch (retryErr) {
+          results.push({ 
+            success: false, 
+            date: eclipse.date, 
+            error: retryErr instanceof Error ? retryErr : new Error(String(retryErr)) 
+          });
+        }
+      } else {
+        results.push({ 
+          success: false, 
+          date: eclipse.date, 
+          error: err instanceof Error ? err : new Error(String(err)) 
+        });
+      }
+    }
+    
+    completed++;
+    onProgress?.(completed, eclipsesToFetch.length);
+    
+    // Small delay between requests to avoid rate limit (2 requests per second ~= 120 req/min headroom)
+    if (completed < eclipsesToFetch.length) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
+
+  return results;
+}
+
 function handleExport(format: 'csv' | 'json') {
   // Export all results from the complete search, not just the current page
   const resultsToExport = allSseEvents.value;
@@ -246,13 +300,19 @@ function handleExport(format: 'csv' | 'json') {
     exportStatus.value = null;  // Loading state, no styling
     isPreparingExport.value = true;
 
-    // Fetch all missing contact times before export, tracking success/failure for each
-    Promise.all(
-      eclipsesNeedingContactTimes.map((ev: any) =>
-        fetchContactTimesForEvent(ev.date, ev.is_lunar)
-          .then(() => ({ success: true, date: ev.date }))
-          .catch((err) => ({ success: false, date: ev.date, error: err }))
-      )
+    // Fetch all missing contact times sequentially with rate limit awareness
+    fetchContactTimesInQueue(
+      eclipsesNeedingContactTimes.map((ev: any) => ({ 
+        date: ev.date, 
+        is_lunar: ev.is_lunar 
+      })),
+      (completed, total) => {
+        // Update progress message
+        exportMessage.value = t('events.loadingContactTimesProgress', { 
+          completed, 
+          total 
+        });
+      }
     )
       .then((results) => {
         // Check if any fetches failed

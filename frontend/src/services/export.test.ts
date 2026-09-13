@@ -300,7 +300,7 @@ describe('Export Service', () => {
       expect(global.URL.createObjectURL).toHaveBeenCalled();
     });
 
-    it('should handle events with empty contact_times object', () => {
+    it('should handle events with empty contact_times object', async () => {
       const events: AstronomicalEvent[] = [
         {
           date: '2025-01-14',
@@ -311,11 +311,29 @@ describe('Export Service', () => {
         } as unknown as AstronomicalEvent,
       ];
 
-      expect(() => {
-        exportContactTimesToCSV(events);
-      }).not.toThrow();
+      // Capture the Blob passed to createObjectURL
+      const capturedBlobs: Blob[] = [];
+      vi.spyOn(global.URL, 'createObjectURL').mockImplementation((obj: any) => {
+        if (obj instanceof Blob) {
+          capturedBlobs.push(obj);
+        }
+        return 'blob:mock-url';
+      });
+
+      exportContactTimesToCSV(events);
 
       expect(global.URL.createObjectURL).toHaveBeenCalled();
+      expect(capturedBlobs.length).toBeGreaterThan(0);
+      
+      // Verify the Blob contains the event row with N/A values for missing contact times
+      const csvBlob = capturedBlobs[0];
+      const csvText = await csvBlob.text();
+      // Should contain the event date
+      expect(csvText).toContain('2025-01-14');
+      // Should contain the event type
+      expect(csvText).toContain('Solar Eclipse');
+      // Should contain N/A or empty values for contact times
+      expect(csvText).toMatch(/2025-01-14.*N\/A|2025-01-14[^,]*$/);
     });
 
     it('should properly escape fields with commas', () => {

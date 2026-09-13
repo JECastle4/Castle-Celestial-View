@@ -32,7 +32,7 @@
 ### Phase 3: DoS Protection + Scaling Strategy (v1.2.0)
 
 #### 3.1 Rate Limiting
-- Per-IP limits: 100 req/min (normal), 20/min (expensive batch) via `slowapi`
+- Per-IP limits: 100 req/min (normal), 10/min (expensive batch) via `slowapi`
 
 #### 3.2 Monitoring & Metrics
 - Prometheus exporter at `/metrics`

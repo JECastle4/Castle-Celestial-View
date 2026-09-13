@@ -1216,6 +1216,7 @@ class EclipseContactTimesResponse(BaseModel):
     contact_times: Optional[dict] = Field(
         None,
         description="Eclipse contact times. Lunar: p1/u1/u2/u3/u4/p4. "
-                     "Solar: eclipse_begins/central_phase_begins/central_phase_ends/eclipse_ends. "
+                     "Solar (geocentric, not observer-specific): eclipse_begins/"
+                     "central_phase_begins/central_phase_ends/eclipse_ends. "
                      "None if calculation fails or event_date is invalid."
     )
