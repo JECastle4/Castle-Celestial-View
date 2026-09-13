@@ -37,11 +37,11 @@ export default defineConfig({
         'tests/e2e/**/*.ts', // Exclude Playwright E2E tests from Vitest
       ],
       thresholds: {
-        // Global thresholds (lowered to 78 to accommodate unreachable try/catch blocks in defensive programming patterns)
-        lines: 78,
+        // Global thresholds - per-file exceptions marked with c8 ignore directives
+        lines: 80,
         functions: 80,
         branches: 80,
-        statements: 78,
+        statements: 80,
         
         // Per-file thresholds enforce high standards on business logic
         perFile: true,

@@ -20,6 +20,7 @@ import inspect
 import threading
 from typing import Any, Callable, Optional, Hashable
 from collections import OrderedDict
+from pydantic import BaseModel
 from api.metrics import record_cache_hit_safe, record_cache_miss_safe
 
 from api.i18n import get_i18n
@@ -70,8 +71,10 @@ class TTLCache:  # pylint: disable=too-many-instance-attributes
         Estimate memory usage of an object including nested structures.
 
         Uses sys.getsizeof() for base estimate and recursively accounts for
-        memory in containers (dicts, lists, tuples). This provides a reasonable
-        approximation of actual memory usage for caching decisions.
+        memory in containers (dicts, lists, tuples) and Pydantic BaseModel objects.
+        Pydantic models are converted with model_dump() to traverse nested data.
+        This provides a reasonable approximation of actual memory usage for caching
+        decisions.
 
         Args:
             obj: Object to estimate size of
@@ -80,6 +83,10 @@ class TTLCache:  # pylint: disable=too-many-instance-attributes
             Estimated memory usage in bytes
         """
         size = sys.getsizeof(obj)
+
+        # Handle Pydantic BaseModel objects by converting to dict first
+        if isinstance(obj, BaseModel):
+            obj = obj.model_dump()
 
         if isinstance(obj, dict):
             for key, value in obj.items():
@@ -130,13 +137,16 @@ class TTLCache:  # pylint: disable=too-many-instance-attributes
         live LRU entries. This prevents live entries from being evicted when
         expired entries are consuming capacity.
 
+        Thread-safe: protected by internal lock.
+
         Returns:
             Number of expired entries removed
         """
-        expired_keys = [key for key in self.cache if self._is_expired(key)]
-        for key in expired_keys:
-            self._delete(key)
-        return len(expired_keys)
+        with self._lock:
+            expired_keys = [key for key in self.cache if self._is_expired(key)]
+            for key in expired_keys:
+                self._delete(key)
+            return len(expired_keys)
 
     def set(self, key: Hashable, value: Any, ttl: Optional[int] = None) -> bool:
         """

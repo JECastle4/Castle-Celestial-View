@@ -17,34 +17,34 @@ class TestMetricLabelExtraction:
     """Test metric label extraction for bounded cardinality."""
     
     def test_contact_times_preserves_full_path(self):
-        """Test that /api/v1/contact-times is preserved, not grouped.
+        """Test that /api/v1/astronomical-events/contact-times is preserved, not grouped.
         
-        Bug: Before fix, /api/v1/contact-times/{event_id} would be grouped as
-        /api/v1/contact-times (correct by accident), but the grouping logic
-        extracts first segment which would be 'contact-times'.
+        Bug: The nonexistent route /api/v1/contact-times was checked, causing
+        /api/v1/astronomical-events/contact-times requests to be grouped as
+        /api/v1/astronomical-events instead.
         
-        Fix: Explicitly check for /api/v1/contact-times before generic grouping
-        to ensure it's preserved as /api/v1/contact-times (not grouped with other
-        astronomical-events endpoints).
+        Fix: Check for the actual route /api/v1/astronomical-events/contact-times
+        before generic grouping to ensure it's preserved with its dedicated
+        timeout configuration.
         """
         # Create mock request
         request = MagicMock(spec=Request)
-        request.url.path = "/api/v1/contact-times/2025-09-07T00:00:00Z"
+        request.url.path = "/api/v1/astronomical-events/contact-times/2025-09-07T00:00:00Z"
         
-        # Should return /api/v1/contact-times
+        # Should return /api/v1/astronomical-events/contact-times
         label = extract_metric_label(request)
         
-        assert label == "/api/v1/contact-times", \
+        assert label == "/api/v1/astronomical-events/contact-times", \
             "contact-times should be preserved with full path"
     
     def test_contact_times_root_endpoint(self):
-        """Test /api/v1/contact-times without path parameters."""
+        """Test /api/v1/astronomical-events/contact-times without path parameters."""
         request = MagicMock(spec=Request)
-        request.url.path = "/api/v1/contact-times"
+        request.url.path = "/api/v1/astronomical-events/contact-times"
         
         label = extract_metric_label(request)
         
-        assert label == "/api/v1/contact-times"
+        assert label == "/api/v1/astronomical-events/contact-times"
     
     def test_astronomical_events_grouped_separately(self):
         """Test that astronomical-events are grouped but separate from contact-times."""
@@ -54,7 +54,7 @@ class TestMetricLabelExtraction:
         label = extract_metric_label(request)
         
         assert label == "/api/v1/astronomical-events"
-        assert label != "/api/v1/contact-times"
+        assert label != "/api/v1/astronomical-events/contact-times"
     
     def test_batch_earth_observations_full_path(self):
         """Test that batch-earth-observations is a separate endpoint."""
@@ -150,9 +150,9 @@ class TestMetricLabelExtraction:
     def test_contact_times_with_complex_path(self):
         """Test contact-times with various path patterns."""
         paths = [
-            "/api/v1/contact-times/abc123",
-            "/api/v1/contact-times/2025-09-07",
-            "/api/v1/contact-times/event%2F123",
+            "/api/v1/astronomical-events/contact-times/abc123",
+            "/api/v1/astronomical-events/contact-times/2025-09-07",
+            "/api/v1/astronomical-events/contact-times/event%2F123",
         ]
         
         for path in paths:
@@ -161,9 +161,9 @@ class TestMetricLabelExtraction:
             
             label = extract_metric_label(request)
             
-            # All should resolve to /api/v1/contact-times
-            assert label == "/api/v1/contact-times", \
-                f"contact-times path {path} should map to /api/v1/contact-times"
+            # All should resolve to /api/v1/astronomical-events/contact-times
+            assert label == "/api/v1/astronomical-events/contact-times", \
+                f"contact-times path {path} should map to /api/v1/astronomical-events/contact-times"
 
 
 class TestMetricLabelForInProgressRequests:

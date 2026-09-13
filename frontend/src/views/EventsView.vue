@@ -57,7 +57,7 @@
       <div v-if="error" class="error">{{ error }}</div>
 
       <template v-if="!loading && !error">
-        <div v-if="events.length" class="events-table-header">
+        <div v-if="allSseEvents.length" class="events-table-header">
           <div class="header-row">
             <p class="utc-notice">{{ t('events.allTimesLocal') }}</p>
             <div class="export-controls">
@@ -66,20 +66,20 @@
                 class="export-btn"
                 :title="t('buttons.downloadAsCSV')"
                 @click="handleExport('csv')"
-                :disabled="!events.length || isPreparingExport"
+                :disabled="!allSseEvents.length || isPreparingExport"
               >
                 <i class="fa fa-download" aria-hidden="true"></i>
-                CSV
+                CSV ({{ allSseEvents.length }})
               </button>
               <button
                 type="button"
                 class="export-btn"
                 :title="t('buttons.downloadAsJSON')"
                 @click="handleExport('json')"
-                :disabled="!events.length || isPreparingExport"
+                :disabled="!allSseEvents.length || isPreparingExport"
               >
                 <i class="fa fa-download" aria-hidden="true"></i>
-                JSON
+                JSON ({{ allSseEvents.length }})
               </button>
             </div>
           </div>
@@ -154,7 +154,7 @@ const DateRangePicker = defineAsyncComponent(() => import('@/components/DateRang
 
 const { t, locale } = useI18n();
 const router = useRouter();
-const { events, pagination, loading, error, hasSearched, fetchEventsSSE, cancelSSE, goToPage, sseEventCount, fetchContactTimesForEvent } = useAstronomicalEvents();
+const { events, pagination, loading, error, hasSearched, fetchEventsSSE, cancelSSE, goToPage, sseEventCount, fetchContactTimesForEvent, allSseEvents } = useAstronomicalEvents();
 
 const PAGE_SIZE = 10;
 const loadingEventDates = ref<Set<string>>(new Set());
@@ -228,14 +228,16 @@ async function loadContactTimesForEvent(event: any) {
 }
 
 function handleExport(format: 'csv' | 'json') {
-  if (!events.value || events.value.length === 0) {
+  // Export all results from the complete search, not just the current page
+  const resultsToExport = allSseEvents.value;
+  if (!resultsToExport || resultsToExport.length === 0) {
     exportMessage.value = t('events.noDataToExport');
     exportStatus.value = 'error';
     return;
   }
 
   // Check if any eclipse events are missing contact times
-  const eclipsesNeedingContactTimes = events.value.filter(
+  const eclipsesNeedingContactTimes = resultsToExport.filter(
     (ev: any) => ev.eclipse_occurs && !ev.contact_times
   );
 
@@ -258,7 +260,7 @@ function handleExport(format: 'csv' | 'json') {
         
         exportMessage.value = null;
         exportStatus.value = null;
-        const exportSuccess = performExport(format);
+        const exportSuccess = performExport(format, resultsToExport);
         
         // Display appropriate message after export (but don't overwrite if export failed)
         if (!exportSuccess) {
@@ -299,7 +301,7 @@ function handleExport(format: 'csv' | 'json') {
     // All contact times available, proceed with export
     exportMessage.value = null;
     exportStatus.value = null;
-    const exportSuccess = performExport(format);
+    const exportSuccess = performExport(format, resultsToExport);
     
     // Only show success message if export actually succeeded
     if (!exportSuccess) {
@@ -316,8 +318,8 @@ function handleExport(format: 'csv' | 'json') {
   }
 }
 
-function performExport(format: 'csv' | 'json') {
-  if (!events.value || events.value.length === 0) {
+function performExport(format: 'csv' | 'json', resultsToExport: any[] = allSseEvents.value) {
+  if (!resultsToExport || resultsToExport.length === 0) {
     return false;
   }
 
@@ -325,9 +327,9 @@ function performExport(format: 'csv' | 'json') {
 
   try {
     if (format === 'csv') {
-      exportContactTimesToCSV(events.value, filename);
+      exportContactTimesToCSV(resultsToExport, filename);
     } else {
-      exportContactTimesToJSON(events.value, filename);
+      exportContactTimesToJSON(resultsToExport, filename);
     }
     return true;
   } catch (err) {

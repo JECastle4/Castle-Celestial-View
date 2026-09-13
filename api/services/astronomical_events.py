@@ -463,8 +463,9 @@ def get_contact_times_for_event(event_date_iso, is_lunar, _locale=None):
         # Re-raise validation errors (invalid event, not an eclipse, etc.)
         raise
     except Exception as e:
-        # Log and raise for other errors
-        raise ValueError(
+        # Unexpected calculation failures (Astropy errors, etc.) - raise as RuntimeError
+        # so the route handler returns 500 and logs internally (not 400 bad request)
+        raise RuntimeError(
             f"Error calculating contact times for {'lunar' if is_lunar else 'solar'} "
             f"eclipse at {event_date_iso}: {str(e)}"
         ) from e

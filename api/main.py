@@ -10,26 +10,17 @@ from astropy.utils import iers
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
+from slowapi.errors import RateLimitExceeded
 
 from api.cache import get_cache_stats
 from api.i18n import SUPPORTED_LOCALES, set_request_locale
 from api.metrics import get_metrics
-from api.rate_limiter import limiter
+from api.middleware.streaming_registry import streaming_registry, StreamingMetadata
+from api.rate_limiter import limiter, rate_limit_exception_handler, get_rate_limit_stats
+from api.rate_limiter import MockLimiter
 from api.routes import router
 from api.routes.metrics import router as metrics_router
 from api.timeout_logic import calculate_adaptive_timeout, record_request_completion
-
-# Only import RateLimitExceeded if we're using the real rate limiter
-# pylint: disable=invalid-name
-RateLimitExceeded = None
-rate_limit_exception_handler = None
-HAS_REAL_LIMITER = False  # pylint: disable=invalid-name
-
-if hasattr(limiter, '__class__') and limiter.__class__.__name__ == 'Limiter':
-    # pylint: disable=import-outside-toplevel,invalid-name,ungrouped-imports
-    from slowapi.errors import RateLimitExceeded
-    from api.rate_limiter import rate_limit_exception_handler
-    HAS_REAL_LIMITER = True  # pylint: disable=invalid-name
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -60,8 +51,8 @@ app = FastAPI(
 # Attach rate limiter to app (Phase 3.1: DDoS Protection)
 app.state.limiter = limiter
 
-# Add exception handler for rate limit exceeded (only if using real limiter)
-if HAS_REAL_LIMITER:
+# Add exception handler for rate limit exceeded (only if using real limiter, not mock)
+if not isinstance(limiter, MockLimiter):
     app.add_exception_handler(RateLimitExceeded, rate_limit_exception_handler)
 
 # Configure CORS with environment-specific settings
@@ -224,7 +215,7 @@ def _get_pre_route_label(request: Request) -> str:
 
     Returns a bounded label based on the request path structure:
     - "/api/v1/astronomical-events" → "/api/v1/astronomical-events"
-    - "/api/v1/contact-times" → "/api/v1/contact-times" (separate from grouping)
+    - "/api/v1/astronomical-events/contact-times" (separate endpoint)
     - "/api/v1/batch-earth-observations" → "/api/v1/batch-earth-observations"
     - "/metrics" → "/metrics"
     - "/unknown/path" → "unknown" (bounded)
@@ -242,9 +233,9 @@ def _get_pre_route_label(request: Request) -> str:
         path = path.split("?")[0]
 
     # Known full-path endpoints (preserve as-is before generic grouping)
-    # contact-times is a per-endpoint route that must report separate metrics
-    if path.startswith("/api/v1/contact-times"):
-        return "/api/v1/contact-times"
+    # astronomical-events/contact-times is a per-endpoint route with separate timeout config
+    if path.startswith("/api/v1/astronomical-events/contact-times"):
+        return "/api/v1/astronomical-events/contact-times"
 
     # API v1 endpoints: extract the first path segment after /api/v1/
     # This groups related endpoints (e.g., /astronomical-events sub-routes) together
@@ -296,7 +287,7 @@ async def locale_middleware(request: Request, call_next):
 
 
 @app.middleware("http")
-async def metrics_middleware(request: Request, call_next):
+async def metrics_middleware(request: Request, call_next):  # pylint: disable=too-many-statements,too-many-branches
     """Record HTTP request metrics for Prometheus monitoring (Phase 3.2).
 
     Tracks request duration, count, status, and in-progress requests per endpoint.
@@ -320,6 +311,7 @@ async def metrics_middleware(request: Request, call_next):
     pre_route_endpoint = _get_pre_route_label(request)
     metrics.record_request_start(pre_route_endpoint)
 
+    response = None
     try:
         # Call endpoint (route matching happens here)
         response = await call_next(request)
@@ -330,20 +322,28 @@ async def metrics_middleware(request: Request, call_next):
         endpoint = _get_route_label(request)
         method = request.method
 
-        # Record metrics (after route matching, using bounded route label)
-        duration = time.perf_counter() - start_time
-        metrics.record_request(endpoint, method, status_code, duration)
+        # For non-streaming responses, record metrics immediately
+        # For StreamingResponse, metrics are recorded when iteration completes (by wrapped iterator)
+        if not isinstance(response, StreamingResponse):
+            duration = time.perf_counter() - start_time
+            metrics.record_request(endpoint, method, status_code, duration)
+            record_request_completion(endpoint, duration)
+        else:
+            # Store metadata in registry for deferred metrics recording
+            # The wrapped iterator will retrieve this and record metrics when iteration completes
+            metadata = StreamingMetadata(
+                endpoint=endpoint,
+                method=method,
+                status_code=status_code,
+                deferred=True,
+                pre_route_endpoint=pre_route_endpoint,
+                start_time=start_time
+            )
+            streaming_registry.set(response, metadata)
 
-        # Track 429 rate limit responses
+        # Track 429 rate limit responses (applies to both streaming and non-streaming)
         if status_code == 429:
             metrics.record_rate_limit_exceeded(endpoint)
-
-        # Record completion time for adaptive timeout calculation (Phase 3.3)
-        # For non-streaming responses, this captures total request duration
-        # For StreamingResponse, this is only response creation time; the actual
-        # stream duration is recorded by the timeout wrapper when iteration completes
-        if not isinstance(response, StreamingResponse):
-            record_request_completion(endpoint, duration)
 
         return response
 
@@ -391,11 +391,13 @@ async def metrics_middleware(request: Request, call_next):
         raise exc
 
     finally:
-        # Always record request completion, even on timeout or exception
+        # For non-streaming responses: always record request completion
+        # For streaming responses: skip here; wrapped iterator records when iteration completes
         # Use the same bounded pre-route label that was used in record_request_start()
         # to ensure the in-progress gauge is consistent (incremented and decremented
         # under the same label). Completed-request metrics use the matched endpoint label.
-        metrics.record_request_end(pre_route_endpoint)
+        if response is None or not getattr(response, '_metrics_deferred', False):
+            metrics.record_request_end(pre_route_endpoint)
 
 
 def _wrap_streaming_response_timeout(response, timeout_seconds, endpoint, start_time):
@@ -411,8 +413,10 @@ def _wrap_streaming_response_timeout(response, timeout_seconds, endpoint, start_
     in a thread pool) with asyncio.wait_for to ensure the timeout applies to the actual
     item production time, not just the elapsed time after it completes.
 
-    Records actual completed stream duration to adaptive timeout tracker for p95-based
-    load shedding (so slow streams are observed and timeouts adjusted accordingly).
+    Records actual completed stream duration to:
+    - Adaptive timeout tracker for p95-based load shedding
+    - Prometheus metrics (histogram and gauge) when iteration completes,
+      ensuring long-lived SSE requests are accurately tracked
 
     Args:
         response: FastAPI response object
@@ -429,8 +433,17 @@ def _wrap_streaming_response_timeout(response, timeout_seconds, endpoint, start_
     original_body_iterator = response.body_iterator
 
     async def timeout_enforcing_generator():
-        """Iterate generator with timeout enforcement on each item fetch."""
+        """Iterate generator with timeout enforcement on each item fetch.
+        
+        Records Prometheus metrics (histogram, counter, in-progress gauge) when iteration
+        completes, ensuring accurate tracking of long-lived streaming responses.
+        
+        Uses streaming_registry to retrieve metadata without protected-access pattern.
+        """
         try:
+            # Retrieve metadata from registry (contains all needed info for metric recording)
+            metadata = streaming_registry.get(response)
+
             # Try to iterate the original generator
             if hasattr(original_body_iterator, '__aiter__'):
                 # Async generator - wrap each __anext__() with timeout
@@ -440,14 +453,8 @@ def _wrap_streaming_response_timeout(response, timeout_seconds, endpoint, start_
 
                     if remaining <= 0:
                         # Total timeout exceeded before fetching next item
-                        metrics = get_metrics()
-                        metrics.record_timeout_exceeded(endpoint)
-                        logger.warning(
-                            "Streaming timeout on %s after %.2f seconds "
-                            "(timeout: %.2f seconds)",
-                            endpoint,
-                            elapsed,
-                            timeout_seconds,
+                        _record_streaming_timeout_metrics(
+                            metadata, endpoint, elapsed, timeout_seconds
                         )
                         # Yield error event for SSE clients
                         yield b"event: error\ndata: {\"error\": \"timeout\"}\n\n"
@@ -462,49 +469,37 @@ def _wrap_streaming_response_timeout(response, timeout_seconds, endpoint, start_
                         )
                         yield item
                     except StopAsyncIteration:
-                        # Generator exhausted normally - record completion duration
-                        # so adaptive timeout can observe slow streams
+                        # Generator exhausted normally
                         elapsed = time.perf_counter() - start_time
-                        record_request_completion(endpoint, elapsed)
+                        _record_streaming_completion_metrics(metadata, endpoint, elapsed)
                         break
                     except asyncio.TimeoutError:
                         # Timeout during item fetch (hang in generator)
-                        metrics = get_metrics()
-                        metrics.record_timeout_exceeded(endpoint)
-                        logger.warning(
-                            "Streaming timeout on %s after %.2f seconds "
-                            "(timeout: %.2f seconds) - timeout during item fetch",
-                            endpoint,
-                            time.perf_counter() - start_time,
-                            timeout_seconds,
+                        elapsed = time.perf_counter() - start_time
+                        _record_streaming_timeout_metrics(
+                            metadata, endpoint, elapsed, timeout_seconds
                         )
                         # Yield error event for SSE clients
                         yield b"event: error\ndata: {\"error\": \"timeout\"}\n\n"
                         return
             else:
-                # Sync generator - run in thread pool with timeout per iteration
+                # Sync generator - iterate normally (no timeout per item for sync)
                 for item in original_body_iterator:
                     elapsed = time.perf_counter() - start_time
                     remaining = timeout_seconds - elapsed
 
                     if remaining <= 0:
                         # Total timeout exceeded
-                        metrics = get_metrics()
-                        metrics.record_timeout_exceeded(endpoint)
-                        logger.warning(
-                            "Streaming timeout on %s after %.2f seconds "
-                            "(timeout: %.2f seconds)",
-                            endpoint,
-                            elapsed,
-                            timeout_seconds,
+                        _record_streaming_timeout_metrics(
+                            metadata, endpoint, elapsed, timeout_seconds
                         )
                         # Yield error event for SSE clients
                         yield b"event: error\ndata: {\"error\": \"timeout\"}\n\n"
                         return
                     yield item
-                # Sync generator exhausted normally - record completion duration
+                # Sync generator exhausted normally
                 elapsed = time.perf_counter() - start_time
-                record_request_completion(endpoint, elapsed)
+                _record_streaming_completion_metrics(metadata, endpoint, elapsed)
         finally:
             # Cleanup: close async generator if needed
             if hasattr(original_body_iterator, 'aclose'):
@@ -517,6 +512,52 @@ def _wrap_streaming_response_timeout(response, timeout_seconds, endpoint, start_
     # Replace body iterator with wrapped version
     response.body_iterator = timeout_enforcing_generator()
     return response
+
+
+def _record_streaming_timeout_metrics(
+    metadata: StreamingMetadata | None,
+    endpoint: str,
+    elapsed: float,
+    timeout_seconds: float
+) -> None:
+    """Record metrics for streaming response timeout.
+
+    Args:
+        metadata: Streaming metadata from registry, or None if not available
+        endpoint: Endpoint label for logging/metrics
+        elapsed: Elapsed time in seconds
+        timeout_seconds: Timeout budget in seconds
+    """
+    metrics = get_metrics()
+    metrics.record_timeout_exceeded(endpoint)
+    logger.warning(
+        "Streaming timeout on %s after %.2f seconds (timeout: %.2f seconds)",
+        endpoint,
+        elapsed,
+        timeout_seconds,
+    )
+    if metadata:
+        metrics.record_request(metadata.endpoint, metadata.method, 503, elapsed)
+        metrics.record_request_end(metadata.pre_route_endpoint)
+
+
+def _record_streaming_completion_metrics(
+    metadata: StreamingMetadata | None,
+    endpoint: str,
+    elapsed: float
+) -> None:
+    """Record metrics for successfully completed streaming response.
+
+    Args:
+        metadata: Streaming metadata from registry
+        endpoint: Endpoint label for metrics
+        elapsed: Total elapsed time in seconds
+    """
+    record_request_completion(endpoint, elapsed)
+    if metadata:
+        metrics = get_metrics()
+        metrics.record_request(metadata.endpoint, metadata.method, metadata.status_code, elapsed)
+        metrics.record_request_end(metadata.pre_route_endpoint)
 
 
 @app.middleware("http")
@@ -625,13 +666,7 @@ async def rate_limit_statistics():
     Returns:
     - cached_entries: Number of active rate limit entries
     - storage_type: Storage backend used (memory for single instance)
+    - enabled: Whether rate limiting is active
     - note: Information about multi-instance deployments
     """
-    if not HAS_REAL_LIMITER:
-        return {
-            "message": "Rate limiting disabled (test mode)",
-            "storage_type": "mock",
-        }
-    # pylint: disable=import-outside-toplevel
-    from api.rate_limiter import get_cache_stats as get_rate_limit_stats
     return get_rate_limit_stats()

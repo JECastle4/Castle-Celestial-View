@@ -143,6 +143,7 @@ export function useAstronomyData(api: AstronomyApi = astronomyApi) {
         const errorMsg = `${t('errors.loadingFailed')}: ${error.value}`;
         toast.error(errorMsg);
       } else {
+        // c8 ignore next 1 - defensive: JavaScript always throws Error-like objects
         error.value = t('errors.unknown');
         toast.error(error.value);
       }

@@ -8,11 +8,12 @@ Measures:
 - Success/failure rates
 
 Profiles:
-1. Batch Earth Observations: frame_count=100,500,1000,5000
+1. Batch Earth Observations: frame_count=1000,5000
 2. Astronomical Events: date_range=1,5,10 years
 
 Success Criteria:
 - Batch Earth <10s for frame_count=1000
+- Batch Earth <50s for frame_count=5000
 - Astronomical Events <5s for 10-year range
 """
 
@@ -282,7 +283,8 @@ class PerformanceBenchmark:
         """Generate overall summary and check success criteria."""
         summary = {
             "success_criteria": {
-                "batch_earth_500frames_under_40s": False,
+                "batch_earth_1000frames_under_10s": False,
+                "batch_earth_5000frames_under_50s": False,
                 "astronomical_events_10yr_under_5s": False,
                 "all_tests_completed": False,
             },
@@ -291,9 +293,12 @@ class PerformanceBenchmark:
 
         # Check batch earth criteria
         batch_tests = self.results["benchmarks"].get("batch_earth_observations", {}).get("tests", {})
-        batch_500 = batch_tests.get("batch_500", {})
-        if batch_500.get("response_time_seconds", float('inf')) < 40.0:
-            summary["success_criteria"]["batch_earth_500frames_under_40s"] = True
+        batch_1000 = batch_tests.get("batch_1000", {})
+        batch_5000 = batch_tests.get("batch_5000", {})
+        if batch_1000.get("response_time_seconds", float('inf')) < 10.0:
+            summary["success_criteria"]["batch_earth_1000frames_under_10s"] = True
+        if batch_5000.get("response_time_seconds", float('inf')) < 50.0:
+            summary["success_criteria"]["batch_earth_5000frames_under_50s"] = True
 
         # Check events criteria
         event_tests = self.results["benchmarks"].get("astronomical_events", {}).get("tests", {})
@@ -304,18 +309,28 @@ class PerformanceBenchmark:
         # Check all completed
         batch_count = len(batch_tests)
         event_count = len(event_tests)
-        if batch_count >= 4 and event_count >= 3:
+        if batch_count >= 2 and event_count >= 3:
             summary["success_criteria"]["all_tests_completed"] = True
 
         # Add recommendations
-        if not summary["success_criteria"]["batch_earth_500frames_under_40s"]:
-            batch_response_time = batch_500.get("response_time_seconds", "unknown")
+        if not summary["success_criteria"]["batch_earth_1000frames_under_10s"]:
+            batch_response_time = batch_1000.get("response_time_seconds", "unknown")
             summary["recommendations"].append(
-                f"⚠️ Batch Earth Observations 500 frames: {batch_response_time}s (target <40s)"
+                f"⚠️ Batch Earth Observations 1000 frames: {batch_response_time}s (target <10s)"
             )
         else:
             summary["recommendations"].append(
-                f"[PASS] Batch Earth Observations 500 frames: {batch_500.get('response_time_seconds')}s (target <40s)"
+                f"[PASS] Batch Earth Observations 1000 frames: {batch_1000.get('response_time_seconds')}s (target <10s)"
+            )
+
+        if not summary["success_criteria"]["batch_earth_5000frames_under_50s"]:
+            batch_response_time = batch_5000.get("response_time_seconds", "unknown")
+            summary["recommendations"].append(
+                f"⚠️ Batch Earth Observations 5000 frames: {batch_response_time}s (target <50s)"
+            )
+        else:
+            summary["recommendations"].append(
+                f"[PASS] Batch Earth Observations 5000 frames: {batch_5000.get('response_time_seconds')}s (target <50s)"
             )
 
         if not summary["success_criteria"]["astronomical_events_10yr_under_5s"]:

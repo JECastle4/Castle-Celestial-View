@@ -85,6 +85,7 @@ def get_endpoint_cost(endpoint: str) -> str:
         
         Example paths:
             - '/api/v1/batch-earth-observations' → expensive (120s base timeout)
+            - '/api/v1/astronomical-events/contact-times' → expensive (120s base timeout)
             - '/api/v1/moon-position' → medium (15s base timeout)
             - 'unknown' → medium (15s base timeout, for unmatched routes)
     """

@@ -325,14 +325,18 @@ async def rate_limit_exception_handler(request: Request, _: RateLimitExceeded) -
     )
 
 
-def get_cache_stats() -> dict:
+def get_rate_limit_stats() -> dict:
     """
     Get rate limiting cache statistics.
+    
+    This function is always available at module level (no conditional import needed).
+    Works with both real and mock limiter implementations.
     
     Returns:
         Dictionary with cache size and utilization metrics
     """
-    if hasattr(limiter.storage, "storage"):
+    # Check if limiter has storage (real limiter only, MockLimiter won't)
+    if hasattr(limiter, "storage") and hasattr(limiter.storage, "storage"):
         storage = limiter.storage.storage
         if hasattr(storage, "keys"):
             cache_size = len(storage)
@@ -341,20 +345,31 @@ def get_cache_stats() -> dict:
     else:
         cache_size = 0
 
+    # Check if rate limiting is enabled
+    is_enabled = not isinstance(limiter, MockLimiter)
+
     return {
         "cached_entries": cache_size,
-        "storage_type": "memory",
-        "note": "Use Redis storage for multi-instance deployments"
+        "storage_type": "memory" if is_enabled else "mock",
+        "enabled": is_enabled,
+        "note": (
+            "Use Redis storage for multi-instance deployments"
+            if is_enabled
+            else "Rate limiting disabled"
+        )
     }
 
 
-# Decorator functions for route-level rate limiting
-# Usage: @limiter.limit(LIMIT_EXPENSIVE_BATCH) on route handlers
+# Alias for backwards compatibility (if old code calls get_cache_stats)
+def get_cache_stats() -> dict:
+    """Backwards compatibility alias for get_rate_limit_stats()."""
+    return get_rate_limit_stats()
 
 
 __all__ = [
     "limiter",
     "rate_limit_exception_handler",
+    "get_rate_limit_stats",
     "get_cache_stats",
     "LIMIT_EXPENSIVE_BATCH",
     "LIMIT_EXPENSIVE_EVENTS",

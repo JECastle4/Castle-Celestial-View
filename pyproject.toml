@@ -35,6 +35,8 @@ dev = [
     # Security: CVE-2025-71176 fixed in 9.0.3
     "pytest>=9.0.3",
     "pytest-cov",
+    # Async test support for pytest (required for @pytest.mark.asyncio tests)
+    "pytest-asyncio>=0.24.0",
     "httpx",
 ]
 
@@ -54,6 +56,7 @@ addopts = "-v --cov=api --cov-report=term-missing --cov-report=html -m 'not ephe
 markers = [
     "ephemeris_validation: tests that validate astropy's bundled ephemeris against JPL Horizons (brittle; skip in routine CI)",
 ]
+asyncio_mode = "auto"
 
 [tool.coverage.run]
 source = ["."]

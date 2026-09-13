@@ -568,6 +568,40 @@ def test_route_contact_times_unexpected_error_handling():
     """Test unexpected exception handling in contact-times endpoint."""
     with patch("api.routes.events.get_contact_times_for_event") as mock_service:
         mock_service.side_effect = RuntimeError("Unexpected calculation error")
+        
+        resp = client.post("/api/v1/astronomical-events/contact-times", json={
+            "event_date": "2025-09-07 02:26:00",
+            "is_lunar": True,
+        })
+        
+        assert resp.status_code == 500
+        assert "An internal error occurred" in resp.json()["detail"]
+
+
+def test_service_contact_times_validation_error_for_non_eclipse():
+    """Service function should raise ValueError for a non-eclipse event."""
+    # Use a date that is a new moon but NOT an eclipse
+    # Try a known non-eclipse new moon date
+    with pytest.raises(ValueError, match="not an eclipse"):
+        get_contact_times_for_event(
+            event_date_iso="2025-08-23 14:09:00",  # A non-eclipse new moon
+            is_lunar=True,
+        )
+
+
+def test_service_contact_times_runtime_error_for_unexpected_failure():
+    """Service function should raise RuntimeError for unexpected calculation failures."""
+    # Patch one of the calculation functions to raise an unexpected error
+    with patch("api.services.astronomical_events.calculate_lunar_contact_times") as mock_calc:
+        mock_calc.side_effect = Exception("Unexpected Astropy error")
+        
+        # This should raise RuntimeError (not ValueError) since the exception
+        # wasn't due to invalid input, but rather an unexpected calculation failure
+        with pytest.raises(RuntimeError, match="Error calculating contact times"):
+            get_contact_times_for_event(
+                event_date_iso="2025-09-07 02:26:00",
+                is_lunar=True,
+            )
 
         resp = client.post("/api/v1/astronomical-events/contact-times", json={
             "event_date": "2025-09-07 12:00:00",

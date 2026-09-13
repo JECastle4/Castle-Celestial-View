@@ -113,36 +113,85 @@ class TestRateLimitingWithRealLimiter:
         assert "rate limit" in response.json().get("detail", "").lower() or \
                "detail" in response.json(), "Response should indicate rate limiting"
     
-    def test_rate_limiting_per_client_isolation(self, test_app_with_real_limiter):
+    def test_rate_limiting_per_client_isolation(self):
         """Test that rate limits are isolated per client IP.
         
         Different client IPs should have independent rate limit buckets,
         so requests from different IPs don't interfere with each other.
+        Verifies that when client 1 exhausts their limit, client 2 can
+        still make requests with their independent bucket.
         """
-        app, storage = test_app_with_real_limiter
-        client1 = TestClient(app)
+        def custom_key_func(request: Request) -> str:
+            """Extract client IP from X-Forwarded-For header or fallback to peer."""
+            forwarded = request.headers.get("X-Forwarded-For")
+            if forwarded:
+                return forwarded.split(",")[0].strip()
+            return get_remote_address(request)
         
-        # Simulate different client by creating new client instance
-        client2 = TestClient(app)
+        # Create limiter with custom key function for per-IP isolation
+        limiter = Limiter(
+            key_func=custom_key_func,
+            storage_uri="memory://",
+            default_limits=["100/minute"]
+        )
         
-        # Reset storage
-        storage.clear()
+        app = FastAPI()
+        app.state.limiter = limiter
+        app.add_middleware(SlowAPIMiddleware)
         
-        # Client 1 makes 3 requests (hits limit)
-        for _ in range(3):
-            response = client1.post("/api/v1/test-endpoint")
-            assert response.status_code == 200
+        @app.exception_handler(RateLimitExceeded)
+        async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Rate limit exceeded"}
+            )
         
-        # Client 1 hits limit
-        response = client1.post("/api/v1/test-endpoint")
-        assert response.status_code == 429
+        @app.post("/api/v1/test-endpoint")
+        @limiter.limit("3/minute")  # 3 requests per minute per client
+        async def test_endpoint(request: Request):
+            return {"message": "success"}
         
-        # Client 2 should still be able to make requests (isolated limit)
-        # Note: TestClient by default uses same remote_addr for both,
-        # so this test documents the expected behavior
-        response = client2.post("/api/v1/test-endpoint")
-        # This may pass or fail depending on TestClient implementation
-        # The important thing is the rate limiter uses per-IP isolation
+        client = TestClient(app)
+        
+        # Client 1 (IP: 203.0.113.1) makes 3 requests and hits limit
+        client1_ip = "203.0.113.1"
+        for i in range(3):
+            response = client.post(
+                "/api/v1/test-endpoint",
+                headers={"X-Forwarded-For": client1_ip}
+            )
+            assert response.status_code == 200, f"Client 1 request {i+1} should succeed"
+        
+        # Client 1's 4th request should be rate limited
+        response = client.post(
+            "/api/v1/test-endpoint",
+            headers={"X-Forwarded-For": client1_ip}
+        )
+        assert response.status_code == 429, "Client 1 should be rate limited on 4th request"
+        
+        # Client 2 (IP: 203.0.113.2) should still be able to make requests
+        # Their rate limit bucket is independent from client 1's
+        client2_ip = "203.0.113.2"
+        response = client.post(
+            "/api/v1/test-endpoint",
+            headers={"X-Forwarded-For": client2_ip}
+        )
+        assert response.status_code == 200, "Client 2 should succeed despite Client 1 being limited"
+        
+        # Verify client 2 has their own limit
+        for i in range(2):
+            response = client.post(
+                "/api/v1/test-endpoint",
+                headers={"X-Forwarded-For": client2_ip}
+            )
+            assert response.status_code == 200, f"Client 2 request {i+2} should succeed"
+        
+        # Client 2's 4th request should be rate limited
+        response = client.post(
+            "/api/v1/test-endpoint",
+            headers={"X-Forwarded-For": client2_ip}
+        )
+        assert response.status_code == 429, "Client 2 should be rate limited on 4th request"
     
     def test_rate_limiting_different_limits_per_endpoint(self, test_app_with_real_limiter):
         """Test that different endpoints can have different rate limits.
