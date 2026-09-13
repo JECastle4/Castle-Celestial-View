@@ -934,7 +934,6 @@ describe('EventsView', () => {
 
   describe('fetchContactTimesInQueue', () => {
     it('processes eclipse contact time requests sequentially, not in parallel', async () => {
-      const wrapper = mount(EventsView);
       await flushPromises();
 
       const eclipsesToFetch = [
@@ -946,17 +945,7 @@ describe('EventsView', () => {
       const requestOrder: string[] = [];
       vi.useFakeTimers();
 
-      // Mock fetchContactTimesForEvent to track call order
-      const mockFetch = vi.fn(async (date) => {
-        requestOrder.push(date);
-      });
-
-      // Call the queue function (via component method)
-      const component = wrapper.vm as any;
-      const originalFetch = component.fetchContactTimesForEvent || (() => Promise.resolve());
-
       // Simulate the queue function behavior
-      const results = [];
       for (const eclipse of eclipsesToFetch) {
         requestOrder.push(eclipse.date);
         // Simulate sequential processing with 500ms delay
@@ -995,7 +984,6 @@ describe('EventsView', () => {
     });
 
     it('invokes progress callback for each completed request', async () => {
-      const wrapper = mount(EventsView);
       await flushPromises();
 
       const eclipsesToFetch = [
@@ -1011,7 +999,7 @@ describe('EventsView', () => {
 
       // Simulate the queue function calling progress callback
       let completed = 0;
-      for (const eclipse of eclipsesToFetch) {
+      for (let i = 0; i < eclipsesToFetch.length; i++) {
         completed++;
         onProgress(completed, eclipsesToFetch.length);
       }
@@ -1064,7 +1052,6 @@ describe('EventsView', () => {
     });
 
     it('performs single automatic retry on 429 error', async () => {
-      const wrapper = mount(EventsView);
       await flushPromises();
 
       let attemptCount = 0;
@@ -1092,7 +1079,6 @@ describe('EventsView', () => {
     });
 
     it('stops after single retry on 429 and records failure', async () => {
-      const wrapper = mount(EventsView);
       await flushPromises();
 
       let attemptCount = 0;
@@ -1128,7 +1114,6 @@ describe('EventsView', () => {
     });
 
     it('handles non-429 errors immediately without retry', async () => {
-      const wrapper = mount(EventsView);
       await flushPromises();
 
       let attemptCount = 0;
@@ -1173,7 +1158,6 @@ describe('EventsView', () => {
     });
 
     it('continues processing even if individual request fails', async () => {
-      const wrapper = mount(EventsView);
       await flushPromises();
 
       const eclipsesToFetch = [
