@@ -143,6 +143,7 @@ import { ref, defineAsyncComponent } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { useAstronomicalEvents } from '@/composables/useAstronomicalEvents';
+import { fetchContactTimesInQueue } from '@/composables/useContactTimesQueue';
 import { exportContactTimesToCSV, exportContactTimesToJSON, generateFilename } from '@/services/export';
 import AppHeader from '@/components/Header.vue';
 import AppFooter from '@/components/Footer.vue';
@@ -227,60 +228,6 @@ async function loadContactTimesForEvent(event: any) {
   }
 }
 
-async function fetchContactTimesInQueue(
-  eclipsesToFetch: Array<{ date: string; is_lunar: boolean }>,
-  onProgress?: (completed: number, total: number) => void
-): Promise<Array<{ success: boolean; date: string; error?: Error }>> {
-  const results: Array<{ success: boolean; date: string; error?: Error }> = [];
-  let completed = 0;
-
-  // Process requests sequentially with rate limit awareness
-  for (const eclipse of eclipsesToFetch) {
-    try {
-      await fetchContactTimesForEvent(eclipse.date, eclipse.is_lunar);
-      results.push({ success: true, date: eclipse.date });
-    } catch (err) {
-      // Check if error is a 429 with Retry-After header
-      if (err instanceof Error && err.message.includes('429')) {
-        // Extract retry-after value (default to 2 seconds if not specified)
-        const retryAfterMatch = err.message.match(/Retry-After:\s*(\d+)/i);
-        const retryAfter = retryAfterMatch ? parseInt(retryAfterMatch[1], 10) * 1000 : 2000;
-        
-        // Wait before retrying this request
-        await new Promise(resolve => setTimeout(resolve, retryAfter));
-        
-        try {
-          // Retry once
-          await fetchContactTimesForEvent(eclipse.date, eclipse.is_lunar);
-          results.push({ success: true, date: eclipse.date });
-        } catch (retryErr) {
-          results.push({ 
-            success: false, 
-            date: eclipse.date, 
-            error: retryErr instanceof Error ? retryErr : new Error(String(retryErr)) 
-          });
-        }
-      } else {
-        results.push({ 
-          success: false, 
-          date: eclipse.date, 
-          error: err instanceof Error ? err : new Error(String(err)) 
-        });
-      }
-    }
-    
-    completed++;
-    onProgress?.(completed, eclipsesToFetch.length);
-    
-    // Small delay between requests to avoid rate limit (2 requests per second ~= 120 req/min headroom)
-    if (completed < eclipsesToFetch.length) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-  }
-
-  return results;
-}
-
 function handleExport(format: 'csv' | 'json') {
   // Export all results from the complete search, not just the current page
   const resultsToExport = allSseEvents.value;
@@ -306,6 +253,7 @@ function handleExport(format: 'csv' | 'json') {
         date: ev.date, 
         is_lunar: ev.is_lunar 
       })),
+      fetchContactTimesForEvent,
       (completed, total) => {
         // Update progress message
         exportMessage.value = t('events.loadingContactTimesProgress', { 
@@ -363,7 +311,7 @@ function handleExport(format: 'csv' | 'json') {
     exportStatus.value = null;
     const exportSuccess = performExport(format, resultsToExport);
     
-    // Only show success message if export actually succeeded
+    // Only sh  ow success message if export actually succeeded
     if (!exportSuccess) {
       // performExport already set the error message and status, no need to show success
       return;

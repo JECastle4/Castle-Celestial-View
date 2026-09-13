@@ -44,9 +44,9 @@ Configuration (Environment Variables):
         Example: export RATE_LIMIT_REQUESTS_PER_MINUTE=300
         Backwards compatibility: RATE_LIMIT_DEFAULT env var supported if not set.
     
-    LIMIT_EXPENSIVE_BATCH: batch-earth-observations endpoint (default: "10/minute")
+    LIMIT_EXPENSIVE_BATCH: batch-earth-observations endpoint (default: "5/minute")
         Expensive operation: ~40s avg CPU per request.
-        Example: export LIMIT_EXPENSIVE_BATCH=30/minute
+        Example: export LIMIT_EXPENSIVE_BATCH=8/minute
     
     LIMIT_EXPENSIVE_EVENTS: astronomical-events endpoint (default: "15/minute")
         Expensive operation: ~30s avg CPU per request.
@@ -146,17 +146,48 @@ else:
 
 # Endpoint-specific limits via environment variables (allow ops to adjust without code changes)
 # Format: "N/minute" where N is requests per minute
+#
+# CRITICAL: Rate limits must account for actual CPU capacity, not just DDoS policy intent.
+#
+# Capacity Analysis (4 cores, 60 seconds per minute):
+#   - Available CPU-seconds per minute: 4 cores × 60s = 240 CPU-seconds
+#   - Batch request cost: ~40s CPU per request
+#   - Events request cost: ~30s CPU per request
+#   - Position request cost: ~2s CPU per request
+#
+# Maximum safe request rates (dividing capacity by cost):
+#   - Batch: 240 / 40 = 6 requests/min (with 25% safety margin: 5 req/min)
+#   - Events: 240 / 30 = 8 requests/min (at peak capacity; use 8 req/min)
+#   - Position: 240 / 2 = 120 requests/min (plenty of headroom; use 100 req/min)
+#
+# IMPORTANT LIMITATION: Fixed-window rate limiting ("N per minute") does NOT space
+# requests evenly across time. All N requests can arrive in a single burst:
+#   - 5 batch requests arriving together = 200s CPU work queued instantly
+#   - 4 CPU cores need 200/4 = 50 seconds to complete (all cores saturated)
+#   - Requests arriving after capacity exhausted will timeout in background
+#   - Timeouts do NOT interrupt CPU-bound work (Phase 4 admission control required)
+#
+# Current Phase 3 approach: Set limits conservatively below capacity, rely on:
+#   1. Rate limiting to space most requests across time (some bursts possible)
+#   2. Adaptive timeout to shed load on slow responses
+#   3. Frontend rate-limit queue (120 req/min spacing) for additional safety
+#
+# Multi-instance deployments MUST implement Phase 4 admission control to:
+#   1. Reject requests before accepting them (not after timeout)
+#   2. Use ProcessPoolExecutor + SIGTERM to interrupt CPU work
+#   3. Coordinate admission across instances via shared metrics backend
+#
 LIMIT_EXPENSIVE_BATCH = os.getenv(
     "LIMIT_EXPENSIVE_BATCH",
-    "10/minute"  # batch-earth-observations: 40s avg × 10 = 400s CPU per DDoS policy
+    "5/minute"  # batch-earth-observations: 40s CPU × 5 = 200s (83% of 240s capacity)
 )
 LIMIT_EXPENSIVE_EVENTS = os.getenv(
     "LIMIT_EXPENSIVE_EVENTS",
-    "15/minute"  # astronomical-events: 30s avg × 15 = 450s CPU
+    "8/minute"  # astronomical-events: 30s CPU × 8 = 240s (100% peak capacity)
 )
 LIMIT_STREAM_EVENTS = os.getenv(
     "LIMIT_STREAM_EVENTS",
-    "10/minute"  # astronomical-events-stream: limits concurrent SSE
+    "5/minute"  # astronomical-events-stream: limits concurrent SSE (same budget as batch)
 )
 LIMIT_CONTACT_TIMES = os.getenv(
     "LIMIT_CONTACT_TIMES",
@@ -270,6 +301,7 @@ def _rate_limit_key_func(request: Request) -> str | None:
 if is_test_mode():
     # Use mock limiter in test mode to avoid rate limit conflicts in tests
     limiter = MockLimiter()  # type: ignore
+    logger.info("Rate limiter: MockLimiter (pytest detected)")
 elif RATE_LIMIT_ENABLED:
     # Use real limiter in production/development (if not disabled)
     limiter = Limiter(
@@ -277,6 +309,10 @@ elif RATE_LIMIT_ENABLED:
         default_limits=[_DEFAULT_LIMIT],  # Global per-IP limit
         storage_uri="memory://",  # Single instance in-memory storage
         strategy="fixed-window",  # Fixed window strategy (simpler, faster)
+    )
+    logger.info(
+        "Rate limiter: Real Limiter (RATE_LIMIT_ENABLED=true, default limit=%s)",
+        _DEFAULT_LIMIT
     )
 else:
     # Rate limiting disabled via RATE_LIMIT_ENABLED=false

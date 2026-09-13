@@ -219,6 +219,7 @@
     "loadingContactTimes": "...semit tcatnoc gnidaoL",
     "noDataToExport": ".tsrif hcraes esaelP .trope ot stneve oN",
     "loadingContactTimesForExport": "...trope rof semit tcatnoc gnidaoL",
+    "loadingContactTimesProgress": "{total} fo {completed} ...semit tcatnoc gnidaoL",
     "exportSuccess": "yllufsseccus detelpmoC tropxE",
     "exportError": "}rorre{ :rorre tropxE",
     "partialExportWarning": "detaol dluoc ton semit tcatnoc {failed} fo {total} tub ,yllufsseccus detelpmoC tropxE",

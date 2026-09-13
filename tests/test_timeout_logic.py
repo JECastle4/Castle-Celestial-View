@@ -252,7 +252,7 @@ class TestTimeoutMiddleware:
     def test_metrics_endpoint_no_timeout(self):
         """Test that /metrics endpoint doesn't timeout."""
         client = TestClient(app)
-        response = client.get('/metrics')
+        response = client.get('/api/metrics')
         assert response.status_code == 200
 
     def test_timeout_exceeded_returns_503(self):

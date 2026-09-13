@@ -88,16 +88,16 @@ class TestMetricsMiddleware:
     """Test Prometheus middleware integration."""
 
     def test_metrics_endpoint_exists(self):
-        """Test that /metrics endpoint is registered."""
+        """Test that /api/metrics endpoint is registered."""
         client = TestClient(app)
-        response = client.get('/metrics')
+        response = client.get('/api/metrics')
         assert response.status_code == 200
         assert response.headers['content-type'] == 'text/plain; version=0.0.4; charset=utf-8'
 
     def test_metrics_endpoint_returns_prometheus_text(self):
-        """Test that /metrics returns valid Prometheus text format."""
+        """Test that /api/metrics returns valid Prometheus text format."""
         client = TestClient(app)
-        response = client.get('/metrics')
+        response = client.get('/api/metrics')
         assert response.status_code == 200
         text = response.text
 
@@ -113,7 +113,7 @@ class TestMetricsMiddleware:
         client = TestClient(app)
         
         # Get baseline metrics
-        metrics_before = client.get('/metrics')
+        metrics_before = client.get('/api/metrics')
         baseline_value = self._extract_metric_value(
             metrics_before.text,
             'http_requests_total',
@@ -125,7 +125,7 @@ class TestMetricsMiddleware:
         assert response.status_code == 200
         
         # Check metrics after request
-        metrics_after = client.get('/metrics')
+        metrics_after = client.get('/api/metrics')
         after_value = self._extract_metric_value(
             metrics_after.text,
             'http_requests_total',
@@ -173,7 +173,7 @@ class TestMetricsMiddleware:
         assert response.status_code == 200
         
         # Check metrics
-        metrics_response = client.get('/metrics')
+        metrics_response = client.get('/api/metrics')
         assert metrics_response.status_code == 200
         assert 'http_requests_total' in metrics_response.text
 
@@ -184,7 +184,7 @@ class TestMetricsMiddleware:
         assert response.status_code == 200
         
         # Check metrics
-        metrics_response = client.get('/metrics')
+        metrics_response = client.get('/api/metrics')
         assert metrics_response.status_code == 200
 
 

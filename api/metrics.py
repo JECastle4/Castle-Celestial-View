@@ -46,7 +46,10 @@ class MetricsCollector:  # pylint: disable=too-many-instance-attributes
             'http_request_duration_seconds',
             'HTTP request duration in seconds',
             labelnames=['endpoint', 'method', 'status'],
-            buckets=(0.1, 0.5, 1, 2, 5, 10, 30, 60),
+            buckets=(
+                0.1, 0.5, 1, 2, 5, 10, 30, 60, 90, 120, 150, 180, 210, 240,
+                270, 300, 360, 600
+            ),
         )
 
         self.http_requests_total = Counter(

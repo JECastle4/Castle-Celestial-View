@@ -3,6 +3,8 @@ import { mount, flushPromises } from '@vue/test-utils';
 import EventsView from './EventsView.vue';
 import AppHeader from '@/components/Header.vue';
 import * as exportService from '@/services/export';
+import { fetchContactTimesInQueue } from '@/composables/useContactTimesQueue';
+import { ApiError } from '@/services/api';
 
 const pushMock = vi.fn();
 vi.mock('vue-router', async () => {
@@ -934,7 +936,7 @@ describe('EventsView', () => {
 
   describe('fetchContactTimesInQueue', () => {
     it('processes eclipse contact time requests sequentially, not in parallel', async () => {
-      await flushPromises();
+      vi.useFakeTimers();
 
       const eclipsesToFetch = [
         { date: '2025-01-01', is_lunar: false },
@@ -942,18 +944,21 @@ describe('EventsView', () => {
         { date: '2025-03-01', is_lunar: false },
       ];
 
-      const requestOrder: string[] = [];
-      vi.useFakeTimers();
+      const callOrder: string[] = [];
+      const mockFetch = vi.fn(async (date: string) => {
+        callOrder.push(date);
+      });
 
-      // Simulate the queue function behavior
-      for (const eclipse of eclipsesToFetch) {
-        requestOrder.push(eclipse.date);
-        // Simulate sequential processing with 500ms delay
-        vi.advanceTimersByTime(500);
-      }
+      // Call the real queue function with mocked API
+      const promise = fetchContactTimesInQueue(eclipsesToFetch, mockFetch);
+      await vi.runAllTimersAsync();
+      const results = await promise;
 
-      // Should have processed in order
-      expect(requestOrder).toEqual(['2025-01-01', '2025-02-01', '2025-03-01']);
+      // Should have called API for each eclipse in order
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+      expect(callOrder).toEqual(['2025-01-01', '2025-02-01', '2025-03-01']);
+      expect(results).toHaveLength(3);
+      expect(results.every((r) => r.success)).toBe(true);
 
       vi.useRealTimers();
     });
@@ -966,25 +971,25 @@ describe('EventsView', () => {
         { date: '2025-02-01', is_lunar: true },
       ];
 
-      const timestamps: number[] = [];
+      const callOrder: string[] = [];
+      const mockFetch = vi.fn(async (date: string) => {
+        callOrder.push(date);
+      });
 
-      // Simulate queue timing behavior
-      for (let i = 0; i < eclipsesToFetch.length; i++) {
-        timestamps.push(Date.now());
-        if (i < eclipsesToFetch.length - 1) {
-          vi.advanceTimersByTime(500);
-        }
-      }
+      // Call the real queue function
+      const promise = fetchContactTimesInQueue(eclipsesToFetch, mockFetch);
+      await vi.runAllTimersAsync();
+      await promise;
 
-      // Spacing between first and second request should be ~500ms
-      const spacing = timestamps[1] - timestamps[0];
-      expect(spacing).toBe(500);
+      // Should have called both APIs sequentially (250ms delay between is configured for internal queue)
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(callOrder).toEqual(['2025-01-01', '2025-02-01']);
 
       vi.useRealTimers();
     });
 
     it('invokes progress callback for each completed request', async () => {
-      await flushPromises();
+      vi.useFakeTimers();
 
       const eclipsesToFetch = [
         { date: '2025-01-01', is_lunar: false },
@@ -993,153 +998,187 @@ describe('EventsView', () => {
       ];
 
       const progressCalls: [number, number][] = [];
-      const onProgress = (completed: number, total: number) => {
-        progressCalls.push([completed, total]);
-      };
+      const mockFetch = vi.fn(async () => {
+        // Success
+      });
 
-      // Simulate the queue function calling progress callback
-      let completed = 0;
-      for (let i = 0; i < eclipsesToFetch.length; i++) {
-        completed++;
-        onProgress(completed, eclipsesToFetch.length);
-      }
+      // Call the real queue function with progress callback
+      const promise = fetchContactTimesInQueue(
+        eclipsesToFetch,
+        mockFetch,
+        (completed, total) => {
+          progressCalls.push([completed, total]);
+        }
+      );
+      await vi.runAllTimersAsync();
+      await promise;
 
       // Progress should be called for each request
-      expect(progressCalls).toEqual([
-        [1, 3],
-        [2, 3],
-        [3, 3],
-      ]);
-    });
-
-    it('returns success/failure result objects with correct structure', async () => {
-      const results = [
-        { success: true, date: '2025-01-01' },
-        { success: false, date: '2025-02-01', error: new Error('Network error') },
-        { success: true, date: '2025-03-01' },
-      ];
-
-      // Verify structure of each result
-      expect(results).toHaveLength(3);
-      expect(results[0]).toHaveProperty('success', true);
-      expect(results[0]).toHaveProperty('date');
-      expect(results[1]).toHaveProperty('success', false);
-      expect(results[1]).toHaveProperty('error');
-      expect(results[2]).toHaveProperty('success', true);
-    });
-
-    it('parses Retry-After header from 429 error and waits before retry', async () => {
-      vi.useFakeTimers();
-
-      // Simulate parsing Retry-After header
-      const errorMessage = 'Error: 429 Too Many Requests; Retry-After: 3';
-      const retryAfterMatch = errorMessage.match(/Retry-After:\s*(\d+)/i);
-      const retryAfter = retryAfterMatch ? parseInt(retryAfterMatch[1], 10) * 1000 : 2000;
-
-      expect(retryAfterMatch).not.toBeNull();
-      expect(retryAfter).toBe(3000);
+      expect(progressCalls).toEqual([[1, 3], [2, 3], [3, 3]]);
 
       vi.useRealTimers();
     });
 
-    it('uses default 2s retry-after if not specified in error', () => {
-      const errorMessage = 'Error: 429 Too Many Requests';
-      const retryAfterMatch = errorMessage.match(/Retry-After:\s*(\d+)/i);
-      const retryAfter = retryAfterMatch ? parseInt(retryAfterMatch[1], 10) * 1000 : 2000;
+    it('returns success/failure result objects with correct structure', async () => {
+      vi.useFakeTimers();
 
-      expect(retryAfterMatch).toBeNull();
-      expect(retryAfter).toBe(2000);
+      const eclipsesToFetch = [
+        { date: '2025-01-01', is_lunar: false },
+        { date: '2025-02-01', is_lunar: true },
+        { date: '2025-03-01', is_lunar: false },
+      ];
+
+      let callCount = 0;
+      const mockFetch = vi.fn(async (_date: string) => {
+        callCount++;
+        if (callCount === 2) {
+          throw new Error('Network error');
+        }
+      });
+
+      // Call the real queue function
+      const promise = fetchContactTimesInQueue(eclipsesToFetch, mockFetch);
+      await vi.runAllTimersAsync();
+      const results = await promise;
+
+      // Verify structure of results
+      expect(results).toHaveLength(3);
+      expect(results[0]).toEqual({ success: true, date: '2025-01-01' });
+      expect(results[1]).toHaveProperty('success', false);
+      expect(results[1]).toHaveProperty('date', '2025-02-01');
+      expect(results[1]).toHaveProperty('error');
+      expect(results[2]).toEqual({ success: true, date: '2025-03-01' });
+
+      vi.useRealTimers();
     });
 
     it('performs single automatic retry on 429 error', async () => {
-      await flushPromises();
+      vi.useFakeTimers();
+
+      const eclipsesToFetch = [{ date: '2025-01-01', is_lunar: false }];
 
       let attemptCount = 0;
-
-      // Simulate mock that fails first, succeeds second
       const mockFetch = vi.fn(async () => {
         attemptCount++;
         if (attemptCount === 1) {
-          throw new Error('429: Too Many Requests');
+          throw new ApiError(429, 'Too Many Requests', JSON.stringify({
+            error: 'rate_limit_exceeded',
+            retry_after: 1
+          }));
         }
-        return { success: true };
+        // Second attempt succeeds
       });
 
-      // Simulate the retry logic in the queue
-      try {
-        await mockFetch();
-      } catch {
-        // First attempt failed, retry once
-        await mockFetch();
-      }
+      // Call the real queue function
+      const promise = fetchContactTimesInQueue(eclipsesToFetch, mockFetch);
+      await vi.runAllTimersAsync();
+      const results = await promise;
 
       // Should have attempted twice (initial + 1 retry)
       expect(mockFetch).toHaveBeenCalledTimes(2);
       expect(attemptCount).toBe(2);
+      expect(results[0]).toEqual({ success: true, date: '2025-01-01' });
+
+      vi.useRealTimers();
     });
 
     it('stops after single retry on 429 and records failure', async () => {
-      await flushPromises();
+      vi.useFakeTimers();
 
-      let attemptCount = 0;
+      const eclipsesToFetch = [{ date: '2025-01-01', is_lunar: false }];
 
-      // Simulate mock that always fails
       const mockFetch = vi.fn(async () => {
-        attemptCount++;
-        throw new Error('429: Too Many Requests');
+        throw new ApiError(429, 'Too Many Requests', JSON.stringify({
+          error: 'rate_limit_exceeded',
+          retry_after: 1
+        }));
       });
 
-      const results = [];
-      try {
-        // Initial attempt
-        await mockFetch();
-      } catch (err) {
-        try {
-          // Retry once
-          await mockFetch();
-        } catch {
-          results.push({
-            success: false,
-            date: '2025-01-01',
-            error: err instanceof Error ? err : new Error(String(err)),
-          });
-        }
-      }
+      // Call the real queue function
+      const promise = fetchContactTimesInQueue(eclipsesToFetch, mockFetch);
+      await vi.runAllTimersAsync();
+      const results = await promise;
 
       // Should attempt twice (initial + 1 retry), then stop
       expect(mockFetch).toHaveBeenCalledTimes(2);
-      expect(attemptCount).toBe(2);
-      expect(results).toHaveLength(1);
       expect(results[0].success).toBe(false);
+      expect(results[0].error).toBeDefined();
+
+      vi.useRealTimers();
     });
 
     it('handles non-429 errors immediately without retry', async () => {
-      await flushPromises();
+      vi.useFakeTimers();
 
-      let attemptCount = 0;
+      const eclipsesToFetch = [{ date: '2025-01-01', is_lunar: false }];
 
-      // Simulate mock that throws non-429 error
       const mockFetch = vi.fn(async () => {
-        attemptCount++;
         throw new Error('500: Internal Server Error');
       });
 
-      const results = [];
-      try {
-        await mockFetch();
-      } catch (err) {
-        results.push({
-          success: false,
-          date: '2025-01-01',
-          error: err instanceof Error ? err : new Error(String(err)),
-        });
-      }
+      // Call the real queue function
+      const promise = fetchContactTimesInQueue(eclipsesToFetch, mockFetch);
+      await vi.runAllTimersAsync();
+      const results = await promise;
 
       // Should attempt only once (no retry for non-429)
       expect(mockFetch).toHaveBeenCalledTimes(1);
-      expect(attemptCount).toBe(1);
-      expect(results).toHaveLength(1);
       expect(results[0].success).toBe(false);
+
+      vi.useRealTimers();
+    });
+
+    it('parses retry_after from 429 response body and waits before retry', async () => {
+      vi.useFakeTimers();
+
+      const eclipsesToFetch = [{ date: '2025-01-01', is_lunar: false }];
+
+      let attemptCount = 0;
+      const mockFetch = vi.fn(async () => {
+        attemptCount++;
+        if (attemptCount === 1) {
+          throw new ApiError(429, 'Too Many Requests', JSON.stringify({
+            error: 'rate_limit_exceeded',
+            retry_after: 3
+          }));
+        }
+      });
+
+      // Call the real queue function and run all timers
+      const promise = fetchContactTimesInQueue(eclipsesToFetch, mockFetch);
+      await vi.runAllTimersAsync();
+      await promise;
+
+      // Should have retried after parsing Retry-After header
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+
+      vi.useRealTimers();
+    });
+
+    it('uses default 2s retry-after if not specified in error', async () => {
+      vi.useFakeTimers();
+
+      const eclipsesToFetch = [{ date: '2025-01-01', is_lunar: false }];
+
+      let attemptCount = 0;
+      const mockFetch = vi.fn(async () => {
+        attemptCount++;
+        if (attemptCount === 1) {
+          throw new ApiError(429, 'Too Many Requests', JSON.stringify({
+            error: 'rate_limit_exceeded'
+          }));
+        }
+      });
+
+      // Call the real queue function and run all timers
+      const promise = fetchContactTimesInQueue(eclipsesToFetch, mockFetch);
+      await vi.runAllTimersAsync();
+      await promise;
+
+      // Should retry (default 2s wait)
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+
+      vi.useRealTimers();
     });
 
     it('rate limit allows 120 req/min (2 req/sec with 500ms spacing)', () => {
@@ -1158,7 +1197,7 @@ describe('EventsView', () => {
     });
 
     it('continues processing even if individual request fails', async () => {
-      await flushPromises();
+      vi.useFakeTimers();
 
       const eclipsesToFetch = [
         { date: '2025-01-01', is_lunar: false },
@@ -1166,26 +1205,27 @@ describe('EventsView', () => {
         { date: '2025-03-01', is_lunar: false },
       ];
 
-      const processedDates: string[] = [];
-
-      // Simulate queue processing with one failure
-      for (const eclipse of eclipsesToFetch) {
-        try {
-          if (eclipse.date === '2025-02-01') {
-            throw new Error('Network error');
-          }
-          processedDates.push(eclipse.date);
-        } catch {
-          // Continue to next eclipse (record failure but don't break)
-          processedDates.push(`${eclipse.date}-failed`);
+      const mockFetch = vi.fn(async (date: string) => {
+        if (date === '2025-02-01') {
+          throw new Error('Network error');
         }
-      }
+      });
+
+      // Call the real queue function and run all timers
+      const promise = fetchContactTimesInQueue(eclipsesToFetch, mockFetch);
+      await vi.runAllTimersAsync();
+      const results = await promise;
 
       // All dates should be processed, failures included
-      expect(processedDates.length).toBe(3);
-      expect(processedDates).toContain('2025-01-01');
-      expect(processedDates).toContain('2025-02-01-failed');
-      expect(processedDates).toContain('2025-03-01');
+      expect(results).toHaveLength(3);
+      expect(results[0].success).toBe(true);
+      expect(results[1].success).toBe(false);
+      expect(results[2].success).toBe(true);
+
+      // All three should have been attempted
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+
+      vi.useRealTimers();
     });
   });
 });

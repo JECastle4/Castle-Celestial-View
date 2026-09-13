@@ -1,8 +1,19 @@
-"""Integration tests for rate limiting with real rate limiter."""
+"""Integration tests for rate limiting with real rate limiter.
+
+Note: These tests run the production FastAPI app in an isolated process
+with real rate limiting enabled (RATE_LIMIT_ENABLED=true) to verify
+actual slowapi behavior, not just mock behavior.
+"""
 
 import pytest
 from unittest.mock import MagicMock, patch
 import asyncio
+import subprocess
+import time
+import requests
+import os
+from pathlib import Path
+
 from api.rate_limiter import LIMIT_EXPENSIVE_BATCH
 from fastapi.testclient import TestClient
 from api.main import app
@@ -11,11 +22,11 @@ from api.main import app
 class TestRateLimitingIntegration:
     """Integration tests with actual rate limiting behavior."""
 
-    def test_rate_limiting_constant_10_per_minute(self):
-        """Verify LIMIT_EXPENSIVE_BATCH is 10 requests per minute."""
-        # Import the actual constant from production code
+    def test_rate_limiting_constant_5_per_minute(self):
+        """Verify LIMIT_EXPENSIVE_BATCH is 5 requests per minute."""
+        # With 4 CPU cores and 40s CPU per request: 240s available / 40s = 6 max, use 5 for safety
         # This ensures the test fails if the constant changes
-        expected_limit = "10/minute"
+        expected_limit = "5/minute"
         
         # Assert the real constant matches expected value
         assert LIMIT_EXPENSIVE_BATCH == expected_limit, (
@@ -25,13 +36,15 @@ class TestRateLimitingIntegration:
         
         # Parse the limit string to verify format
         count, period = LIMIT_EXPENSIVE_BATCH.split("/")
-        assert count == "10"
+        assert count == "5"
         assert period == "minute"
 
-    def test_batch_endpoint_limit_aligns_with_ddos_policy(self):
-        """Batch endpoint limit matches documented DDoS policy."""
-        # DDoS policy: 40s average CPU × 10 requests = 400s CPU per minute max
-        # This aligns with 10/minute limit from LIMIT_EXPENSIVE_BATCH
+    def test_batch_endpoint_limit_aligns_with_cpu_capacity(self):
+        """Batch endpoint limit matches CPU capacity constraint."""
+        # CPU capacity: 4 cores × 60 seconds = 240 CPU-seconds per minute
+        # Batch cost: 40s average CPU per request
+        # Max sustainable: 240 / 40 = 6 requests, use 5 with 25% safety margin
+        # This aligns with 5/minute limit from LIMIT_EXPENSIVE_BATCH
         
         # Extract the actual limit from the constant
         count_str, period = LIMIT_EXPENSIVE_BATCH.split("/")
@@ -40,9 +53,9 @@ class TestRateLimitingIntegration:
         
         max_cpu_per_minute = requests_per_minute * avg_cpu_seconds
         
-        # 10 requests × 40s each = 400s CPU allowed per minute
-        assert max_cpu_per_minute == 400
-        assert requests_per_minute == 10
+        # 5 requests × 40s each = 200s CPU allowed per minute (83% of 240s capacity)
+        assert max_cpu_per_minute == 200, f"Expected 5 × 40s = 200s, got {max_cpu_per_minute}s"
+        assert requests_per_minute == 5, f"Expected 5 requests/min, got {requests_per_minute}"
 
     def test_rate_limit_string_format(self):
         """Verify rate limit string is properly formatted (from actual constant)."""
@@ -177,3 +190,185 @@ class TestRateLimitingErrorHandling:
         
         # Counter should have incremented
         assert request_count == 3
+
+
+class TestRateLimitingWithRealLimiter:
+    """Integration tests that actually exercise the production rate limiter.
+    
+    These tests run the FastAPI app in an isolated subprocess with real
+    rate limiting enabled (RATE_LIMIT_ENABLED=true) and send actual HTTP
+    requests to verify that the slowapi limiter rejects requests beyond
+    the configured limit.
+    """
+
+    @pytest.fixture
+    def app_subprocess(self):
+        """Start FastAPI app in subprocess with rate limiting enabled."""
+        # Get the project root
+        project_root = Path(__file__).parent.parent
+        
+        # Create custom environment with rate limiting enabled
+        # IMPORTANT: Remove pytest-related env vars to avoid is_test_mode() returning True
+        env = os.environ.copy()
+        env["RATE_LIMIT_ENABLED"] = "true"
+        env["LIMIT_EXPENSIVE_BATCH"] = "3/minute"  # Use 3/min for faster testing
+        env["PYTHONPATH"] = str(project_root)
+        # Remove pytest environment variables that would trigger is_test_mode()
+        env.pop("PYTEST_CURRENT_TEST", None)
+        
+        # Start uvicorn subprocess
+        # Use a specific port to avoid conflicts
+        port = 9999
+        cmd = [
+            "python",
+            "-m",
+            "uvicorn",
+            "api.main:app",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(port),
+            "--log-level",
+            "info"  # Show logs to see if rate limiter is enabled
+        ]
+        
+        try:
+            process = subprocess.Popen(
+                cmd,
+                env=env,
+                cwd=str(project_root),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT  # Combine stderr with stdout
+            )
+            
+            # Wait for server to start (up to 10 seconds)
+            start_time = time.time()
+            server_ready = False
+            while time.time() - start_time < 10:
+                try:
+                    response = requests.get(f"http://127.0.0.1:{port}/health", timeout=1)
+                    if response.status_code == 200:
+                        server_ready = True
+                        break
+                except requests.exceptions.ConnectionError:
+                    time.sleep(0.1)
+            
+            if not server_ready:
+                # Server didn't start in time
+                process.terminate()
+                raise RuntimeError("Failed to start FastAPI app subprocess")
+            
+            # Give server a moment to fully initialize
+            time.sleep(0.5)
+            
+            yield f"http://127.0.0.1:{port}"
+            
+        finally:
+            # Cleanup: terminate subprocess
+            if process.poll() is None:
+                process.terminate()
+                # Read and print any output for debugging
+                try:
+                    stdout, _ = process.communicate(timeout=2)
+                    if stdout:
+                        print("\n=== Subprocess Output ===")
+                        print(stdout.decode('utf-8', errors='ignore'))
+                        print("=== End Subprocess Output ===\n")
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait()
+
+    def test_batch_endpoint_rate_limit_with_real_limiter(self, app_subprocess):
+        """Verify batch endpoint returns 429 when rate limit is exceeded.
+        
+        This test actually exercises the production slowapi rate limiter
+        with real HTTP requests. It:
+        1. Sends 3 requests (at the configured limit)
+        2. Sends a 4th request that should be rate limited
+        3. Verifies the 4th request returns 429 Too Many Requests
+        """
+        batch_request = {
+            "start_date": "2025-01-01",
+            "start_time": "00:00:00",
+            "end_date": "2025-01-02",
+            "end_time": "23:59:59",
+            "frame_count": 2,
+            "latitude": 0.0,
+            "longitude": 0.0,
+            "elevation": 0.0
+        }
+        
+        url = f"{app_subprocess}/api/v1/batch-earth-observations"
+        
+        # Send 3 requests (at the configured 3/minute limit)
+        status_codes = []
+        for i in range(3):
+            response = requests.post(url, json=batch_request, timeout=30)
+            status_codes.append(response.status_code)
+            # Should not be rate limited yet
+            if response.status_code == 429:
+                pytest.fail(f"Request {i+1} should not be rate limited; got 429")
+        
+        # Send 4th request (should be rate limited)
+        response = requests.post(url, json=batch_request, timeout=30)
+        debug_info = (
+            f"Request 4 status: {response.status_code}\n"
+            f"First 3 requests: {status_codes}\n"
+            f"Response headers: {dict(response.headers)}\n"
+            f"Response body: {response.text[:500]}"
+        )
+        
+        # This should return 429 Too Many Requests
+        if response.status_code != 429:
+            pytest.fail(
+                f"Request 4 should be rate limited (429), got {response.status_code}.\n"
+                f"Debug info:\n{debug_info}"
+            )
+        
+        # Verify response body contains rate limit info
+        response_json = response.json()
+        assert "error" in response_json and response_json["error"] == "rate_limit_exceeded", (
+            f"429 response should have error='rate_limit_exceeded'. Got: {response_json}"
+        )
+        assert "retry_after" in response_json, (
+            f"429 response should have retry_after field. Got: {response_json}"
+        )
+
+    def test_different_clients_have_independent_limits(self, app_subprocess):
+        """Verify rate limiting is per-IP (independent for each client).
+        
+        This test sends requests from different source IPs (simulated via
+        X-Forwarded-For header) and verifies that each IP has its own
+        rate limit counter.
+        """
+        batch_request = {
+            "start_date": "2025-01-01",
+            "start_time": "00:00:00",
+            "end_date": "2025-01-02",
+            "end_time": "23:59:59",
+            "frame_count": 2,
+            "latitude": 0.0,
+            "longitude": 0.0,
+            "elevation": 0.0
+        }
+        
+        url = f"{app_subprocess}/api/v1/batch-earth-observations"
+        
+        # Send 3 requests from IP1 (at the limit)
+        headers_ip1 = {"X-Forwarded-For": "203.0.113.100"}
+        for i in range(3):
+            response = requests.post(url, json=batch_request, headers=headers_ip1, timeout=30)
+            assert response.status_code != 429, f"IP1 request {i+1} should not be rate limited"
+        
+        # Send 1 request from IP2 (should succeed, different IP has its own limit)
+        headers_ip2 = {"X-Forwarded-For": "203.0.113.200"}
+        response = requests.post(url, json=batch_request, headers=headers_ip2, timeout=30)
+        assert response.status_code != 429, "IP2 should have independent rate limit"
+        
+        # Send 4th request from IP1 (should be rate limited)
+        response = requests.post(url, json=batch_request, headers=headers_ip1, timeout=30)
+        assert response.status_code == 429, "IP1 should be rate limited after 3 requests"
+        
+        # Send 2nd request from IP2 (should still succeed)
+        response = requests.post(url, json=batch_request, headers=headers_ip2, timeout=30)
+        assert response.status_code != 429, "IP2 should not be rate limited after 1 request"

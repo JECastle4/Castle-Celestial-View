@@ -534,75 +534,81 @@ def _wrap_streaming_response_timeout(response, timeout_seconds, endpoint, start_
         
         Retrieves metadata from request.state, which survives Starlette's response
         object replacement in BaseHTTPMiddleware (unlike response identity keying).
+        
+        If iteration is interrupted (client disconnect, exception), ensures metrics are
+        finalized in finally block to prevent gauge leaks in http_requests_in_progress.
         """
-        try:
-            # Retrieve metadata from request.state (stable across middleware layers)
-            metadata = getattr(request.state, 'streaming_metadata', None)
+        metadata = getattr(request.state, 'streaming_metadata', None)
+        metrics_finalized = False
 
-            # Try to iterate the original generator
-            if hasattr(original_body_iterator, '__aiter__'):
-                # Async generator - wrap each __anext__() with timeout
+        try:
+            is_async = hasattr(original_body_iterator, '__aiter__')
+
+            if is_async:
+                # Async generator iteration
                 while True:
                     elapsed = time.perf_counter() - start_time
                     remaining = timeout_seconds - elapsed
 
                     if remaining <= 0:
-                        # Total timeout exceeded before fetching next item
                         _record_streaming_timeout_metrics(
                             metadata, endpoint, elapsed, timeout_seconds
                         )
-                        # Yield error event for SSE clients
+                        metrics_finalized = True
                         yield b"event: error\ndata: {\"error\": \"timeout\"}\n\n"
                         return
 
                     try:
-                        # Wrap the actual item fetch with timeout
-                        # This catches hangs during __anext__()
                         item = await asyncio.wait_for(
                             anext(original_body_iterator),
                             timeout=remaining
                         )
                         yield item
                     except StopAsyncIteration:
-                        # Generator exhausted normally
                         elapsed = time.perf_counter() - start_time
                         _record_streaming_completion_metrics(metadata, endpoint, elapsed)
+                        metrics_finalized = True
                         break
                     except asyncio.TimeoutError:
-                        # Timeout during item fetch (hang in generator)
                         elapsed = time.perf_counter() - start_time
                         _record_streaming_timeout_metrics(
                             metadata, endpoint, elapsed, timeout_seconds
                         )
-                        # Yield error event for SSE clients
+                        metrics_finalized = True
                         yield b"event: error\ndata: {\"error\": \"timeout\"}\n\n"
                         return
             else:
-                # Sync generator - iterate normally (no timeout per item for sync)
+                # Sync generator iteration
                 for item in original_body_iterator:
                     elapsed = time.perf_counter() - start_time
                     remaining = timeout_seconds - elapsed
 
                     if remaining <= 0:
-                        # Total timeout exceeded
                         _record_streaming_timeout_metrics(
                             metadata, endpoint, elapsed, timeout_seconds
                         )
-                        # Yield error event for SSE clients
+                        metrics_finalized = True
                         yield b"event: error\ndata: {\"error\": \"timeout\"}\n\n"
                         return
                     yield item
-                # Sync generator exhausted normally
+
                 elapsed = time.perf_counter() - start_time
                 _record_streaming_completion_metrics(metadata, endpoint, elapsed)
+                metrics_finalized = True
         finally:
             # Cleanup: close async generator if needed
             if hasattr(original_body_iterator, 'aclose'):
                 try:
                     await original_body_iterator.aclose()
-                except (RuntimeError, ValueError):  # Cleanup errors (generator closed, etc)
-                    # Ignore cleanup errors - don't suppress original exception
+                except (RuntimeError, ValueError):
                     pass
+
+            # Record metrics if not already finalized
+            if not metrics_finalized and metadata:
+                elapsed = time.perf_counter() - start_time
+                metrics = get_metrics()
+                metrics.record_request(metadata.endpoint, metadata.method, 499, elapsed)
+                metrics.record_request_end(metadata.pre_route_endpoint)
 
     # Replace body iterator with wrapped version
     response.body_iterator = timeout_enforcing_generator()
@@ -675,15 +681,24 @@ async def timeout_middleware(request: Request, call_next):
 
     LIMITATION (Phase 4 - Load Balancing):
     The current asyncio.wait_for() timeout does not interrupt CPU-bound Astropy
-    calculations in worker threads or async code without yields. When timeout fires:
-    - Client receives 503 after timeout_seconds
-    - Handler continues executing in background thread/event loop
-    - Full CPU work is consumed even though request was rejected
-    - Under attack volume, this worsens exhaustion rather than preventing it
-
-    This is acceptable for single-instance deployments where rate limiting (10 req/min)
-    spaces requests across time. Multi-instance deployments require admission control
-    (reject before accepting) and cancellable work (ProcessPoolExecutor with SIGTERM).
+    calculations in worker threads. Additionally, fixed-window rate limiting
+    ("N per minute") does NOT space requests evenly—all N can arrive in a burst.
+    
+    Combined effect under attack:
+    - Batch requests (40s CPU each): 5/min limit = 200s CPU work if all arrive at once
+    - 4 CPU cores need 50s to complete (all saturated)
+    - Requests timeout after ~60s but work continues in background
+    - Queue grows faster than it drains despite all requests timing out
+    
+    Conservative Phase 3 limits (5-8 req/min, frontend queue at 120 req/min) help
+    but do NOT guarantee protection. True load shedding requires:
+    - Admission control: Reject requests when in-flight work >= capacity threshold
+    - Cancellable work: ProcessPoolExecutor with SIGTERM for genuine interruption
+    - Per-endpoint tracking: Separate admission budgets for different CPU costs
+    
+    This approach is acceptable for single-instance if production load stays below
+    capacity. Multi-instance deployments MUST implement Phase 4 admission control
+    (reject before accepting) + cancellable work (interrupt via SIGTERM).
 
     See LOAD_BALANCING_STRATEGY.md for Phase 4.1 (Admission Control) and Phase 4.2
     (Cancellable Work) design and dependencies.
@@ -741,7 +756,7 @@ async def timeout_middleware(request: Request, call_next):
 
 # Include the routes
 app.include_router(router, prefix="/api/v1", tags=["astronomy"])
-app.include_router(metrics_router, tags=["monitoring"])
+app.include_router(metrics_router, prefix="/api", tags=["monitoring"])
 
 
 @app.get("/")

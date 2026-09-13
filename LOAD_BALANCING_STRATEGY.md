@@ -3,7 +3,7 @@
 ## Overview
 
 Phase 3 established single-instance DDoS protection:
-- Rate limiting (10 req/min for expensive endpoints)
+- Rate limiting (5-8 req/min for expensive endpoints, set below capacity)
 - Request size limiting (5 MB)
 - Adaptive timeout (p95-based load shedding)
 - Per-endpoint cost tracking via Prometheus metrics
@@ -13,24 +13,30 @@ Phase 4 scales to multi-instance deployments with proper load management and wor
 
 ## Known Limitations from Phase 3
 
+**CPU Capacity Constraint:**
+- With 4 CPU cores and 60 seconds per minute: 240 CPU-seconds available per minute
+- Batch requests cost ~40s CPU each → max 6 req/min at full capacity
+- Events requests cost ~30s CPU each → max 8 req/min at full capacity
+- Phase 3 limits set conservatively (5-8 req/min) to stay below capacity
+
 **Timeout doesn't interrupt work:**
 - `asyncio.wait_for()` returns 503 to client but worker thread continues running
 - CPU-bound Astropy calculations (40s each) complete in background
 - Under high-volume attack, rejected requests still consume full resources
 - This is acceptable for single-instance, but worsens exhaustion at scale
 
-**Why this matters:**
-- 10 req/min rate limit spaces requests across time ✓
-- But if requests queue up waiting for CPU, 10 slow requests = 400s total work
-- With 4 CPU cores, 400s work / 4 CPUs = 100s real time (all cores saturated)
-- New requests that time out still consume that 100s capacity
-- Without admission control, the queue grows even though all requests time out
+**Fixed-window rate limiting doesn't space requests:**
+- "5 per minute" allows all 5 requests to arrive in the first second
+- No concurrency control → requests queue in background threads
+- If 5 batch requests (40s CPU each) arrive together: 200s CPU work queued instantly
+- 4 CPU cores need 50s to complete (all cores saturated)
+- Requests that arrive when queue is full will timeout while work continues
+- Without admission control, queue grows instead of draining
 
-**Current DDoS policy (from PENTEST-REVISED-STABILITY-FOCUS.md):**
-- Batch operations: ~40s CPU per request, limit to 10/min = 400s CPU/min = 6.67s CPU/sec
-- Event detection: ~30s CPU per request, limit to 15/min = 450s CPU/min = 7.5s CPU/sec
-- With 4 CPU cores (240s CPU/sec available), these limits are well-spaced
-- Single-instance protection is adequate until you need multi-instance
+**Why Phase 3 is still an improvement but incomplete:**
+- Rate limiting + adaptive timeout + conservative limits help but don't guarantee protection
+- Requires production monitoring to verify load stays below capacity
+- Works well for single-instance; insufficient for multi-instance where admission control is critical
 
 ## Phase 4.1: Admission Control
 
@@ -38,16 +44,19 @@ Phase 4 scales to multi-instance deployments with proper load management and wor
 
 **Implementation:**
 1. Track in-flight work count per endpoint (incremented on accept, decremented on completion)
-2. Calculate per-endpoint capacity based on expected duration:
+2. Calculate per-endpoint capacity based on observed p95 duration from metrics:
    - `capacity = CPUs × 1 second / p95_duration`
-   - Example: 4 CPUs, 40s p95 batch = 4 × 1 / 40 = 0.1 concurrent (max ~1 every 10s)
-   - Example: 4 CPUs, 2s p95 position = 4 × 1 / 2 = 2 concurrent
-3. Reject with 503 + Retry-After if in-flight >= capacity threshold
-4. Ensures work budget is only consumed by accepted requests
+   - Example (Batch): 4 CPUs × 1s / 40s = 0.1 concurrent (max ~1 request every 10s)
+   - Example (Events): 4 CPUs × 1s / 30s = 0.133 concurrent (max ~1 request every 7.5s)
+   - Example (Position): 4 CPUs × 1s / 2s = 2 concurrent (handles typical burst)
+3. Reject with 503 + Retry-After header if in-flight >= capacity threshold
+4. Ensures CPU budget is only consumed by accepted requests (not rejected ones)
 
 **Benefits:**
-- Clients get immediate 503 when capacity full (not timeout after seconds)
-- No background work consuming CPU for rejected requests
+- Clients get immediate 503 when capacity full (not timeout after 40s+ of background work)
+- No CPU work wasted on rejected requests
+- Per-endpoint capacity adapts automatically as p95 duration changes
+- Natural back-pressure: busy endpoint rejects, client retries elsewhere
 - Natural back-pressure: fast endpoints admit more, slow endpoints admit fewer
 - Complements rate limiting: spaces requests across time + limits concurrent work
 - Can be implemented entirely at application level (no load balancer changes)

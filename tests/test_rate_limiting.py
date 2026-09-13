@@ -34,9 +34,9 @@ class TestRateLimiterConfiguration:
     
     def test_rate_limit_constants_defined(self):
         """Test that all rate limit tiers are defined with documented values."""
-        assert LIMIT_EXPENSIVE_BATCH == "10/minute", "Batch limit should be 10/minute per DDoS policy"
-        assert LIMIT_EXPENSIVE_EVENTS == "15/minute"
-        assert LIMIT_STREAM_EVENTS == "10/minute"
+        assert LIMIT_EXPENSIVE_BATCH == "5/minute", "Batch limit should be 5/minute per CPU capacity (40s × 5 = 200s)"
+        assert LIMIT_EXPENSIVE_EVENTS == "8/minute", "Events limit should be 8/minute per CPU capacity (30s × 8 = 240s)"
+        assert LIMIT_STREAM_EVENTS == "5/minute", "Stream events limit should be 5/minute (same budget as batch)"
         assert LIMIT_CONTACT_TIMES == "30/minute"
         assert LIMIT_CHEAP == "100/minute"
     
@@ -299,9 +299,9 @@ class TestRateLimitingDocumentation:
         assert LIMIT_CHEAP == "100/minute"  # Position/phase endpoints
         
         # Tier 2: Expensive operations (by resource usage)
-        assert LIMIT_EXPENSIVE_BATCH == "10/minute"  # ~40s each = 400s CPU/min (per DDoS policy)
-        assert LIMIT_EXPENSIVE_EVENTS == "15/minute"  # Eclipse search
-        assert LIMIT_STREAM_EVENTS == "10/minute"  # Streaming connections
+        assert LIMIT_EXPENSIVE_BATCH == "5/minute"  # ~40s CPU = 200s CPU/min (83% of 240s capacity)
+        assert LIMIT_EXPENSIVE_EVENTS == "8/minute"  # ~30s CPU = 240s CPU/min (100% peak capacity)
+        assert LIMIT_STREAM_EVENTS == "5/minute"  # Streaming connections (same budget as batch)
         assert LIMIT_CONTACT_TIMES == "30/minute"  # Contact times (moderate)
         
         # Verify the strategy is conservative (fewer req/min for expensive ops)
@@ -474,9 +474,9 @@ class TestRateLimitEnvironmentVariables:
         - Uses hard-coded limits (aligned with DDoS policy)
         """
         # These should all return the defaults since tests don't set env vars
-        assert LIMIT_EXPENSIVE_BATCH == "10/minute"
-        assert LIMIT_EXPENSIVE_EVENTS == "15/minute"
-        assert LIMIT_STREAM_EVENTS == "10/minute"
+        assert LIMIT_EXPENSIVE_BATCH == "5/minute"
+        assert LIMIT_EXPENSIVE_EVENTS == "8/minute"
+        assert LIMIT_STREAM_EVENTS == "5/minute"
         assert LIMIT_CONTACT_TIMES == "30/minute"
         assert LIMIT_CHEAP == "100/minute"
     
@@ -534,15 +534,15 @@ class TestRateLimitEnvironmentVariables:
         """Test documentation: env vars override defaults when set.
         
         This test documents the expected behavior:
-        - If LIMIT_EXPENSIVE_BATCH env var is set, it overrides "10/minute"
-        - If not set, defaults to "10/minute" (per DDoS policy)
+        - If LIMIT_EXPENSIVE_BATCH env var is set, it overrides "5/minute"
+        - If not set, defaults to "5/minute" (per CPU capacity: 240s / 40s = 6, use 5 for safety)
         
         Note: We can't actually test this in pytest since we're in test mode,
         but this documents the intended behavior for production.
         """
-        # Example: if someone sets LIMIT_EXPENSIVE_BATCH=50/minute
-        # The code reads: LIMIT_EXPENSIVE_BATCH = os.getenv("LIMIT_EXPENSIVE_BATCH", "10/minute")
-        # So they would get "50/minute" instead of "10/minute"
+        # Example: if someone sets LIMIT_EXPENSIVE_BATCH=8/minute
+        # The code reads: LIMIT_EXPENSIVE_BATCH = os.getenv("LIMIT_EXPENSIVE_BATCH", "5/minute")
+        # So they would get "8/minute" instead of "5/minute"
         
         test_value = os.getenv("LIMIT_EXPENSIVE_BATCH", "10/minute")
         assert test_value == "10/minute" or "/" in test_value
