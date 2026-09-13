@@ -256,6 +256,16 @@ class PercentileTracker:
         with self._lock:
             if endpoint not in self._timeout_observations:
                 return 0
+
+            # Prune timeout observations outside sliding window
+            now = time.time()
+            cutoff = now - SLIDING_WINDOW_SECONDS
+            while (
+                self._timeout_observations[endpoint]
+                and self._timeout_observations[endpoint][0][0] < cutoff
+            ):
+                self._timeout_observations[endpoint].popleft()
+
             return len(self._timeout_observations[endpoint])
 
     def clear(self) -> None:

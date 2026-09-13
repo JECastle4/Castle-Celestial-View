@@ -2,17 +2,17 @@
   <div class="date-range-picker">
     <div class="calendar">
       <label :for="idPrefix + '-start'">{{ t('forms.labels.startDate') }}</label>
-      <input :id="idPrefix + '-start'" type="date" v-model="startDateString" @change="validateDates" />
+      <input :id="idPrefix + '-start'" type="date" v-model="startDateString" @change="validateDates" :disabled="disabled" />
     </div>
     <div class="calendar">
       <label :for="idPrefix + '-end'">{{ t('forms.labels.endDate') }}</label>
-      <input :id="idPrefix + '-end'" type="date" v-model="endDateString" @change="validateDates" />
+      <input :id="idPrefix + '-end'" type="date" v-model="endDateString" @change="validateDates" :disabled="disabled" />
     </div>
     <div v-if="errorMessage" class="error-message">
       <span class="error-icon" aria-label="Error">&#9888;</span>
       {{ errorMessage }}
     </div>
-    <button :disabled="!isValid" @click="applyDates">
+    <button :disabled="!isValid || disabled" @click="applyDates">
       <i class="fa fa-sync" aria-hidden="true" style="margin-right: 0.5em;"></i>
       {{ t('buttons.apply') }}
     </button>
@@ -30,7 +30,8 @@ export default defineComponent({
   name: 'DateRangePicker',
   props: {
     initialStartDate: { type: String, required: true },
-    initialEndDate: { type: String, required: true }
+    initialEndDate: { type: String, required: true },
+    disabled: { type: Boolean, default: false }
   },
   emits: ['update:dates'],
   setup(props, { emit }) {
@@ -87,6 +88,7 @@ export default defineComponent({
       isValid,
       validateDates,
       applyDates,
+      disabled: props.disabled,
       t
     };
   }

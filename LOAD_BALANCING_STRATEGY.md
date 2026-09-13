@@ -98,8 +98,12 @@ else:
 **Implementation:**
 1. Move expensive Astropy calculations to `concurrent.futures.ProcessPoolExecutor`
 2. Wrap executor calls with timeout using `asyncio.wait_for(loop.run_in_executor(...))`
-3. When timeout fires, cancel the executor task (sends SIGTERM to child process)
-4. Worker process handles SIGTERM gracefully (cleanup and exit)
+3. When timeout fires, cancel the executor task via `Future.cancel()`
+4. **Note:** `Future.cancel()` does NOT send SIGTERM or interrupt already-running work. Requires explicit:
+   - Worker process recycling after N requests (to clear memory/handles)
+   - Or, cooperative cancellation via shared flag that worker checks between sub-tasks
+   - Or, separate SIGTERM handler tied to request timeout (requires worker cooperation)
+   - CPU-bound Astropy work will complete its current calculation regardless of cancellation
 
 **Benefits:**
 - Truly interrupts CPU-bound work (not just event loop cancellation)
@@ -177,9 +181,12 @@ else:
 - [ ] No background work continues after rejection
 
 **Capacity under load:**
-- 1 instance: ~10 batch/min (400s CPU budget / 40s per request)
-- 2 instances: ~20 batch/min with admission control (both instances at capacity)
-- N instances: ~10N batch/min with load balancer + admission control
+- 1 instance: ~6 batch/min (240s CPU budget / 40s per request) for 4-core system
+  - Calculation: (4 cores × 60s) / 40s per request = 6 requests/minute max throughput
+  - Rate limiting at 5/min provides 83% headroom; 8 events/min uses 100% peak capacity
+- 2 instances: ~12 batch/min with admission control (both at 6/min each)
+- N instances: ~6N batch/min with load balancer + admission control per 4-core instance
+- Adjust scaling factors for different CPU counts: (CPU_count × 60s) / p95_duration
 
 ## Timeline
 

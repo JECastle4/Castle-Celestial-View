@@ -9,7 +9,7 @@ import os
 from astropy.utils import iers
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 from slowapi.errors import RateLimitExceeded
 
 from api.cache import get_cache_stats
@@ -398,9 +398,38 @@ async def locale_middleware(request: Request, call_next):
     return await call_next(request)
 
 
-@app.middleware("http")
-async def metrics_middleware(request: Request, call_next):  # pylint: disable=too-many-statements,too-many-branches
-    """Record HTTP request metrics for Prometheus monitoring (Phase 3.2).
+def _is_streaming_response_asgi(headers: list[tuple[bytes, bytes]]) -> bool:
+    """Detect if ASGI response will be streamed based on response headers.
+
+    A response is considered streaming if:
+    1. No Content-Length header (response size unknown)
+    2. Transfer-Encoding: chunked
+    3. Content-Type indicates streaming (text/event-stream, etc.)
+
+    Args:
+        headers: ASGI response headers (list of 2-tuples of byte strings)
+
+    Returns:
+        True if response appears to be streaming; False for regular responses
+    """
+    has_content_length = False
+    for header_name, header_value in headers:
+        name_lower = header_name.lower()
+        if name_lower == b"content-length":
+            has_content_length = True
+            break
+        if name_lower == b"transfer-encoding":
+            if b"chunked" in header_value.lower():
+                return True
+        if name_lower == b"content-type":
+            if b"event-stream" in header_value.lower():
+                return True
+    # No Content-Length = streaming (unknown size, sent incrementally)
+    return not has_content_length
+
+
+class MetricsMiddleware:  # pylint: disable=too-few-public-methods
+    """Pure ASGI middleware for recording HTTP request metrics (Phase 3.2).
 
     Tracks request duration, count, status, and in-progress requests per endpoint.
     Uses matched route template as label (not raw URL path) to prevent cardinality
@@ -409,109 +438,92 @@ async def metrics_middleware(request: Request, call_next):  # pylint: disable=to
 
     Ensures cleanup (record_request_end) is called even if outer middleware cancels
     the request (e.g., due to timeout), preventing leaked in-progress request counts.
+
+    Implemented as pure ASGI middleware (not BaseHTTPMiddleware) to properly detect
+    streaming responses: checks response headers instead of isinstance(), avoiding
+    the issue where BaseHTTPMiddleware returns internal _StreamingResponse objects
+    that don't match public StreamingResponse type checks.
     """
-    # Record start time (before any processing)
-    start_time = time.perf_counter()
 
-    metrics = get_metrics()
-    endpoint = None
-    status_code = 500  # Default to server error
+    def __init__(self, asgi_app):
+        self.asgi_app = asgi_app
 
-    # Use bounded pre-route label for in-progress tracking
-    # (before route matching, extract the label from the request path)
-    # This ensures in-progress counter increments before request is dispatched
-    pre_route_endpoint = _get_pre_route_label(request)
-    metrics.record_request_start(pre_route_endpoint)
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.asgi_app(scope, receive, send)
+            return
 
-    response = None
-    try:
-        # Call endpoint (route matching happens here)
-        response = await call_next(request)
-        status_code = response.status_code
+        start_time = time.perf_counter()
+        metrics = get_metrics()
 
-        # Extract matched route label (bounded; prevents cardinality explosion)
-        # This is safe to call after call_next when route matching is complete
-        endpoint = _get_route_label(request)
-        method = request.method
+        # Extract request info for metrics
+        method = scope.get("method", "GET")
 
-        # For non-streaming responses, record metrics immediately
-        # For StreamingResponse, metrics are recorded when iteration completes (by wrapped iterator)
-        if not isinstance(response, StreamingResponse):
-            duration = time.perf_counter() - start_time
-            metrics.record_request(endpoint, method, status_code, duration)
-            record_request_completion(endpoint, duration)
-        else:
-            # Store metadata on request.state for deferred metrics recording
-            # The wrapped iterator will retrieve this and record metrics when iteration completes
-            # Using request.state (not response identity as weak-map key) ensures metadata
-            # survives Starlette's response object replacement in BaseHTTPMiddleware
-            metadata = StreamingMetadata(
-                endpoint=endpoint,
-                method=method,
-                status_code=status_code,
-                deferred=True,
-                pre_route_endpoint=pre_route_endpoint,
-                start_time=start_time
-            )
-            request.state.streaming_metadata = metadata
+        # Use bounded pre-route label for in-progress tracking
+        request_obj = Request(scope)
+        pre_route_endpoint = _get_pre_route_label(request_obj)
+        metrics.record_request_start(pre_route_endpoint)
 
-        # Track 429 rate limit responses (applies to both streaming and non-streaming)
-        if status_code == 429:
-            metrics.record_rate_limit_exceeded(endpoint)
-
-        return response
-
-    except asyncio.CancelledError:
-        # Outer timeout middleware cancelled this request
-        # Ensure metrics are recorded for the timed-out request
-        endpoint = _get_route_label(request)
-        duration = time.perf_counter() - start_time
-        method = request.method
-        status_code = 503
-
-        # Record request metrics (status_code = 503 Service Unavailable for timeout)
-        metrics.record_request(endpoint, method, status_code, duration)
-
-        # Also record as timeout error for specialized timeout metrics
-        metrics.record_error(endpoint, "timeout", status_code)
-
-        # Record timeout for adaptive calculation (marked as timeout to prevent oscillation)
-        record_request_completion(endpoint, duration, is_timeout=True)
-
-        # Log and re-raise so timeout middleware can handle it
-        logger.warning(
-            "Request cancelled (timeout) on %s after %.2fs",
-            endpoint,
-            duration
-        )
-        raise
-
-    except Exception as exc:  # pylint: disable=broad-exception-caught
-        # Other exception during route handling
-        endpoint = _get_route_label(request)
-        duration = time.perf_counter() - start_time
-        method = request.method
         status_code = 500
+        is_streaming = False
+        response_headers = []
+        endpoint = None
+        request_state_metadata = None
 
-        # Record request metrics (status_code = 500 Internal Server Error)
-        metrics.record_request(endpoint, method, status_code, duration)
+        async def send_with_metrics(message):
+            """Wrap send to track status and detect streaming responses."""
+            nonlocal status_code, is_streaming, response_headers, endpoint, request_state_metadata
 
-        # Also record as general exception error
-        metrics.record_error(endpoint, "exception", status_code)
+            if message["type"] == "http.response.start":
+                status_code = message.get("status", 500)
+                response_headers = message.get("headers", [])
+                is_streaming = _is_streaming_response_asgi(response_headers)
 
-        # Record completion for adaptive timeout tracking
-        record_request_completion(endpoint, duration)
+                # Extract matched route label after response headers are available
+                # For most cases, request.scope["route"] should be set by now
+                try:
+                    route = scope.get("route")
+                    if route and hasattr(route, "path"):
+                        endpoint = route.path
+                    else:
+                        endpoint = "unknown"
+                except (AttributeError, KeyError, TypeError):
+                    endpoint = "unknown"
 
-        raise exc
+                # For streaming responses, prepare deferred metrics recording
+                if is_streaming:
+                    request_state_metadata = StreamingMetadata(
+                        endpoint=endpoint,
+                        method=method,
+                        status_code=status_code,
+                        deferred=True,
+                        pre_route_endpoint=pre_route_endpoint,
+                        start_time=start_time
+                    )
+                    # Store on scope for iterator wrapper to retrieve
+                    if "state" not in scope:
+                        scope["state"] = {}
+                    scope["state"]["streaming_metadata"] = request_state_metadata
+                else:
+                    # Non-streaming: record metrics immediately
+                    duration = time.perf_counter() - start_time
+                    metrics.record_request(endpoint, method, status_code, duration)
+                    record_request_completion(endpoint, duration)
 
-    finally:
-        # For non-streaming responses: always record request completion
-        # For streaming responses: skip here; wrapped iterator records when iteration completes
-        # Use the same bounded pre-route label that was used in record_request_start()
-        # to ensure the in-progress gauge is consistent (incremented and decremented
-        # under the same label). Completed-request metrics use the matched endpoint label.
-        if response is None or not isinstance(response, StreamingResponse):
-            metrics.record_request_end(pre_route_endpoint)
+                # Track 429 rate limit responses
+                if status_code == 429:
+                    metrics.record_rate_limit_exceeded(endpoint)
+
+            # Pass through to outer send
+            await send(message)
+
+        try:
+            await self.asgi_app(scope, receive, send_with_metrics)
+        finally:
+            # For non-streaming: always record request completion
+            # For streaming: skip here; wrapped iterator records when iteration completes
+            if not is_streaming:
+                metrics.record_request_end(pre_route_endpoint)
 
 
 def _wrap_streaming_response_timeout(response, timeout_seconds, endpoint, start_time, request):
@@ -686,19 +698,20 @@ def _record_streaming_completion_metrics(
         metrics.record_request_end(metadata.pre_route_endpoint)
 
 
-@app.middleware("http")
-async def timeout_middleware(request: Request, call_next):
-    """Adaptive timeout middleware for graceful degradation under load (Phase 3.3).
+class TimeoutMiddleware:  # pylint: disable=too-few-public-methods
+    """Pure ASGI middleware for adaptive request timeouts (Phase 3.3).
 
     Calculates timeout based on observed p95 request duration. Under load, timeouts
     are reduced proportionally, allowing cheap requests to fail fast (DDoS protection)
     while preserving expensive requests when possible.
 
-    Times both response creation AND body iteration (for StreamingResponse), ensuring
+    Times both response creation AND body iteration (for streaming responses), ensuring
     proper load shedding even for long-running streams.
 
-    Uses bounded pre-route labels for timeout tracking before route matching,
-    enabling per-endpoint adaptive timeout calculation.
+    Implemented as pure ASGI middleware (not BaseHTTPMiddleware) to properly wrap
+    streaming response body iteration. Detects streaming from response headers
+    (absence of Content-Length) and wraps the send callable to enforce timeout on
+    each body chunk, not just response creation.
 
     LIMITATION (Phase 4 - Load Balancing):
     The current asyncio.wait_for() timeout does not interrupt CPU-bound Astropy
@@ -724,55 +737,131 @@ async def timeout_middleware(request: Request, call_next):
     See LOAD_BALANCING_STRATEGY.md for Phase 4.1 (Admission Control) and Phase 4.2
     (Cancellable Work) design and dependencies.
     """
-    # Derive bounded label from raw path BEFORE route matching
-    # (request.scope['route'] is not populated until after call_next)
-    # This enables per-endpoint timeout tracking instead of all requests
-    # sharing a single "unknown" bucket
-    endpoint = _get_pre_route_label(request)
 
-    # Calculate adaptive timeout based on system performance
-    timeout_seconds = calculate_adaptive_timeout(endpoint)
+    def __init__(self, asgi_app):
+        self.asgi_app = asgi_app
 
-    # Track start time for StreamingResponse body iteration timeout
-    start_time = time.perf_counter()
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.asgi_app(scope, receive, send)
+            return
 
-    try:
-        # Wrap the endpoint call with asyncio.wait_for timeout
-        # This ensures response creation (including handler execution) completes in time
-        response = await asyncio.wait_for(
-            call_next(request),
-            timeout=timeout_seconds
-        )
+        # Derive bounded label from raw path BEFORE route matching
+        request_obj = Request(scope)
+        endpoint = _get_pre_route_label(request_obj)
 
-        # Wrap StreamingResponse to enforce timeout on body iteration as well
-        response = _wrap_streaming_response_timeout(
-            response, timeout_seconds, endpoint, start_time, request
-        )
+        # Calculate adaptive timeout based on system performance
+        timeout_seconds = calculate_adaptive_timeout(endpoint)
 
-        return response
-    except asyncio.TimeoutError:
-        # Request exceeded adaptive timeout - log and return 503
-        metrics = get_metrics()
-        metrics.record_timeout_exceeded(endpoint)
+        # Track start time for timeout enforcement
+        start_time = time.perf_counter()
+        is_streaming = False
+        response_started = False
+        timeout_occurred = False
 
-        logger.warning(
-            "Request timeout on %s after %.2fs (load-based degradation)",
-            endpoint,
-            timeout_seconds
-        )
+        async def send_with_timeout(message):
+            """Wrap send to enforce timeout on response and body chunks."""
+            nonlocal is_streaming, response_started, timeout_occurred
 
-        return JSONResponse(
-            status_code=503,  # Service Unavailable
-            content={
-                'error': 'Request timeout',
-                'message': (
-                    f'Request exceeded {timeout_seconds:.1f}s timeout due to '
-                    'system load'
-                ),
-                'timeout_seconds': timeout_seconds,
-                'endpoint': endpoint,
-            },
-        )
+            if message["type"] == "http.response.start":
+                response_started = True
+                headers = message.get("headers", [])
+                is_streaming = _is_streaming_response_asgi(headers)
+                await send(message)
+
+            elif message["type"] == "http.response.body":
+                elapsed = time.perf_counter() - start_time
+                if elapsed > timeout_seconds:
+                    # Timeout exceeded during body transmission
+                    if not timeout_occurred:
+                        timeout_occurred = True
+                        metrics = get_metrics()
+                        metrics.record_timeout_exceeded(endpoint)
+                        logger.warning(
+                            "Request timeout on %s after %.2fs (load-based degradation)",
+                            endpoint,
+                            elapsed
+                        )
+                        # Send error message if streaming, otherwise just close connection
+                        if is_streaming:
+                            await send({
+                                "type": "http.response.body",
+                                "body": b"event: error\ndata: {\"error\": \"timeout\"}\n\n",
+                                "more_body": False
+                            })
+                        else:
+                            # Non-streaming: just close without sending incomplete body
+                            await send({
+                                "type": "http.response.body",
+                                "body": b"",
+                                "more_body": False
+                            })
+                else:
+                    # Within timeout: send body chunk
+                    await send(message)
+            else:
+                await send(message)
+
+        try:
+            # Wrap the app call with timeout for response creation
+            await asyncio.wait_for(
+                self.asgi_app(scope, receive, send_with_timeout),
+                timeout=timeout_seconds
+            )
+        except asyncio.TimeoutError:
+            # Timeout during app execution (before response.start)
+            if not response_started:
+                # Response hasn't started yet; we can send a proper 503
+                metrics = get_metrics()
+                metrics.record_timeout_exceeded(endpoint)
+                logger.warning(
+                    "Request timeout on %s after %.2fs (load-based degradation)",
+                    endpoint,
+                    timeout_seconds
+                )
+                await send({
+                    "type": "http.response.start",
+                    "status": 503,
+                    "headers": [
+                        [b"content-type", b"application/json"],
+                        [b"content-length", str(len(
+                            b'{"error":"Request timeout","message":"Request exceeded '
+                            b'%.1fs timeout due to system load","timeout_seconds":%.1f,'
+                            b'"endpoint":"%s"}' % (
+                                timeout_seconds,
+                                timeout_seconds,
+                                endpoint.encode()
+                            )
+                        )).encode()],
+                    ],
+                })
+                timeout_msg = (
+                    f'{{"error":"Request timeout",'
+                    f'"message":"Request exceeded {timeout_seconds:.1f}s timeout due to '
+                    f'system load","timeout_seconds":{timeout_seconds},'
+                    f'"endpoint":"{endpoint}"}}'
+                ).encode()
+                await send({
+                    "type": "http.response.body",
+                    "body": timeout_msg,
+                    "more_body": False
+                })
+            else:
+                # Response already started; can't send headers, just close body
+                await send({
+                    "type": "http.response.body",
+                    "body": b"",
+                    "more_body": False
+                })
+
+
+# Register pure ASGI middleware for metrics and timeout (after class definitions)
+# These must be registered BEFORE the decorator-based @app.middleware middleware
+# so they wrap the inner handlers first (LIFO: last-registered wraps innermost)
+# Pure ASGI implementation properly detects streaming responses by checking headers,
+# not relying on isinstance() which fails for BaseHTTPMiddleware's internal _StreamingResponse
+app.add_middleware(TimeoutMiddleware)
+app.add_middleware(MetricsMiddleware)
 
 
 # Include the routes

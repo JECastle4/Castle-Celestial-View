@@ -443,5 +443,96 @@ describe('Export Service', () => {
 
       expect(global.URL.createObjectURL).toHaveBeenCalled();
     });
+
+    it('should add N/A row for eclipses with empty contact_times', async () => {
+      // Capture the blob content by mocking Blob constructor
+      let capturedContent = '';
+      const OriginalBlob = global.Blob;
+      
+      vi.stubGlobal('Blob', class MockBlob {
+        constructor(content: any[]) {
+          if (content && content[0]) {
+            capturedContent = content[0];
+          }
+        }
+      });
+
+      const events: AstronomicalEvent[] = [
+        {
+          date: '2025-03-29',
+          event_type: 'Solar Eclipse',
+          is_lunar: false,
+          eclipse_occurs: true,
+          contact_times: {}, // Empty object
+        } as unknown as AstronomicalEvent,
+      ];
+
+      exportContactTimesToCSV(events);
+
+      // Restore Blob
+      vi.stubGlobal('Blob', OriginalBlob);
+
+      // Verify the CSV content includes N/A row
+      expect(capturedContent).toContain('N/A');
+      expect(capturedContent).toContain('2025-03-29');
+      expect(capturedContent).toContain('Solar Eclipse');
+      expect(capturedContent).toContain('Not available');
+
+      // Verify structure: should have header + data row
+      const lines = capturedContent.split('\n');
+      expect(lines.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('should handle mixed eclipses with and without contact times', async () => {
+      let capturedContent = '';
+      const OriginalBlob = global.Blob;
+      
+      vi.stubGlobal('Blob', class MockBlob {
+        constructor(content: any[]) {
+          if (content && content[0]) {
+            capturedContent = content[0];
+          }
+        }
+      });
+
+      const events: AstronomicalEvent[] = [
+        {
+          date: '2025-03-29',
+          event_type: 'Solar Eclipse A',
+          is_lunar: false,
+          eclipse_occurs: true,
+          contact_times: {}, // Empty
+        } as unknown as AstronomicalEvent,
+        {
+          date: '2025-09-18',
+          event_type: 'Lunar Eclipse B',
+          is_lunar: true,
+          eclipse_occurs: true,
+          contact_times: {
+            'Penumbral Ingress': '2025-09-18 18:12:00',
+            'Umbral Ingress': '2025-09-18 19:11:00',
+          },
+        } as unknown as AstronomicalEvent,
+      ];
+
+      exportContactTimesToCSV(events);
+
+      vi.stubGlobal('Blob', OriginalBlob);
+
+      // Verify both types are present in CSV
+      const lines = capturedContent.split('\n');
+      
+      // Should have header + 1 N/A row for Eclipse A + 2 contact rows for Eclipse B = 4 lines minimum
+      expect(lines.length).toBeGreaterThanOrEqual(4);
+      
+      // Verify N/A row for empty contacts
+      expect(capturedContent).toContain('Solar Eclipse A');
+      expect(capturedContent).toContain('N/A');
+      
+      // Verify contact times for Eclipse B
+      expect(capturedContent).toContain('Lunar Eclipse B');
+      expect(capturedContent).toContain('Penumbral Ingress');
+      expect(capturedContent).toContain('Umbral Ingress');
+    });
   });
 });

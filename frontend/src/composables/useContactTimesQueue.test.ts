@@ -7,6 +7,11 @@ describe('useContactTimesQueue', () => {
     vi.useFakeTimers();
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
   describe('fetchContactTimesInQueue', () => {
     it('should process successful requests sequentially', async () => {
       const fetchFn = vi.fn().mockResolvedValue(undefined);

@@ -46,15 +46,18 @@ Configuration (Environment Variables):
     
     LIMIT_EXPENSIVE_BATCH: batch-earth-observations endpoint (default: "5/minute")
         Expensive operation: ~40s avg CPU per request.
+        Default: 5/min = 200s CPU/min (83% of 240s 4-core capacity, safe headroom).
         Example: export LIMIT_EXPENSIVE_BATCH=8/minute
     
-    LIMIT_EXPENSIVE_EVENTS: astronomical-events endpoint (default: "15/minute")
+    LIMIT_EXPENSIVE_EVENTS: astronomical-events endpoint (default: "8/minute")
         Expensive operation: ~30s avg CPU per request.
-        Example: export LIMIT_EXPENSIVE_EVENTS=20/minute
+        Default: 8/min = 240s CPU/min (100% peak 4-core capacity).
+        Example: export LIMIT_EXPENSIVE_EVENTS=10/minute
     
-    LIMIT_STREAM_EVENTS: astronomical-events-stream SSE endpoint (default: "10/minute")
-        Limits concurrent streaming connections per IP.
-        Example: export LIMIT_STREAM_EVENTS=15/minute
+    LIMIT_STREAM_EVENTS: astronomical-events-stream SSE endpoint (default: "5/minute")
+        Limits concurrent streaming connections per IP (same budget as batch).
+        Default: 5/min = same CPU budget as batch endpoint.
+        Example: export LIMIT_STREAM_EVENTS=8/minute
     
     LIMIT_CONTACT_TIMES: contact-times endpoint (default: "30/minute")
         Lazy-loaded operation: cheaper than search.
