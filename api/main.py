@@ -475,8 +475,8 @@ async def metrics_middleware(request: Request, call_next):  # pylint: disable=to
         # Also record as timeout error for specialized timeout metrics
         metrics.record_error(endpoint, "timeout", status_code)
 
-        # Record timeout for adaptive calculation
-        record_request_completion(endpoint, duration)
+        # Record timeout for adaptive calculation (marked as timeout to prevent oscillation)
+        record_request_completion(endpoint, duration, is_timeout=True)
 
         # Log and re-raise so timeout middleware can handle it
         logger.warning(
@@ -651,8 +651,8 @@ def _record_streaming_timeout_metrics(
         timeout_seconds: Timeout budget in seconds
     """
     # Record timeout duration for adaptive timeout tracker (p95 calculation)
-    # Timed-out requests must contribute to load assessment just like successful requests
-    record_request_completion(endpoint, elapsed)
+    # Mark as timeout so timeout samples don't skew p95 and cause oscillation
+    record_request_completion(endpoint, elapsed, is_timeout=True)
 
     metrics = get_metrics()
     metrics.record_timeout_exceeded(endpoint)

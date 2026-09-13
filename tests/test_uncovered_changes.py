@@ -252,7 +252,8 @@ class TestTimeoutDurationRecording:
                 )
                 
                 # Verify record_request_completion was called with elapsed time
-                mock_record.assert_called_once_with(endpoint, elapsed)
+                # and is_timeout=True to track timeouts separately from normal completions
+                mock_record.assert_called_once_with(endpoint, elapsed, is_timeout=True)
 
     def test_timeout_duration_contributes_to_p95_calculation(self):
         """Timed-out requests should influence p95 adaptive timeout calculation."""

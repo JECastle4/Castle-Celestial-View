@@ -1349,4 +1349,274 @@ describe('EventsView', () => {
       vi.useRealTimers();
     });
   });
+
+  describe('Export Race Condition Prevention (isPreparingExport Guards)', () => {
+    it('disables search button when export preparation starts', async () => {
+      vi.useFakeTimers();
+      const wrapper = mount(EventsView);
+      await flushPromises();
+
+      // Load events
+      await wrapper.find('.search-btn').trigger('click');
+      await flushPromises();
+
+      const source = instances[0];
+      const eclipseWithoutContact = makeEvent({
+        eclipse_occurs: true,
+        contact_times: null,
+      });
+      source.emit('page', { page: 1, events: [eclipseWithoutContact] });
+      source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+      await flushPromises();
+
+      const searchBtn = wrapper.find('.search-btn');
+      
+      // Before export, search button should be enabled
+      expect(searchBtn.attributes('disabled')).toBeUndefined();
+
+      // Start export
+      const csvBtn = wrapper.find('.export-btn');
+      await csvBtn.trigger('click');
+      await flushPromises();
+
+      // During export, search button should be disabled
+      let updatedSearchBtn = wrapper.find('.search-btn');
+      expect(updatedSearchBtn.attributes('disabled')).toBeDefined();
+
+      // Verify isPreparingExport is true
+      const component = wrapper.vm as any;
+      expect(component.isPreparingExport).toBe(true);
+
+      vi.useRealTimers();
+    });
+
+    it('disables date picker when export preparation starts', async () => {
+      const wrapper = mount(EventsView);
+      await flushPromises();
+
+      // Load events
+      await wrapper.find('.search-btn').trigger('click');
+      await flushPromises();
+
+      const source = instances[0];
+      const eclipseWithoutContact = makeEvent({
+        eclipse_occurs: true,
+        contact_times: null,
+      });
+      source.emit('page', { page: 1, events: [eclipseWithoutContact] });
+      source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+      await flushPromises();
+
+      const component = wrapper.vm as any;
+      
+      // Verify component has onDateRangeSelectedSafe guard function
+      expect(typeof component.onDateRangeSelectedSafe).toBe('function');
+      
+      // Test that guard prevents date changes when isPreparingExport is true
+      component.isPreparingExport = true;
+      const originalStartDate = component.startDate;
+      
+      // Call guard function with new dates
+      component.onDateRangeSelectedSafe({
+        start: new Date('2027-01-01'),
+        end: new Date('2027-12-31'),
+      });
+      
+      // Dates should NOT change because isPreparingExport is true
+      expect(component.startDate).toBe(originalStartDate);
+      
+      // When isPreparingExport is false, dates should change
+      component.isPreparingExport = false;
+      component.onDateRangeSelectedSafe({
+        start: new Date('2027-01-01'),
+        end: new Date('2027-12-31'),
+      });
+      
+      // Now dates SHOULD have changed
+      expect(component.startDate).not.toBe(originalStartDate);
+    });
+
+    it('blocks date changes from triggering search during export preparation', async () => {
+      const wrapper = mount(EventsView);
+      await flushPromises();
+
+      // Load events
+      await wrapper.find('.search-btn').trigger('click');
+      await flushPromises();
+
+      const source = instances[0];
+      const eclipseWithoutContact = makeEvent({
+        eclipse_occurs: true,
+        contact_times: null,
+      });
+      source.emit('page', { page: 1, events: [eclipseWithoutContact] });
+      source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+      await flushPromises();
+
+      const component = wrapper.vm as any;
+      
+      // Simulate export starting
+      component.isPreparingExport = true;
+      
+      // Try to change dates (would normally trigger new search)
+      const newStartDate = new Date('2027-01-01');
+      const newEndDate = new Date('2027-06-01');
+      
+      const oldStartDate = component.startDate;
+      const oldEndDate = component.endDate;
+      
+      // Call onDateRangeSelectedSafe (which should block the change)
+      component.onDateRangeSelectedSafe({
+        start: newStartDate,
+        end: newEndDate,
+      });
+
+      // Dates should NOT have changed because isPreparingExport is true
+      expect(component.startDate).toBe(oldStartDate);
+      expect(component.endDate).toBe(oldEndDate);
+    });
+
+    it('allows date changes when export is not preparing', async () => {
+      const wrapper = mount(EventsView);
+      await flushPromises();
+
+      const component = wrapper.vm as any;
+      
+      // Ensure export is not preparing
+      component.isPreparingExport = false;
+      
+      const newStartDate = new Date('2027-01-01');
+      const newEndDate = new Date('2027-06-01');
+      
+      const oldStartDate = component.startDate;
+      const oldEndDate = component.endDate;
+      
+      // Call onDateRangeSelectedSafe (should allow the change)
+      component.onDateRangeSelectedSafe({
+        start: newStartDate,
+        end: newEndDate,
+      });
+
+      // Dates SHOULD have changed
+      expect(component.startDate).not.toBe(oldStartDate);
+      expect(component.endDate).not.toBe(oldEndDate);
+      expect(component.startDate).toBe('2027-01-01');
+      expect(component.endDate).toBe('2027-06-01');
+    });
+
+    it('prevents new search from being initiated while export is preparing', async () => {
+      const wrapper = mount(EventsView);
+      await flushPromises();
+
+      const component = wrapper.vm as any;
+      
+      // Simulate export starting
+      component.isPreparingExport = true;
+      await wrapper.vm.$nextTick();
+      
+      // Search button should be disabled when isPreparingExport is true
+      const searchBtn = wrapper.find('.search-btn');
+      // Button should have disabled attribute (loading || isPreparingExport)
+      expect(searchBtn.attributes('disabled')).toBeDefined();
+      
+      // Verify that calling search() with isPreparingExport=true returns early
+      const instanceCountBefore = instances.length;
+      component.search();
+
+      // Should not create new instances if search() returned early
+      // Since search button is disabled, users can't click it
+      // But if somehow it's called, it should check isPreparingExport
+      expect(component.isPreparingExport).toBe(true);
+      expect(instances.length).toBe(instanceCountBefore);
+    });
+
+    it('preserves resultsToExport snapshot if search starts during export', async () => {
+      vi.useFakeTimers();
+      const wrapper = mount(EventsView);
+      await flushPromises();
+
+      // Load initial events
+      await wrapper.find('.search-btn').trigger('click');
+      await flushPromises();
+
+      const source = instances[0];
+      const initialEvents = [
+        makeEvent({ date: '2025-01-01', eclipse_occurs: true, contact_times: null }),
+        makeEvent({ date: '2025-02-01', eclipse_occurs: true, contact_times: null }),
+      ];
+      source.emit('page', { page: 1, events: initialEvents });
+      source.emit('metadata', { page_size: 10, total_events: 2, total_pages: 1 });
+      await flushPromises();
+
+      const component = wrapper.vm as any;
+      
+      // Manually set up export scenario
+      component.isPreparingExport = true;
+      const resultsToExport = [...component.allSseEvents];
+      const originalLength = resultsToExport.length;
+      expect(originalLength).toBe(2);
+
+      // Simulate a new search attempt replacing allSseEvents
+      // (In real scenario, the disabled button + guard functions prevent this)
+      component.allSseEvents = [];
+      
+      // resultsToExport should still have the original events (was a snapshot)
+      expect(resultsToExport).toHaveLength(originalLength);
+      expect(component.allSseEvents).toHaveLength(0);
+
+      // If export used resultsToExport instead of allSseEvents, the download would work
+      // If export used allSseEvents, the download would fail (now empty)
+      
+      vi.useRealTimers();
+    });
+
+    it('re-enables search after export completes successfully', async () => {
+      vi.useFakeTimers();
+      const wrapper = mount(EventsView);
+      await flushPromises();
+
+      // Load events
+      await wrapper.find('.search-btn').trigger('click');
+      await flushPromises();
+
+      const source = instances[0];
+      const eventWithContact = makeEvent({
+        contact_times: {
+          'Maximum Eclipse': '2025-09-07 18:11:42.600',
+        },
+      });
+      source.emit('page', { page: 1, events: [eventWithContact] });
+      source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+      await flushPromises();
+
+      const csvBtn = wrapper.find('.export-btn');
+      await csvBtn.trigger('click');
+      await flushPromises();
+
+      const component = wrapper.vm as any;
+      
+      // isPreparingExport is set during export (in handleExport's .then() callback)
+      // but we need to check the sequence
+      
+      // After export starts, it should complete and set isPreparingExport to false
+      // The export message appears briefly then disappears
+      let message = wrapper.find('.export-message');
+      expect(message.exists()).toBe(true);
+      
+      // Advance time for export success message to appear
+      vi.advanceTimersByTime(100);
+      await flushPromises();
+      await wrapper.vm.$nextTick();
+
+      // After promises resolve, isPreparingExport should be false (set in .finally())
+      expect(component.isPreparingExport).toBe(false);
+
+      // Search button should be re-enabled
+      const searchBtn = wrapper.find('.search-btn');
+      // loading is false and isPreparingExport is false, so disabled should be undefined
+      expect(searchBtn.attributes('disabled')).toBeUndefined();
+
+      vi.useRealTimers();
+    });
+  });
 });

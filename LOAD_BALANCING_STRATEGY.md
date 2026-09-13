@@ -44,13 +44,16 @@ Phase 4 scales to multi-instance deployments with proper load management and wor
 
 **Implementation:**
 1. Track in-flight work count per endpoint (incremented on accept, decremented on completion)
-2. Calculate per-endpoint capacity based on observed p95 duration from metrics:
-   - `capacity = CPUs × 1 second / p95_duration`
-   - Example (Batch): 4 CPUs × 1s / 40s = 0.1 concurrent (max ~1 request every 10s)
-   - Example (Events): 4 CPUs × 1s / 30s = 0.133 concurrent (max ~1 request every 7.5s)
-   - Example (Position): 4 CPUs × 1s / 2s = 2 concurrent (handles typical burst)
-3. Reject with 503 + Retry-After header if in-flight >= capacity threshold
-4. Ensures CPU budget is only consumed by accepted requests (not rejected ones)
+2. Calculate per-endpoint throughput capacity (requests per minute) based on observed p95 duration:
+   - `throughput_capacity = (CPUs × 60 seconds) / p95_duration_seconds`
+   - Example (Batch): (4 CPUs × 60s) / 40s = 6 requests/min
+   - Example (Events): (4 CPUs × 60s) / 30s = 8 requests/min
+   - Example (Position): (4 CPUs × 60s) / 2s = 120 requests/min
+3. Convert to concurrent capacity for admission check: concurrent = throughput_capacity / (60s / avg_request_duration)
+   - Batch: 6 req/min ÷ (60s / 40s) = 6 ÷ 1.5 = 4 in-flight
+   - Events: 8 req/min ÷ (60s / 30s) = 8 ÷ 2 = 4 in-flight
+4. Reject with 503 + Retry-After header if in-flight >= concurrent capacity threshold
+5. Ensures CPU budget is only consumed by accepted requests (not rejected ones)
 
 **Benefits:**
 - Clients get immediate 503 when capacity full (not timeout after 40s+ of background work)
@@ -65,10 +68,11 @@ Phase 4 scales to multi-instance deployments with proper load management and wor
 ```
 p95_duration = 40 seconds
 cpus = 4
-capacity = 4 × 1 second / 40 = 0.1 concurrent
+throughput_capacity = 4 × 60 / 40 = 6 requests/min
+concurrent_capacity = 6 / (60 / 40) = 4 in-flight requests
 
-if in_flight_count >= 1:  # 0.1 rounds up to 1
-    reject 503 with Retry-After: 10
+if in_flight_count >= 4:
+    reject 503 with Retry-After: (40 / 4) = 10 seconds
 else:
     accept request, increment in_flight_count
     on completion: decrement in_flight_count
@@ -135,10 +139,13 @@ else:
 - Per-instance weight adjustment based on in-flight depth
 
 **Capacity Calculation:**
-- Single instance: ~400s CPU budget/min (4 CPUs × 60s / ~40s avg batch)
-- N instances: ~400N s CPU budget/min
-- Rate limiter already configured per IP: 10 batch/min, 15 events/min
-- Load balancer distributes evenly, admission control prevents overload
+- Single instance: 240s CPU budget/min (4 CPUs × 60s = 240s available)
+  - Batch endpoint: 240s ÷ 40s/req = 6 requests/min max throughput
+  - Events endpoint: 240s ÷ 30s/req = 8 requests/min max throughput
+- N instances: 240N s CPU budget/min
+- Rate limiter already configured per IP: 10 batch/min, 15 events/min (above capacity; admission control required)
+- Admission control per endpoint prevents overload: batch capacity ~4 in-flight, events capacity ~4 in-flight
+- Load balancer distributes evenly, admission control at each instance prevents overload
 
 **Infrastructure:**
 - Kubernetes StatefulSet or Docker Compose orchestration

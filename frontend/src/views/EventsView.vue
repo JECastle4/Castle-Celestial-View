@@ -16,10 +16,11 @@
             class="date-range-panel"
             :initialStartDate="startDate"
             :initialEndDate="endDate"
-            @update:dates="onDateRangeSelected"
+            @update:dates="onDateRangeSelectedSafe"
+            :disabled="loading || isPreparingExport"
           />
 
-          <button type="button" class="search-btn" :disabled="loading" @click="search">
+          <button type="button" class="search-btn" :disabled="loading || isPreparingExport" @click="search">
             <i class="fa fa-magnifying-glass" aria-hidden="true" style="margin-right: 0.5em;"></i>
             {{ t('events.search') }}
           </button>
@@ -188,6 +189,13 @@ function onDateRangeSelected(dates: { start: Date; end: Date }) {
   endDate.value = toDateString(dates.end);
 }
 
+function onDateRangeSelectedSafe(dates: { start: Date; end: Date }) {
+  // Prevent date changes during export preparation
+  if (!isPreparingExport.value) {
+    onDateRangeSelected(dates);
+  }
+}
+
 function onSelectMode(mode: 'solarSystem' | 'eclipses') {
   if (mode === 'solarSystem') {
     router.push(`/${locale.value}/`);
@@ -195,6 +203,10 @@ function onSelectMode(mode: 'solarSystem' | 'eclipses') {
 }
 
 function search() {
+  // Prevent search while preparing export
+  if (isPreparingExport.value) {
+    return;
+  }
   fetchEventsSSE({
     start_date: startDate.value,
     end_date: endDate.value,

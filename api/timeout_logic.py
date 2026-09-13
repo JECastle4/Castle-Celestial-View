@@ -39,23 +39,36 @@ class PercentileTracker:
     high request rates.
 
     Calculates p95 (95th percentile) efficiently with sorted samples.
+    Timeout samples are tracked separately and excluded from p95 calculation
+    to prevent timeout oscillation (where timeout samples artificially lower
+    p95 and make the system appear healthy again).
     """
 
     def __init__(self):
         """Initialize percentile tracker."""
         # {endpoint: deque of (timestamp, completion_time) tuples}
         self._observations = {}
+        # {endpoint: deque of (timestamp, timeout_duration) tuples for timed-out requests}
+        self._timeout_observations = {}
         self._lock = Lock()
         # {endpoint: (p95_value, timestamp_calculated)}
         self._percentile_cache = {}
 
-    def record_completion(self, endpoint: str, duration_seconds: float) -> None:
+    def record_completion(
+        self,
+        endpoint: str,
+        duration_seconds: float,
+        is_timeout: bool = False,
+    ) -> None:
         """
         Record a request completion time.
 
         Args:
             endpoint: Request path (e.g., '/batch-earth-observations')
             duration_seconds: How long the request took
+            is_timeout: If True, records as a timeout sample (excluded from p95 calculation)
+                       to prevent timeout oscillation. Timeouts are tracked separately
+                       for monitoring but don't influence adaptive timeout calculation.
         """
         if duration_seconds < 0:
             return  # Ignore invalid observations
@@ -63,24 +76,45 @@ class PercentileTracker:
         now = time.time()
 
         with self._lock:
-            if endpoint not in self._observations:
-                self._observations[endpoint] = deque()
+            # Route to appropriate tracker
+            if is_timeout:
+                if endpoint not in self._timeout_observations:
+                    self._timeout_observations[endpoint] = deque()
 
-            # Add observation with timestamp
-            self._observations[endpoint].append((now, duration_seconds))
+                # Add timeout observation with timestamp
+                self._timeout_observations[endpoint].append((now, duration_seconds))
 
-            # Remove old observations outside sliding window
-            cutoff = now - SLIDING_WINDOW_SECONDS
-            while (
-                self._observations[endpoint]
-                and self._observations[endpoint][0][0] < cutoff
-            ):
-                self._observations[endpoint].popleft()
+                # Remove old timeout observations outside sliding window
+                cutoff = now - SLIDING_WINDOW_SECONDS
+                while (
+                    self._timeout_observations[endpoint]
+                    and self._timeout_observations[endpoint][0][0] < cutoff
+                ):
+                    self._timeout_observations[endpoint].popleft()
 
-            # Enforce maximum sample count to prevent unbounded memory growth
-            # at high request rates. When cap is exceeded, remove oldest samples.
-            while len(self._observations[endpoint]) > MAX_OBSERVATIONS_PER_ENDPOINT:
-                self._observations[endpoint].popleft()
+                # Enforce maximum sample count for timeout observations
+                while len(self._timeout_observations[endpoint]) > MAX_OBSERVATIONS_PER_ENDPOINT:
+                    self._timeout_observations[endpoint].popleft()
+            else:
+                # Normal completion path (not a timeout)
+                if endpoint not in self._observations:
+                    self._observations[endpoint] = deque()
+
+                # Add observation with timestamp
+                self._observations[endpoint].append((now, duration_seconds))
+
+                # Remove old observations outside sliding window
+                cutoff = now - SLIDING_WINDOW_SECONDS
+                while (
+                    self._observations[endpoint]
+                    and self._observations[endpoint][0][0] < cutoff
+                ):
+                    self._observations[endpoint].popleft()
+
+                # Enforce maximum sample count to prevent unbounded memory growth
+                # at high request rates. When cap is exceeded, remove oldest samples.
+                while len(self._observations[endpoint]) > MAX_OBSERVATIONS_PER_ENDPOINT:
+                    self._observations[endpoint].popleft()
 
     def _prune_stale_observations(self, endpoint: str, now: float) -> bool:
         """
@@ -102,6 +136,14 @@ class PercentileTracker:
             and self._observations[endpoint][0][0] < cutoff
         ):
             self._observations[endpoint].popleft()
+
+        # Also prune timeout observations (for memory management)
+        if endpoint in self._timeout_observations:
+            while (
+                self._timeout_observations[endpoint]
+                and self._timeout_observations[endpoint][0][0] < cutoff
+            ):
+                self._timeout_observations[endpoint].popleft()
 
         # If observations are now empty, invalidate cache
         if not self._observations[endpoint]:
@@ -201,10 +243,26 @@ class PercentileTracker:
 
             return p95
 
+    def get_timeout_count(self, endpoint: str) -> int:
+        """
+        Get count of timeout observations for an endpoint (for monitoring).
+
+        Args:
+            endpoint: Request path
+
+        Returns:
+            Number of timeout samples in current sliding window
+        """
+        with self._lock:
+            if endpoint not in self._timeout_observations:
+                return 0
+            return len(self._timeout_observations[endpoint])
+
     def clear(self) -> None:
         """Clear all observations and cache (for testing/memory management)."""
         with self._lock:
             self._observations.clear()
+            self._timeout_observations.clear()
             self._percentile_cache.clear()
 
 
@@ -212,7 +270,11 @@ class PercentileTracker:
 _percentile_tracker = PercentileTracker()
 
 
-def record_request_completion(endpoint: str, duration_seconds: float) -> None:
+def record_request_completion(
+    endpoint: str,
+    duration_seconds: float,
+    is_timeout: bool = False,
+) -> None:
     """
     Record a request completion time for timeout calculation.
 
@@ -221,8 +283,11 @@ def record_request_completion(endpoint: str, duration_seconds: float) -> None:
     Args:
         endpoint: Request path
         duration_seconds: Request duration in seconds
+        is_timeout: If True, records as a timeout sample (excluded from p95 calculation)
+                   to prevent timeout oscillation. Timeouts are tracked separately
+                   for monitoring but don't influence adaptive timeout calculation.
     """
-    _percentile_tracker.record_completion(endpoint, duration_seconds)
+    _percentile_tracker.record_completion(endpoint, duration_seconds, is_timeout)
 
 
 def calculate_adaptive_timeout(endpoint: str) -> float:
@@ -275,3 +340,18 @@ def calculate_adaptive_timeout(endpoint: str) -> float:
 def get_tracker() -> PercentileTracker:
     """Get the global percentile tracker (mainly for testing)."""
     return _percentile_tracker
+
+
+def get_timeout_count(endpoint: str) -> int:
+    """
+    Get count of timeout observations for an endpoint (for monitoring/debugging).
+
+    Useful for detecting sustained overload conditions.
+
+    Args:
+        endpoint: Request path
+
+    Returns:
+        Number of timeout samples in current sliding window
+    """
+    return _percentile_tracker.get_timeout_count(endpoint)
