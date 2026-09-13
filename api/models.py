@@ -1165,9 +1165,12 @@ class AstronomicalEvent(BaseModel):
     )
     contact_times: Optional[dict] = Field(
         None,
-        description="Eclipse contact times. Lunar: p1/u1/u2/u3/u4/p4. "
+        description="Eclipse contact times when eclipse_occurs=true and calculation succeeds. "
+                     "Lunar: p1/u1/u2/u3/u4/p4. "
                      "Solar (geocentric, not observer-specific): eclipse_begins/"
-                     "central_phase_begins/central_phase_ends/eclipse_ends."
+                     "central_phase_begins/central_phase_ends/eclipse_ends. "
+                     "Omitted (None) when eclipse_occurs=false or contact times not computed. "
+                     "Errors (invalid date, calculation failure) return 400/500 HTTP responses."
     )
 
 
@@ -1215,8 +1218,11 @@ class EclipseContactTimesResponse(BaseModel):
     """Response model for eclipse contact times"""
     contact_times: Optional[dict] = Field(
         None,
-        description="Eclipse contact times. Lunar: p1/u1/u2/u3/u4/p4. "
+        description="Eclipse contact times for a successful (200) response. "
+                     "Lunar: p1/u1/u2/u3/u4/p4. "
                      "Solar (geocentric, not observer-specific): eclipse_begins/"
                      "central_phase_begins/central_phase_ends/eclipse_ends. "
-                     "None if calculation fails or event_date is invalid."
+                     "Omitted (None) if contact times cannot be computed. "
+                     "Errors (invalid event_date format, non-eclipse date, calculation failure) "
+                     "return 400 or 500 HTTP responses, not this model."
     )

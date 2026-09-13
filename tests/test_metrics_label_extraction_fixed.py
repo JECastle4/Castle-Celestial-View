@@ -98,11 +98,11 @@ class TestMetricLabelExtraction:
     def test_metrics_endpoint_recognized(self):
         """Test that metrics endpoint is recognized."""
         request = MagicMock(spec=Request)
-        request.url.path = "/metrics"
+        request.url.path = "/api/metrics"
         
         label = extract_metric_label(request)
         
-        assert label == "/metrics"
+        assert label == "/api/metrics"
     
     def test_api_v1_generic_endpoint_grouped_by_first_segment(self):
         """Test that other /api/v1/ endpoints are grouped by first segment."""

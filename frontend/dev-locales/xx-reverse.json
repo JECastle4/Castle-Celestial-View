@@ -220,6 +220,7 @@
     "allTimesLocal": "enoz emit lacol ruoy ni era semit llA",
     "loadingContactTimes": "...semit tcatnoc gnidaoL",
     "noDataToExport": ".tsrif hcraes esaelP .trope ot stneve oN",
+    "loadingContactTimesProgress": "{total} fo {completed} ...semit tcatnoc gnidaoL",
     "loadingContactTimesForExport": "...trope rof semit tcatnoc gnidaoL",
     "exportSuccess": "yllufsseccus detelpmoC tropxE",
     "exportError": "}rorre{ :rorre tropxE",

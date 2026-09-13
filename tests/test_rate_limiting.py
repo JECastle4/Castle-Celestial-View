@@ -170,6 +170,233 @@ class TestRateLimiterProduction:
         pytest.skip("Real limiter testing requires non-test environment")
 
 
+class TestRateLimiterWithIsolatedLimiter:
+    """Test rate limiting behavior using an isolated Limiter instance.
+    
+    These tests create a temporary FastAPI app with a real Limiter (not MockLimiter)
+    to verify security-critical behaviors: throttling, per-client isolation, and 429
+    responses. This runs in CI without affecting the application's test-mode limiter.
+    """
+    
+    def test_real_limiter_throttles_requests(self):
+        """Test that SlowAPI Limiter actually throttles requests when limit exceeded."""
+        from slowapi import Limiter
+        from slowapi.util import get_remote_address
+        from slowapi.errors import RateLimitExceeded
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        
+        # Create isolated limiter with in-memory storage (no Redis required)
+        test_limiter = Limiter(
+            key_func=get_remote_address,
+            default_limits=["2/minute"]  # Allow 2 requests per minute
+        )
+        
+        # Create temporary test app
+        test_app = FastAPI()
+        test_app.state.limiter = test_limiter
+        
+        # Add exception handler for rate limit
+        test_app.add_exception_handler(
+            RateLimitExceeded,
+            lambda req, exc: JSONResponse(status_code=429, content={"error": "rate limited"})
+        )
+        
+        # Add test endpoint
+        @test_app.get("/test")
+        @test_limiter.limit("2/minute")
+        async def test_endpoint(request: Request):
+            return {"ok": True}
+        
+        client = TestClient(test_app)
+        
+        # First request should succeed
+        response1 = client.get("/test")
+        assert response1.status_code == 200
+        
+        # Second request should succeed
+        response2 = client.get("/test")
+        assert response2.status_code == 200
+        
+        # Third request should be throttled (429)
+        response3 = client.get("/test")
+        assert response3.status_code == 429
+        assert "rate" in response3.json().get("error", "").lower()
+    
+    def test_real_limiter_per_client_isolation(self):
+        """Test that rate limits are enforced per-client IP, not globally.
+        
+        Security check: Verify that multiple clients each get their own quota.
+        If limits were global, the second client would hit the limit of the first.
+        """
+        from slowapi import Limiter
+        from slowapi.errors import RateLimitExceeded
+        from fastapi import FastAPI, Request
+        from fastapi.testclient import TestClient
+        
+        # Custom key function that reads client IP from X-Forwarded-For header
+        # (TestClient doesn't set real client IPs, so we use headers for testing)
+        def get_client_key(request: Request):
+            forwarded_for = request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+            if forwarded_for:
+                return forwarded_for
+            return request.client.host if request.client else "unknown"
+        
+        # Create isolated limiter with custom key function
+        test_limiter = Limiter(
+            key_func=get_client_key,
+            default_limits=["1/minute"]  # 1 request per minute per client
+        )
+        
+        # Create temporary test app
+        test_app = FastAPI()
+        test_app.state.limiter = test_limiter
+        
+        test_app.add_exception_handler(
+            RateLimitExceeded,
+            lambda req, exc: JSONResponse(status_code=429, content={"error": "rate limited"})
+        )
+        
+        @test_app.get("/test")
+        @test_limiter.limit("1/minute")
+        async def test_endpoint(request: Request):
+            return {"ok": True}
+        
+        client = TestClient(test_app)
+        
+        # Client1 makes 1 request (should succeed)
+        response1a = client.get("/test", headers={"X-Forwarded-For": "192.0.2.1"})
+        assert response1a.status_code == 200
+        
+        # Client1 makes 2nd request (should be throttled)
+        response1b = client.get("/test", headers={"X-Forwarded-For": "192.0.2.1"})
+        assert response1b.status_code == 429
+        
+        # Client2 makes 1 request (should succeed even though Client1 is throttled)
+        # This proves per-client isolation
+        response2a = client.get("/test", headers={"X-Forwarded-For": "192.0.2.2"})
+        assert response2a.status_code == 200
+    
+    def test_real_limiter_429_response_structure(self):
+        """Test that 429 responses have proper structure and headers."""
+        from slowapi import Limiter
+        from slowapi.util import get_remote_address
+        from slowapi.errors import RateLimitExceeded
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        
+        test_limiter = Limiter(
+            key_func=get_remote_address,
+            default_limits=["1/minute"]
+        )
+        
+        test_app = FastAPI()
+        test_app.state.limiter = test_limiter
+        
+        test_app.add_exception_handler(
+            RateLimitExceeded,
+            lambda req, exc: JSONResponse(status_code=429, content={"error": "rate limited"})
+        )
+        
+        @test_app.get("/test")
+        @test_limiter.limit("1/minute")
+        async def test_endpoint(request: Request):
+            return {"ok": True}
+        
+        client = TestClient(test_app)
+        
+        # Exhaust limit
+        client.get("/test")
+        
+        # Next request should be throttled with proper 429 response
+        response = client.get("/test")
+        assert response.status_code == 429
+        assert isinstance(response.json(), dict)
+        assert "error" in response.json()
+    
+    def test_real_limiter_handles_decorated_endpoints(self):
+        """Test that @limiter.limit() decorator actually enforces the specified limit.
+        
+        This verifies that different endpoints can have different limits.
+        """
+        from slowapi import Limiter
+        from slowapi.util import get_remote_address
+        from slowapi.errors import RateLimitExceeded
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        
+        test_limiter = Limiter(key_func=get_remote_address)
+        
+        test_app = FastAPI()
+        test_app.state.limiter = test_limiter
+        
+        test_app.add_exception_handler(
+            RateLimitExceeded,
+            lambda req, exc: JSONResponse(status_code=429, content={"error": "rate limited"})
+        )
+        
+        # Endpoint with strict limit
+        @test_app.get("/strict")
+        @test_limiter.limit("1/minute")
+        async def strict_endpoint(request: Request):
+            return {"ok": True}
+        
+        # Endpoint with generous limit
+        @test_app.get("/generous")
+        @test_limiter.limit("5/minute")
+        async def generous_endpoint(request: Request):
+            return {"ok": True}
+        
+        client = TestClient(test_app)
+        
+        # Hit strict limit (1/minute)
+        assert client.get("/strict").status_code == 200
+        assert client.get("/strict").status_code == 429
+        
+        # Generous endpoint should still work (5/minute, only 1 request made)
+        assert client.get("/generous").status_code == 200
+        assert client.get("/generous").status_code == 200
+        assert client.get("/generous").status_code == 200
+    
+    def test_real_limiter_respects_burst_vs_steady_state(self):
+        """Test rate limiter distinguishes between burst and sustained load.
+        
+        Slow API uses token bucket algorithm: allows burst up to limit,
+        then throttles. This test verifies that behavior.
+        """
+        from slowapi import Limiter
+        from slowapi.util import get_remote_address
+        from slowapi.errors import RateLimitExceeded
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        import time
+        
+        test_limiter = Limiter(key_func=get_remote_address)
+        
+        test_app = FastAPI()
+        test_app.state.limiter = test_limiter
+        
+        test_app.add_exception_handler(
+            RateLimitExceeded,
+            lambda req, exc: JSONResponse(status_code=429, content={"error": "rate limited"})
+        )
+        
+        @test_app.get("/test")
+        @test_limiter.limit("3/minute")
+        async def test_endpoint(request: Request):
+            return {"ok": True}
+        
+        client = TestClient(test_app)
+        
+        # Burst: 3 requests allowed
+        assert client.get("/test").status_code == 200
+        assert client.get("/test").status_code == 200
+        assert client.get("/test").status_code == 200
+        
+        # 4th request in same minute should be throttled
+        assert client.get("/test").status_code == 429
+
+
 class TestRateLimiterBypass:
     """Test rate limiter bypass for internal IPs and test mode."""
     

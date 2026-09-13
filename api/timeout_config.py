@@ -8,11 +8,11 @@ observed system performance (p95 request duration).
 
 # Endpoint cost tier classification (for adaptive timeout calculation)
 # Paths must match what middleware receives: /api/v1 prefix for routed endpoints,
-# direct paths for root-level endpoints
+# /api prefix for metrics router, direct paths for root-level endpoints
 ENDPOINT_COSTS = {
     # Cheap: lightweight responses, typically <100ms
     '/health': 'cheap',  # Registered directly on app, not under /api/v1
-    '/metrics': 'cheap',  # Metrics router (separate from /api/v1)
+    '/api/metrics': 'cheap',  # Metrics router (mounted with /api prefix)
     '/': 'cheap',        # Root endpoint
     '/cache-stats': 'cheap',
     '/rate-limit-stats': 'cheap',

@@ -122,11 +122,18 @@ class RequestSizeLimitMiddleware:  # pylint: disable=too-few-public-methods
     - Clients using chunked transfer encoding
     - Clients omitting the Content-Length header entirely
 
-    By intercepting at the ASGI receive() stream, we enforce the limit regardless
-    of headers. This is critical for security in single-instance deployments.
+    Strategy:
+    1. Validate Content-Length header upfront (if present) before invoking app
+       - If oversized, send 413 immediately and return without calling app
+    2. For streaming bodies without Content-Length, wrap receive() to monitor bytes
+       - If size exceeded during streaming, return http.disconnect to abort body reading
+       - This prevents the app from receiving more body data
 
-    In production with a reverse proxy (nginx, HAProxy, etc.) that enforces request
-    size limits independently, this provides defense-in-depth.
+    Ensures exactly one HTTP response is sent by rejecting oversized requests before
+    the downstream app executes.
+
+    In production with a reverse proxy (nginx, HAProxy, etc.), proxy-level size
+    limits provide additional defense-in-depth.
 
     Responds with HTTP 413 (Payload Too Large) if body exceeds MAX_REQUEST_SIZE_BYTES.
     """
@@ -139,12 +146,47 @@ class RequestSizeLimitMiddleware:  # pylint: disable=too-few-public-methods
             await self.asgi_app(scope, receive, send)
             return
 
-        # Track bytes read from request body
+        # Check Content-Length header upfront (if present)
+        # This allows us to reject oversized requests BEFORE invoking the app
+        headers = scope.get("headers", [])
+        for header_name, header_value in headers:
+            if header_name.lower() == b"content-length":
+                try:
+                    content_length = int(header_value.decode())
+                    if content_length > MAX_REQUEST_SIZE_BYTES:
+                        client_host = scope.get("client", ("unknown", 0))[0]
+                        logger.warning(
+                            "Request rejected: Content-Length %d bytes exceeds "
+                            "limit of %d bytes from %s",
+                            content_length,
+                            MAX_REQUEST_SIZE_BYTES,
+                            client_host
+                        )
+                        # Send 413 response BEFORE calling app
+                        await send({
+                            "type": "http.response.start",
+                            "status": 413,
+                            "headers": [
+                                [b"content-type", b"application/json"],
+                            ],
+                        })
+                        await send({
+                            "type": "http.response.body",
+                            "body": b"",
+                        })
+                        return  # Do not invoke app
+                except (ValueError, UnicodeDecodeError):
+                    pass
+                break
+
+        # For requests without Content-Length header, wrap receive() to enforce limit
+        # during streaming. This catches clients using chunked transfer encoding
+        # or omitting the Content-Length header.
         bytes_received = 0
         original_receive = receive
 
         async def size_limited_receive():
-            """Intercept ASGI receive() to enforce request body size limit."""
+            """Intercept ASGI receive() to enforce request body size limit during streaming."""
             nonlocal bytes_received
 
             message = await original_receive()
@@ -155,7 +197,8 @@ class RequestSizeLimitMiddleware:  # pylint: disable=too-few-public-methods
                 bytes_received += chunk_size
 
                 if bytes_received > MAX_REQUEST_SIZE_BYTES:
-                    # Reject: too many bytes received
+                    # Size limit exceeded during streaming
+                    # Return http.disconnect to abort body reading and signal connection closure
                     client_host = scope.get("client", ("unknown", 0))[0]
                     logger.warning(
                         "Request rejected: Body size %d bytes exceeds limit of %d bytes from %s",
@@ -163,31 +206,9 @@ class RequestSizeLimitMiddleware:  # pylint: disable=too-few-public-methods
                         MAX_REQUEST_SIZE_BYTES,
                         client_host
                     )
-
-                    # Send 413 Payload Too Large response
-                    await send({
-                        "type": "http.response.start",
-                        "status": 413,
-                        "headers": [
-                            [b"content-type", b"application/json"],
-                            [b"content-length", b"0"],
-                        ],
-                    })
-                    await send({
-                        "type": "http.response.body",
-                        "body": b"",
-                    })
-
-                    # Drain remaining body to clean up connection
-                    # (required by ASGI spec: handler must consume remaining messages)
-                    async def drain():
-                        while True:
-                            msg = await original_receive()
-                            if msg["type"] == "http.disconnect" or not msg.get("more_body", False):
-                                break
-
-                    asyncio.create_task(drain())
-                    return
+                    # Returning http.disconnect tells the app the connection was closed
+                    # and prevents it from reading more body data
+                    return {"type": "http.disconnect"}
 
             return message
 
@@ -306,7 +327,7 @@ def _get_pre_route_label(request: Request) -> str:
     - "/api/v1/astronomical-events/contact-times" (separate endpoint)
     - "/api/v1/batch-earth-observations" → "/api/v1/batch-earth-observations"
     - "/api/v1/random-nonce" → "unknown" (not in allowlist)
-    - "/metrics" → "/metrics"
+    - "/api/metrics" → "/api/metrics"
     - "/unknown/path" → "unknown" (bounded)
 
     Args:
@@ -340,9 +361,9 @@ def _get_pre_route_label(request: Request) -> str:
     if path in ("/", "/health", "/cache-stats", "/rate-limit-stats"):
         return path
 
-    # Metrics endpoint
-    if path.startswith("/metrics"):
-        return "/metrics"
+    # Metrics endpoint (mounted with /api prefix)
+    if path.startswith("/api/metrics"):
+        return "/api/metrics"
 
     # Unbounded/unknown path - return bounded label to prevent cardinality explosion
     return "unknown"

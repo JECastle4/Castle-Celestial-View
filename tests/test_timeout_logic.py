@@ -33,7 +33,7 @@ class TestTimeoutConfig:
     def test_endpoint_cost_classification(self):
         """Test that endpoints are correctly classified."""
         assert get_endpoint_cost('/health') == 'cheap'
-        assert get_endpoint_cost('/metrics') == 'cheap'
+        assert get_endpoint_cost('/api/metrics') == 'cheap'
         assert get_endpoint_cost('/api/v1/sun-position') == 'medium'
         assert get_endpoint_cost('/api/v1/batch-earth-observations') == 'expensive'
         assert get_endpoint_cost('/api/v1/astronomical-events') == 'expensive'

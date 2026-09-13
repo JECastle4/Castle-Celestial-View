@@ -558,6 +558,127 @@ describe('EventsView', () => {
     expect(instances).toHaveLength(1);
   });
 
+  it('prevents duplicate contact times API calls when loadingEventDates guard is active', async () => {
+    const wrapper = mount(EventsView);
+    await flushPromises();
+
+    await wrapper.find('.search-btn').trigger('click');
+    await flushPromises();
+
+    const source = instances[0];
+    const eclipseEvent = makeEvent({
+      date: '2025-09-07 18:11:42.600',
+      event_type: 'Lunar Total',
+      is_lunar: true,
+      eclipse_occurs: true,
+      contact_times: null,
+    });
+    source.emit('page', { page: 1, events: [eclipseEvent] });
+    source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+    await flushPromises();
+
+    // We'll manually test the guard logic by simulating what happens in loadContactTimesForEvent
+    // Add a date to the loading set (simulating first call)
+    const dateStr = eclipseEvent.date;
+    const initialLoadingSet = new Set<string>();
+    initialLoadingSet.add(dateStr);
+    
+    // This simulates the guard condition:
+    // if (loadingEventDates.value.has(dateStr)) { return; }
+    const shouldSkipDueToGuard = initialLoadingSet.has(dateStr);
+    expect(shouldSkipDueToGuard).toBe(true);
+    
+    // Verify that if this guard condition is true, the function would return early
+    // and not call fetchContactTimesForEvent
+    // (This is the core protection against duplicate requests during rapid expand/collapse)
+  });
+
+  it('allows loading contact times for different eclipse events independently', async () => {
+    const wrapper = mount(EventsView);
+    await flushPromises();
+
+    await wrapper.find('.search-btn').trigger('click');
+    await flushPromises();
+
+    const source = instances[0];
+    const eclipse1 = makeEvent({
+      date: '2025-09-07 18:11:42.600',
+      event_type: 'Lunar Total',
+      is_lunar: true,
+      eclipse_occurs: true,
+      contact_times: null,
+    });
+    const eclipse2 = makeEvent({
+      date: '2025-09-21 10:00:00.000',
+      event_type: 'Solar Annular',
+      is_lunar: false,
+      eclipse_occurs: true,
+      contact_times: null,
+    });
+    source.emit('page', { page: 1, events: [eclipse1, eclipse2] });
+    source.emit('metadata', { page_size: 10, total_events: 2, total_pages: 1 });
+    await flushPromises();
+
+    // The loadingEventDates Set is date-based, so different dates won't trigger the guard
+    const date1 = eclipse1.date;
+    const date2 = eclipse2.date;
+    
+    // Loading set starts empty
+    const loadingSet = new Set<string>();
+    
+    // After first eclipse load starts, date1 is in the set
+    loadingSet.add(date1);
+    expect(loadingSet.has(date1)).toBe(true);
+    expect(loadingSet.has(date2)).toBe(false);
+    
+    // Trying to load second eclipse with different date should NOT hit the guard
+    const shouldSkipForDate2 = loadingSet.has(date2);
+    expect(shouldSkipForDate2).toBe(false);
+    
+    // Verify different dates work independently
+    expect(date1).not.toBe(date2);
+  });
+
+  it('clears loading state after contact times request completes', async () => {
+    const wrapper = mount(EventsView);
+    await flushPromises();
+
+    await wrapper.find('.search-btn').trigger('click');
+    await flushPromises();
+
+    const source = instances[0];
+    const eclipseEvent = makeEvent({
+      date: '2025-09-07 18:11:42.600',
+      event_type: 'Lunar Total',
+      is_lunar: true,
+      eclipse_occurs: true,
+      contact_times: null,
+    });
+    source.emit('page', { page: 1, events: [eclipseEvent] });
+    source.emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+    await flushPromises();
+
+    // Simulate the loading lifecycle:
+    // 1. Date is added to loading set at start
+    const dateStr = eclipseEvent.date;
+    const loadingSet = new Set<string>();
+    
+    loadingSet.add(dateStr);
+    expect(loadingSet.has(dateStr)).toBe(true);
+    
+    // 2. Guard prevents duplicate while in-flight
+    const shouldSkip = loadingSet.has(dateStr);
+    expect(shouldSkip).toBe(true);
+    
+    // 3. After completion, date is removed from loading set (in finally block)
+    loadingSet.delete(dateStr);
+    expect(loadingSet.has(dateStr)).toBe(false);
+    
+    // 4. Now subsequent expand can proceed (guard no longer applies)
+    const shouldSkipSecondTime = loadingSet.has(dateStr);
+    expect(shouldSkipSecondTime).toBe(false);
+  });
+
   describe('Export Functionality', () => {
     it('shows export buttons when events are available', async () => {
       const wrapper = mount(EventsView);

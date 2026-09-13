@@ -213,6 +213,11 @@ async function loadContactTimesForEvent(event: any) {
 
   const dateStr = event.date;
   
+  // Skip if already loading this date (prevents duplicate requests from rapid expand/collapse)
+  if (loadingEventDates.value.has(dateStr)) {
+    return;
+  }
+  
   try {
     loadingEventDates.value = new Set(loadingEventDates.value).add(dateStr);
     delete contactTimesErrors.value[dateStr];
