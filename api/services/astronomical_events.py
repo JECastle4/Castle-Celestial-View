@@ -44,9 +44,15 @@ MAX_RANGE_DAYS = 3660  # ~10 years
 def _phase_angle_deg(time_obj):
     """Moon's ecliptic longitude minus Sun's, wrapped into [0, 360)."""
     sun = get_sun(time_obj)
+    record_astropy_call_safe('/astronomical-events', 'get_sun', 1)
+
     moon = get_body('moon', time_obj, location=GEOCENTRIC)
+    record_astropy_call_safe('/astronomical-events', 'get_body', 1)
+
     sun_lon = sun.transform_to(GeocentricMeanEcliptic(equinox=time_obj)).lon.degree
     moon_lon = moon.transform_to(GeocentricMeanEcliptic(equinox=time_obj)).lon.degree
+    record_astropy_call_safe('/astronomical-events', 'transform_to', 2)
+
     return (moon_lon - sun_lon) % 360
 
 

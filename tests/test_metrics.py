@@ -187,6 +187,33 @@ class TestMetricsMiddleware:
         metrics_response = client.get('/api/metrics')
         assert metrics_response.status_code == 200
 
+    def test_astropy_calls_recorded_by_phase_angle_deg(self):
+        """Verify that _phase_angle_deg instrumentation records all Astropy calls.
+        
+        The bisection root-finder repeatedly calls _phase_angle_deg during
+        moon phase crossing detection. This test confirms that each call
+        records all 4 Astropy operations (get_sun, get_body, 2x transform_to).
+        """
+        from unittest.mock import patch, call
+        from astropy.time import Time
+        from api.services.astronomical_events import _phase_angle_deg
+        
+        # Patch record_astropy_call_safe to verify it's called with correct arguments
+        with patch('api.services.astronomical_events.record_astropy_call_safe') as mock_record:
+            time_obj = Time('2025-09-07', scale='utc')
+            _phase_angle_deg(time_obj)
+            
+            # Verify all 4 Astropy calls were recorded
+            expected_calls = [
+                call('/astronomical-events', 'get_sun', 1),
+                call('/astronomical-events', 'get_body', 1),
+                call('/astronomical-events', 'transform_to', 2),
+            ]
+            mock_record.assert_has_calls(expected_calls)
+            assert mock_record.call_count == 3, (
+                f"Expected 3 record_astropy_call_safe calls, got {mock_record.call_count}"
+            )
+
 
 class TestMetricsFormat:
     """Test Prometheus text format output."""
