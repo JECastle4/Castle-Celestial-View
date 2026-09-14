@@ -41,7 +41,7 @@ dev = [
 ]
 
 [tool.setuptools]
-packages = ["find:"]
+packages = ["api", "api.middleware", "api.routes", "api.services"]
 
 [tool.setuptools.package-data]
 # Include all production locales (excludes dev-only xx-reverse.json)
