@@ -773,6 +773,15 @@ class TimeoutMiddleware:  # pylint: disable=too-few-public-methods
                 })
             else:
                 # Response already started; can't send headers, just close body
+                scope["_timeout_middleware_generated"] = True
+                metrics = get_metrics()
+                metrics.record_timeout_exceeded(endpoint)
+                elapsed = time.perf_counter() - start_time
+                logger.warning(
+                    "Request timeout on %s after %.2fs (response started, stream cut off)",
+                    endpoint,
+                    elapsed
+                )
                 await send({
                     "type": "http.response.body",
                     "body": b"",

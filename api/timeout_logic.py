@@ -54,6 +54,56 @@ class PercentileTracker:
         # {endpoint: (p95_value, timestamp_calculated)}
         self._percentile_cache = {}
 
+    def _record_timeout_observation(
+        self, endpoint: str, now: float, duration_seconds: float
+    ) -> None:
+        """Record a timeout observation with pruning and size limits.
+
+        Args:
+            endpoint: Request path
+            now: Current timestamp
+            duration_seconds: Timeout duration
+        """
+        if endpoint not in self._timeout_observations:
+            self._timeout_observations[endpoint] = deque()
+
+        self._timeout_observations[endpoint].append((now, duration_seconds))
+
+        cutoff = now - SLIDING_WINDOW_SECONDS
+        while (
+            self._timeout_observations[endpoint]
+            and self._timeout_observations[endpoint][0][0] < cutoff
+        ):
+            self._timeout_observations[endpoint].popleft()
+
+        while len(self._timeout_observations[endpoint]) > MAX_OBSERVATIONS_PER_ENDPOINT:
+            self._timeout_observations[endpoint].popleft()
+
+    def _record_normal_observation(
+        self, endpoint: str, now: float, duration_seconds: float
+    ) -> None:
+        """Record a normal completion observation with pruning and size limits.
+
+        Args:
+            endpoint: Request path
+            now: Current timestamp
+            duration_seconds: Request completion duration
+        """
+        if endpoint not in self._observations:
+            self._observations[endpoint] = deque()
+
+        self._observations[endpoint].append((now, duration_seconds))
+
+        cutoff = now - SLIDING_WINDOW_SECONDS
+        while (
+            self._observations[endpoint]
+            and self._observations[endpoint][0][0] < cutoff
+        ):
+            self._observations[endpoint].popleft()
+
+        while len(self._observations[endpoint]) > MAX_OBSERVATIONS_PER_ENDPOINT:
+            self._observations[endpoint].popleft()
+
     def record_completion(
         self,
         endpoint: str,
@@ -76,45 +126,10 @@ class PercentileTracker:
         now = time.time()
 
         with self._lock:
-            # Route to appropriate tracker
             if is_timeout:
-                if endpoint not in self._timeout_observations:
-                    self._timeout_observations[endpoint] = deque()
-
-                # Add timeout observation with timestamp
-                self._timeout_observations[endpoint].append((now, duration_seconds))
-
-                # Remove old timeout observations outside sliding window
-                cutoff = now - SLIDING_WINDOW_SECONDS
-                while (
-                    self._timeout_observations[endpoint]
-                    and self._timeout_observations[endpoint][0][0] < cutoff
-                ):
-                    self._timeout_observations[endpoint].popleft()
-
-                # Enforce maximum sample count for timeout observations
-                while len(self._timeout_observations[endpoint]) > MAX_OBSERVATIONS_PER_ENDPOINT:
-                    self._timeout_observations[endpoint].popleft()
+                self._record_timeout_observation(endpoint, now, duration_seconds)
             else:
-                # Normal completion path (not a timeout)
-                if endpoint not in self._observations:
-                    self._observations[endpoint] = deque()
-
-                # Add observation with timestamp
-                self._observations[endpoint].append((now, duration_seconds))
-
-                # Remove old observations outside sliding window
-                cutoff = now - SLIDING_WINDOW_SECONDS
-                while (
-                    self._observations[endpoint]
-                    and self._observations[endpoint][0][0] < cutoff
-                ):
-                    self._observations[endpoint].popleft()
-
-                # Enforce maximum sample count to prevent unbounded memory growth
-                # at high request rates. When cap is exceeded, remove oldest samples.
-                while len(self._observations[endpoint]) > MAX_OBSERVATIONS_PER_ENDPOINT:
-                    self._observations[endpoint].popleft()
+                self._record_normal_observation(endpoint, now, duration_seconds)
 
     def _prune_stale_observations(self, endpoint: str, now: float) -> bool:
         """
