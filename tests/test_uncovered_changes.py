@@ -17,7 +17,6 @@ from starlette.responses import StreamingResponse
 
 from api.main import (
     _get_pre_route_label,
-    _wrap_streaming_response_timeout,
     _record_streaming_timeout_metrics,
     StreamingMetadata,
 )

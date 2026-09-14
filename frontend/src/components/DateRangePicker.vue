@@ -40,6 +40,7 @@ export default defineComponent({
     const startDateString = ref(props.initialStartDate);
     const endDateString = ref(props.initialEndDate);
     const errorMessage = ref('');
+    const disabled = computed(() => props.disabled);
     const isValid = computed(() => {
       if (!startDateString.value || !endDateString.value) return false;
       const start = new Date(startDateString.value);
@@ -88,7 +89,7 @@ export default defineComponent({
       isValid,
       validateDates,
       applyDates,
-      disabled: props.disabled,
+      disabled,
       t
     };
   }
