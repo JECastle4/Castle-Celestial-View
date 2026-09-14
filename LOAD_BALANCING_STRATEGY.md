@@ -105,11 +105,12 @@ else:
    - Or, separate SIGTERM handler tied to request timeout (requires worker cooperation)
    - CPU-bound Astropy work will complete its current calculation regardless of cancellation
 
-**Benefits:**
-- Truly interrupts CPU-bound work (not just event loop cancellation)
-- Resources freed immediately when timeout fires
-- Compatible with multi-instance graceful shutdown (same signal handling)
-- Enables request cancellation for long-running streams
+**Benefits of ProcessPoolExecutor foundation:**
+- Moves expensive calculations out of event loop (better concurrency model)
+- Enables future explicit process termination or cooperative cancellation
+- Foundation for future graceful shutdown with work cancellation
+- Prepares codebase for resource cleanup strategies
+- **Note:** Without explicit termination or cooperative cancellation, CPU-bound work still completes even if timeout fires (resources are NOT freed immediately in this phase)
 
 **Complexity vs. Value:**
 - Medium complexity: refactor calculation paths, process lifecycle management

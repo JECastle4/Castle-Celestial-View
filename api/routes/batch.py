@@ -132,7 +132,7 @@ def stream_batch_earth_observations(
     - Venus phase (illumination, angle, name, naked-eye visibility)
 
     **Note:** For large frame counts, this may take several seconds to compute.
-    Current implementation calls position services for each frame.
+    Implementation fetches all celestial bodies once and indexes vectorized arrays for efficiency.
     """
 )
 @limiter.limit(LIMIT_EXPENSIVE_BATCH)  # DDoS protection: rate limited per IP

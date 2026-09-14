@@ -163,6 +163,19 @@ else:
 #   - Events: 240 / 30 = 8 requests/min (at peak capacity; use 8 req/min)
 #   - Position: 240 / 2 = 120 requests/min (plenty of headroom; use 100 req/min)
 #
+# CONSERVATIVE LIMITS vs PR #207 SPECIFICATION:
+# PR #207 / Issue #207 specified higher limits:
+#   - Batch: 10/minute (200% of conservative default)
+#   - Events: 15/minute (188% of conservative default)
+# These were intentionally reduced here for safety because:
+#   1. Fixed-window rate limiting allows all N requests to arrive in a burst
+#   2. Burst load cannot be absorbed by CPU capacity
+#   3. Background timeout/retry mechanisms cause cascading failures
+#   4. Conservative defaults protect production during Phase 3
+# To use the higher limits, set environment variables:
+#   - export LIMIT_EXPENSIVE_BATCH=10/minute
+#   - export LIMIT_EXPENSIVE_EVENTS=15/minute
+#
 # IMPORTANT LIMITATION: Fixed-window rate limiting ("N per minute") does NOT space
 # requests evenly across time. All N requests can arrive in a single burst:
 #   - 5 batch requests arriving together = 200s CPU work queued instantly
@@ -183,10 +196,12 @@ else:
 LIMIT_EXPENSIVE_BATCH = os.getenv(
     "LIMIT_EXPENSIVE_BATCH",
     "5/minute"  # batch-earth-observations: 40s CPU × 5 = 200s (83% of 240s capacity)
+                # NOTE: PR #207 specified 10/minute, reduced here for safety (see above)
 )
 LIMIT_EXPENSIVE_EVENTS = os.getenv(
     "LIMIT_EXPENSIVE_EVENTS",
     "8/minute"  # astronomical-events: 30s CPU × 8 = 240s (100% peak capacity)
+               # NOTE: PR #207 specified 15/minute, reduced here for safety (see above)
 )
 LIMIT_STREAM_EVENTS = os.getenv(
     "LIMIT_STREAM_EVENTS",

@@ -88,6 +88,96 @@ describe('Export Service', () => {
       expect(global.URL.createObjectURL).toHaveBeenCalled();
     });
 
+    it('should generate N/A row for eclipse with empty contact_times', async () => {
+      const events: AstronomicalEvent[] = [
+        {
+          date: '2025-09-07',
+          event_type: 'Solar Eclipse',
+          is_lunar: false,
+          eclipse_occurs: true,
+          contact_times: {}, // Empty object - should generate N/A row, not disappear
+        } as unknown as AstronomicalEvent,
+      ];
+
+      // Capture the Blob passed to createObjectURL
+      let capturedBlob: Blob | null = null;
+      global.URL.createObjectURL = vi.fn((blob: unknown) => {
+        capturedBlob = blob as Blob;
+        return 'blob:mock-url';
+      });
+
+      exportContactTimesToCSV(events);
+
+      // Verify a Blob was created
+      expect(capturedBlob).not.toBeNull();
+      expect(capturedBlob).toBeInstanceOf(Blob);
+
+      // Convert Blob to text and verify CSV content
+      if (capturedBlob !== null) {
+        const csvText = await (capturedBlob as Blob).text();
+        
+        // Should contain the header row
+        expect(csvText).toContain('Date');
+        expect(csvText).toContain('Event Type');
+        expect(csvText).toContain('Contact Type');
+        
+        // Should contain the eclipse data with N/A for contact times
+        expect(csvText).toContain('2025-09-07');
+        expect(csvText).toContain('Solar Eclipse');
+        
+        // Should have an N/A row (not disappear due to empty contact_times)
+        // The row should show the eclipse occurred but have N/A for contact details
+        expect(csvText).toContain('N/A');
+        
+        // Verify it's not empty (should have at least header + one data row)
+        const lines = csvText.trim().split('\n');
+        expect(lines.length).toBeGreaterThanOrEqual(2);
+      }
+    });
+
+    it('should generate multiple rows for eclipse with contact_times', async () => {
+      const events: AstronomicalEvent[] = [
+        {
+          date: '2025-09-07',
+          event_type: 'Solar Eclipse',
+          is_lunar: false,
+          eclipse_occurs: true,
+          contact_times: {
+            'Penumbral Ingress': '2025-09-07 14:00:00',
+            'Partial Ingress': '2025-09-07 15:30:00',
+            'Maximum Eclipse': '2025-09-07 16:15:00',
+            'Partial Egress': '2025-09-07 17:00:00',
+            'Penumbral Egress': '2025-09-07 18:30:00',
+          },
+        } as unknown as AstronomicalEvent,
+      ];
+
+      // Capture the Blob passed to createObjectURL
+      let capturedBlob: Blob | null = null;
+      global.URL.createObjectURL = vi.fn((blob: unknown) => {
+        capturedBlob = blob as Blob;
+        return 'blob:mock-url';
+      });
+
+      exportContactTimesToCSV(events);
+
+      // Verify Blob was created
+      expect(capturedBlob).not.toBeNull();
+
+      if (capturedBlob !== null) {
+        const csvText = await (capturedBlob as Blob).text();
+        const lines = csvText.trim().split('\n');
+        
+        // Should have header + 5 contact rows = 6 lines minimum
+        expect(lines.length).toBeGreaterThanOrEqual(6);
+        
+        // Should contain all contact times
+        expect(csvText).toContain('Penumbral Ingress');
+        expect(csvText).toContain('Maximum Eclipse');
+        expect(csvText).toContain('Penumbral Egress');
+      }
+    });
+
     it('should use custom filename for CSV export', () => {
       const events: AstronomicalEvent[] = [];
       const customFilename = 'my-eclipses.csv';

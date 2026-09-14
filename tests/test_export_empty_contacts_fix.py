@@ -1,5 +1,15 @@
 """
 Tests for export.ts fix - verifying empty contact_times handling.
+
+NOTE: The actual regression tests that verify the TypeScript implementation
+are in frontend/src/services/export.test.ts:
+
+  - test('should generate N/A row for eclipse with empty contact_times')
+  - test('should generate multiple rows for eclipse with contact_times')
+
+These tests call exportContactTimesToCSV directly and verify the generated
+CSV Blob contains the expected rows. This Python file documents the bug
+and expected behavior for reference.
 """
 
 import sys

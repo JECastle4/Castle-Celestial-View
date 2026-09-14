@@ -69,14 +69,18 @@ class TestBenchmarkFrameCounts:
             "Benchmark should have 10s threshold for 1000 frames"
         
         # Verify it's the right comparison (not 40s for 1000)
-        # Extract the actual check
+        # Extract the actual check - this pattern MUST match or test fails
         pattern = r'frame_count\s*==\s*1000\s*and\s*elapsed\s*>\s*(\d+)'
         matches = re.findall(pattern, content)
         
-        if matches:
-            threshold = int(matches[0])
-            assert threshold == 10, \
-                f"1000-frame threshold should be 10s, not {threshold}s"
+        # Require the pattern to be found; silent pass indicates regression
+        assert len(matches) > 0, \
+            "Benchmark must have explicit check: frame_count == 1000 and elapsed > N"
+        
+        # Now verify the threshold is correct
+        threshold = int(matches[0])
+        assert threshold == 10, \
+            f"1000-frame threshold should be 10s, not {threshold}s"
     
     def test_benchmark_timing_threshold_for_5000_frames(self):
         """Test that benchmark enforces <50s threshold for 5000 frames."""
@@ -89,10 +93,18 @@ class TestBenchmarkFrameCounts:
         assert '5000' in content, "Should test 5000 frames"
         assert '50' in content, "Should have 50s threshold for 5000 frames"
         
-        # Verify 5000 test exists
-        pattern = r'frame_count\s*==\s*5000'
+        # Verify 5000 test exists with explicit threshold check
+        pattern = r'frame_count\s*==\s*5000\s*and\s*elapsed\s*>\s*(\d+)'
         matches = re.findall(pattern, content)
-        assert len(matches) > 0, "Should have check for 5000 frames"
+        
+        # Require the pattern to be found; silent pass indicates regression
+        assert len(matches) > 0, \
+            "Benchmark must have explicit check: frame_count == 5000 and elapsed > N"
+        
+        # Verify the threshold is correct
+        threshold = int(matches[0])
+        assert threshold == 50, \
+            f"5000-frame threshold should be 50s, not {threshold}s"
     
     def test_benchmark_payload_date_range(self):
         """Test that benchmark payload covers full year for realistic testing."""
