@@ -1,6 +1,6 @@
 import { API_CONFIG, API_ENDPOINTS } from './config';
 export { API_CONFIG };
-import type { AstronomicalEventsResponse, BatchEarthObservationsResponse } from '@/types/api.types';
+import type { AstronomicalEventsResponse, BatchEarthObservationsResponse, EclipseContactTimesResponse } from '@/types/api.types';
 import { getCurrentLocale } from '@/i18n';
 
 /**
@@ -67,9 +67,27 @@ export class AstronomyApiClient {
     return this.postJson<AstronomicalEventsResponse>(url, params);
   }
 
-  private async postJson<T>(url: string, body: unknown): Promise<T> {
+  /**
+   * Fetch contact times for a specific eclipse (lazy-loaded on demand)
+   * Uses 120-second timeout to align with backend contract (CPU-bound computation)
+   */
+  async getContactTimesForEvent(
+    eventDate: string,
+    isLunar: boolean
+  ): Promise<EclipseContactTimesResponse> {
+    const url = `${this.baseUrl}${API_ENDPOINTS.contactTimes}?lang=${getCurrentLocale()}`;
+    const body = {
+      event_date: eventDate,
+      is_lunar: isLunar,
+    };
+    // Contact times endpoint is CPU-bound; use backend's 120-second base timeout
+    return this.postJson<EclipseContactTimesResponse>(url, body, 120000);
+  }
+
+  private async postJson<T>(url: string, body: unknown, timeoutMs?: number): Promise<T> {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+    const timeout = timeoutMs ?? this.timeout;
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
 
     try {
       const response = await fetch(url, {
@@ -116,6 +134,7 @@ export class AstronomyApiClient {
 export interface AstronomyApi {
   getBatchEarthObservations(params: BatchObservationsParams): Promise<BatchEarthObservationsResponse>;
   getAstronomicalEvents(params: AstronomicalEventsParams): Promise<AstronomicalEventsResponse>;
+  getContactTimesForEvent(eventDate: string, isLunar: boolean): Promise<EclipseContactTimesResponse>;
 }
 
 // Export singleton instance

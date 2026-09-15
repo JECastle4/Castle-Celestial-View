@@ -15,6 +15,41 @@ app.include_router(router)
 client = TestClient(app)
 
 
+def _assert_position_body_fields(body_data: dict, body_name: str):
+    """Verify required fields for a position (sun, moon, venus)."""
+    assert "altitude" in body_data, f"{body_name} missing altitude"
+    assert "azimuth" in body_data, f"{body_name} missing azimuth"
+    assert "is_visible" in body_data, f"{body_name} missing is_visible"
+
+
+def _assert_phase_fields(phase_data: dict, phase_name: str):
+    """Verify required fields for a phase (moon_phase, venus_phase)."""
+    assert "illumination" in phase_data, f"{phase_name} missing illumination"
+    assert "phase_angle" in phase_data, f"{phase_name} missing phase_angle"
+    assert "phase_name" in phase_data, f"{phase_name} missing phase_name"
+
+
+def _assert_frame_structure(frame: dict):
+    """Verify complete frame structure and all required fields."""
+    # Core datetime
+    assert "datetime" in frame
+    # Position bodies
+    assert "sun" in frame
+    assert "moon" in frame
+    assert "venus" in frame
+    # Phases
+    assert "moon_phase" in frame
+    assert "venus_phase" in frame
+    # Check individual body structures
+    _assert_position_body_fields(frame["sun"], "sun")
+    _assert_position_body_fields(frame["moon"], "moon")
+    _assert_position_body_fields(frame["venus"], "venus")
+    _assert_phase_fields(frame["moon_phase"], "moon_phase")
+    # Venus phase has extra field
+    _assert_phase_fields(frame["venus_phase"], "venus_phase")
+    assert "naked_eye_visible" in frame["venus_phase"]
+
+
 def test_basic_batch_calculation():
     """Test basic batch calculation with multiple frames"""
     time_range = TimeRange(
@@ -39,44 +74,22 @@ def test_basic_batch_calculation():
         else:
             frames.append(item)
     result = {"frames": frames, "metadata": metadata}
+    
+    # Verify result structure
     assert "frames" in result
     assert "metadata" in result
     assert len(result["frames"]) == 7
-    # Check first frame
+    
+    # Verify frame datetimes
     first_frame = result["frames"][0]
-    assert "datetime" in first_frame
-    assert "sun" in first_frame
-    assert "moon" in first_frame
-    assert "moon_phase" in first_frame
-    assert first_frame["datetime"] == "2024-01-01T12:00:00Z"
-    # Check last frame
     last_frame = result["frames"][-1]
-    assert last_frame["datetime"] == "2024-01-01T18:00:00Z"
-    # Check sun position structure
-    assert "altitude" in first_frame["sun"]
-    assert "azimuth" in first_frame["sun"]
-    assert "is_visible" in first_frame["sun"]
-    # Check moon position structure
-    assert "altitude" in first_frame["moon"]
-    assert "azimuth" in first_frame["moon"]
-    assert "is_visible" in first_frame["moon"]
-    # Check moon phase structure
-    assert "illumination" in first_frame["moon_phase"]
-    assert "phase_angle" in first_frame["moon_phase"]
-    assert "phase_name" in first_frame["moon_phase"]
-    # Check Venus position structure
-    assert "venus" in first_frame
-    assert "altitude" in first_frame["venus"]
-    assert "azimuth" in first_frame["venus"]
-    assert "is_visible" in first_frame["venus"]
-    # Check Venus phase structure
-    assert "venus_phase" in first_frame
-    assert "illumination" in first_frame["venus_phase"]
-    assert "phase_angle" in first_frame["venus_phase"]
-    assert "phase_name" in first_frame["venus_phase"]
-    assert "naked_eye_visible" in first_frame["venus_phase"]
     assert first_frame["datetime"] == "2024-01-01T12:00:00Z"
-    # Check metadata
+    assert last_frame["datetime"] == "2024-01-01T18:00:00Z"
+    
+    # Verify frame structure completeness
+    _assert_frame_structure(first_frame)
+    
+    # Verify metadata
     assert result["metadata"]["frame_count"] == 7
     assert result["metadata"]["start_datetime"] == "2024-01-01T12:00:00Z"
     assert result["metadata"]["end_datetime"] == "2024-01-01T18:00:00Z"
@@ -369,6 +382,38 @@ def test_sun_moon_visibility_changes():
     assert False in sun_visibility
 
 
+def _parse_sse_events(response_text: str) -> dict:
+    """Parse SSE response into frame and metadata events."""
+    events = response_text.strip().split("\n\n")
+    return {
+        "frame_events": [e for e in events if e.startswith("event: frame")],
+        "metadata_events": [e for e in events if e.startswith("event: metadata")]
+    }
+
+
+def _validate_sse_frame_event(event: str, idx: int):
+    """Validate structure of a single SSE frame event."""
+    assert f"id: {idx}" in event
+    assert "data: " in event
+    data = json.loads(event.split("data: ", 1)[1])
+    assert "datetime" in data
+    assert "sun" in data
+    assert "moon" in data
+    assert "moon_phase" in data
+    return data
+
+
+def _validate_sse_metadata_event(metadata_event: str, expected: dict):
+    """Validate structure and content of SSE metadata event."""
+    metadata_data = json.loads(metadata_event.split("data: ", 1)[1])
+    assert metadata_data["frame_count"] == expected["frame_count"]
+    assert metadata_data["start_datetime"] == expected["start_datetime"]
+    assert metadata_data["end_datetime"] == expected["end_datetime"]
+    assert metadata_data["location"]["latitude"] == expected["latitude"]
+    assert metadata_data["location"]["longitude"] == expected["longitude"]
+    assert metadata_data["location"]["elevation"] == expected["elevation"]
+
+
 def test_sse_batch_earth_observations_stream():
     """Test SSE streaming endpoint for batch earth observations"""
     payload = {
@@ -387,26 +432,25 @@ def test_sse_batch_earth_observations_stream():
         headers={"Accept": "text/event-stream"}
     )
     assert response.status_code == 200
-    # Parse SSE events
-    events = response.text.strip().split("\n\n")
-    frame_events = [e for e in events if e.startswith("event: frame")]
-    metadata_events = [e for e in events if e.startswith("event: metadata")]
-    assert len(frame_events) == 3
-    assert len(metadata_events) == 1
-    # Validate frame event structure
-    for idx, event in enumerate(frame_events):
-        assert f"id: {idx}" in event
-        assert "data: " in event
-        data = json.loads(event.split("data: ", 1)[1])
-        assert "datetime" in data
-        assert "sun" in data
-        assert "moon" in data
-        assert "moon_phase" in data
-    # Validate metadata event structure
-    metadata_data = json.loads(metadata_events[0].split("data: ", 1)[1])
-    assert metadata_data["frame_count"] == 3
-    assert metadata_data["start_datetime"] == "2024-01-01T12:00:00Z"
-    assert metadata_data["end_datetime"] == "2024-01-01T18:00:00Z"
-    assert metadata_data["location"]["latitude"] == 40.7128
-    assert metadata_data["location"]["longitude"] == -74.0060
-    assert metadata_data["location"]["elevation"] == 10.0
+    
+    # Parse and validate event counts
+    sse_events = _parse_sse_events(response.text)
+    assert len(sse_events["frame_events"]) == 3
+    assert len(sse_events["metadata_events"]) == 1
+    
+    # Validate each frame event
+    for idx, event in enumerate(sse_events["frame_events"]):
+        _validate_sse_frame_event(event, idx)
+    
+    # Validate metadata event
+    _validate_sse_metadata_event(
+        sse_events["metadata_events"][0],
+        {
+            "frame_count": 3,
+            "start_datetime": "2024-01-01T12:00:00Z",
+            "end_datetime": "2024-01-01T18:00:00Z",
+            "latitude": 40.7128,
+            "longitude": -74.0060,
+            "elevation": 10.0
+        }
+    )

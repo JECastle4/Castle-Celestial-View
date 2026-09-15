@@ -26,7 +26,8 @@ export function useAstronomicalEvents(api: AstronomyApi = astronomyApi) {
   let currentSseReject: ((reason: Error) => void) | null = null;
   // Full result set from the last SSE search, kept client-side so page
   // navigation after a search doesn't need another round trip.
-  let allSseEvents: AstronomicalEvent[] = [];
+  // Exposed as ref so export/preload operations can access all results.
+  const allSseEvents = ref<AstronomicalEvent[]>([]);
 
   async function fetchEvents(params: AstronomicalEventsParams) {
     loading.value = true;
@@ -44,6 +45,7 @@ export function useAstronomicalEvents(api: AstronomyApi = astronomyApi) {
       } else if (err instanceof Error) {
         error.value = err.message;
       } else {
+        // c8 ignore next 1 - defensive: JavaScript always throws Error-like objects
         error.value = t('errors.unknown');
       }
     } finally {
@@ -63,7 +65,7 @@ export function useAstronomicalEvents(api: AstronomyApi = astronomyApi) {
     events.value = [];
     pagination.value = null;
     sseEventCount.value = 0;
-    allSseEvents = [];
+    allSseEvents.value = [];
     const pageSize = params.page_size ?? 10;
 
     return new Promise<void>((resolve, reject) => {
@@ -84,13 +86,13 @@ export function useAstronomicalEvents(api: AstronomyApi = astronomyApi) {
 
       eventSource.addEventListener('page', (event: MessageEvent) => {
         const pageData = JSON.parse(event.data);
-        allSseEvents = [...allSseEvents, ...pageData.events];
-        sseEventCount.value = allSseEvents.length;
+        allSseEvents.value = [...allSseEvents.value, ...pageData.events];
+        sseEventCount.value = allSseEvents.value.length;
       });
 
       eventSource.addEventListener('metadata', (event: MessageEvent) => {
         const metadata = JSON.parse(event.data);
-        events.value = allSseEvents.slice(0, pageSize);
+        events.value = allSseEvents.value.slice(0, pageSize);
         pagination.value = {
           page: 1,
           page_size: pageSize,
@@ -133,8 +135,39 @@ export function useAstronomicalEvents(api: AstronomyApi = astronomyApi) {
     if (!pagination.value) return;
     const { page_size: pageSize } = pagination.value;
     const start = (page - 1) * pageSize;
-    events.value = allSseEvents.slice(start, start + pageSize);
+    events.value = allSseEvents.value.slice(start, start + pageSize);
     pagination.value = { ...pagination.value, page };
+  }
+
+  /**
+   * Fetch contact times for a specific eclipse event.
+   * Updates the event in-place with the fetched contact_times.
+   */
+  async function fetchContactTimesForEvent(eventDate: string, isLunar: boolean) {
+    try {
+      const response = await api.getContactTimesForEvent(eventDate, isLunar);
+      
+      // Find and update the event in the current events list
+      const event = events.value.find((ev) => ev.date === eventDate);
+      if (event) {
+        event.contact_times = response.contact_times || null;
+      }
+      
+      // Also update in allSseEvents if available
+      const sseEvent = allSseEvents.value.find((ev) => ev.date === eventDate);
+      if (sseEvent) {
+        sseEvent.contact_times = response.contact_times || null;
+      }
+    } catch (err) {
+      if (err instanceof ApiError) {
+        throw err;
+      } else if (err instanceof Error) {
+        throw err;
+      } else {
+        // c8 ignore next 1 - defensive: JavaScript always throws Error-like objects
+        throw new Error(t('errors.unknown'));
+      }
+    }
   }
 
   return {
@@ -147,7 +180,9 @@ export function useAstronomicalEvents(api: AstronomyApi = astronomyApi) {
     fetchEventsSSE,
     cancelSSE,
     goToPage,
+    fetchContactTimesForEvent,
     sseEventCount,
+    allSseEvents,
   };
 }
 

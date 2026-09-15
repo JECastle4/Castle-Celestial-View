@@ -39,4 +39,5 @@ export const API_ENDPOINTS = {
   moonPosition: '/api/v1/moon-position',
   moonPhase: '/api/v1/moon-phase',
   astronomicalEvents: '/api/v1/astronomical-events',
+  contactTimes: '/api/v1/astronomical-events/contact-times',
 } as const;

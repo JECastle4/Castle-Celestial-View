@@ -41,14 +41,19 @@
 import { ref, computed, watch, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { normalizeLocaleForIntl } from '@/utils/locale';
-import type { AstronomicalEventType } from '@/types/api.types';
+import type { AstronomicalEvent } from '@/types/api.types';
 
 let instanceCounter = 0;
 
 const props = defineProps<{
   date: string;
-  eventType: AstronomicalEventType;
+  eventType: string;
   eclipseOccurs: boolean;
+  event: AstronomicalEvent;
+}>();
+
+const emit = defineEmits<{
+  'load-contact-times': [event: AstronomicalEvent];
 }>();
 
 const { locale, t } = useI18n();
@@ -56,9 +61,12 @@ const expanded = ref(false);
 const detailsRegion = ref<HTMLDivElement | null>(null);
 const detailsId = `event-details-${++instanceCounter}`;
 
-// Focus the details region when the panel expands
+// Watch expanded state and emit event to load contact times if needed
 watch(expanded, async (newValue) => {
-  if (newValue) {
+  if (newValue && props.event) {
+    // Emit event with data to trigger contact times fetch
+    emit('load-contact-times', props.event);
+    
     await nextTick();
     detailsRegion.value?.focus();
   }

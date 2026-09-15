@@ -228,6 +228,101 @@ describe('AstronomyApiClient', () => {
     });
   });
 
+  describe('getContactTimesForEvent', () => {
+    it('should successfully fetch contact times for lunar eclipse', async () => {
+      const mockResponse = {
+        contact_times: {
+          p1: '2025-09-07 15:29:50.911',
+          u1: '2025-09-07 16:26:57.000',
+          u2: '2025-09-07 17:30:41.000',
+          u3: '2025-09-07 18:52:43.000',
+          u4: '2025-09-07 19:56:27.000',
+          p4: '2025-09-07 20:53:34.000',
+        },
+      };
+
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      const result = await client.getContactTimesForEvent('2025-09-07 18:11:42.600', true);
+
+      expect(result).toEqual(mockResponse);
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/astronomical-events/contact-times'),
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json',
+          }),
+          body: JSON.stringify({ event_date: '2025-09-07 18:11:42.600', is_lunar: true }),
+        })
+      );
+    });
+
+    it('should successfully fetch contact times for solar eclipse', async () => {
+      const mockResponse = {
+        contact_times: {
+          eclipse_begins: '2026-02-17 10:00:00.000',
+          central_phase_begins: '2026-02-17 11:00:00.000',
+          central_phase_ends: '2026-02-17 13:00:00.000',
+          eclipse_ends: '2026-02-17 14:00:00.000',
+        },
+      };
+
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      const result = await client.getContactTimesForEvent('2026-02-17 12:12:00.000', false);
+
+      expect(result).toEqual(mockResponse);
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/astronomical-events/contact-times'),
+        expect.objectContaining({
+          body: JSON.stringify({ event_date: '2026-02-17 12:12:00.000', is_lunar: false }),
+        })
+      );
+    });
+
+    it('should handle null contact times', async () => {
+      const mockResponse = { contact_times: null };
+
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      const result = await client.getContactTimesForEvent('2026-02-17 12:12:00.000', false);
+
+      expect(result).toEqual(mockResponse);
+    });
+
+    it('should propagate ApiError on failure', async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        text: vi.fn().mockResolvedValue('Failed to fetch contact times'),
+      } as any);
+
+      await expect(
+        client.getContactTimesForEvent('2026-02-17 12:12:00.000', false)
+      ).rejects.toThrow(ApiError);
+    });
+
+    it('should handle network error when fetching contact times', async () => {
+      fetchMock.mockRejectedValueOnce(new Error('Network timeout'));
+
+      await expect(
+        client.getContactTimesForEvent('2026-02-17 12:12:00.000', false)
+      ).rejects.toThrow('Network timeout');
+    });
+  });
+
+
   describe('ApiError', () => {
     it('should create error with correct properties', () => {
       const error = new ApiError(404, 'Not Found', 'Resource not found');

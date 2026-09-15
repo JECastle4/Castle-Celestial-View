@@ -6,6 +6,8 @@
 wheel>=0.46.2
 # Security: CVE-2025-71176 fixed in 9.0.3
 pytest>=9.0.3
+# Async test support for pytest (required for @pytest.mark.asyncio tests)
+pytest-asyncio>=0.24.0
 httpx
 # Build tool version pins for security compliance
 # pip: PYSEC-2026-196 fixed in 26.1.2

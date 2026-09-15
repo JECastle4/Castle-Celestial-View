@@ -10,7 +10,16 @@
     </div>
   </dl>
 
-  <template v-if="event.contact_times">
+  <div v-if="loading" class="loading-spinner">
+    <i class="fa fa-spinner fa-spin" aria-hidden="true" style="margin-right: 0.5em;"></i>
+    {{ t('events.loadingContactTimes') }}
+  </div>
+
+  <div v-if="error" class="error-message">
+    {{ error }}
+  </div>
+
+  <template v-if="event.contact_times && !loading">
     <h3 class="details-heading">{{ t('events.solar.contactTimes') }}</h3>
     <dl class="eclipse-details">
       <div v-for="key in contactKeys" :key="key" class="detail-row">
@@ -29,6 +38,8 @@ import { normalizeLocaleForIntl } from '@/utils/locale';
 
 const props = defineProps<{
   event: AstronomicalEvent;
+  loading?: boolean;
+  error?: string | null;
 }>();
 
 const { t, locale } = useI18n();
@@ -96,5 +107,24 @@ function formatTime(value: string): string {
   margin: 0;
   font-weight: 600;
   color: #fff;
+}
+
+.loading-spinner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 0;
+  color: #888;
+  font-size: 0.9rem;
+}
+
+.error-message {
+  padding: 0.75rem;
+  background: #3d2424;
+  border: 1px solid #8b4545;
+  border-radius: 4px;
+  color: #ff9999;
+  font-size: 0.85rem;
+  margin: 0.5rem 0;
 }
 </style>

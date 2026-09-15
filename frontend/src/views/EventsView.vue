@@ -16,10 +16,11 @@
             class="date-range-panel"
             :initialStartDate="startDate"
             :initialEndDate="endDate"
-            @update:dates="onDateRangeSelected"
+            @update:dates="onDateRangeSelectedSafe"
+            :disabled="loading || isPreparingExport"
           />
 
-          <button type="button" class="search-btn" :disabled="loading" @click="search">
+          <button type="button" class="search-btn" :disabled="loading || isPreparingExport" @click="search">
             <i class="fa fa-magnifying-glass" aria-hidden="true" style="margin-right: 0.5em;"></i>
             {{ t('events.search') }}
           </button>
@@ -57,8 +58,35 @@
       <div v-if="error" class="error">{{ error }}</div>
 
       <template v-if="!loading && !error">
-        <div v-if="events.length" class="events-table-header">
-          <p class="utc-notice">{{ t('events.allTimesLocal') }}</p>
+        <div v-if="allSseEvents.length" class="events-table-header">
+          <div class="header-row">
+            <p class="utc-notice">{{ t('events.allTimesLocal') }}</p>
+            <div class="export-controls">
+              <button
+                type="button"
+                class="export-btn"
+                :title="t('buttons.downloadAsCSV')"
+                @click="handleExport('csv')"
+                :disabled="!allSseEvents.length || isPreparingExport"
+              >
+                <i class="fa fa-download" aria-hidden="true"></i>
+                CSV ({{ allSseEvents.length }})
+              </button>
+              <button
+                type="button"
+                class="export-btn"
+                :title="t('buttons.downloadAsJSON')"
+                @click="handleExport('json')"
+                :disabled="!allSseEvents.length || isPreparingExport"
+              >
+                <i class="fa fa-download" aria-hidden="true"></i>
+                JSON ({{ allSseEvents.length }})
+              </button>
+            </div>
+          </div>
+          <div v-if="exportMessage" role="status" class="export-message" :class="{ 'export-success': exportStatus === 'success', 'export-error': exportStatus === 'error', 'export-warning': exportStatus === 'warning' }">
+            {{ exportMessage }}
+          </div>
         </div>
         <ul v-if="events.length" class="event-list">
           <EventListItem
@@ -67,9 +95,21 @@
             :date="ev.date"
             :eventType="ev.event_type"
             :eclipseOccurs="ev.eclipse_occurs"
+            :event="ev"
+            @load-contact-times="loadContactTimesForEvent"
           >
-            <LunarEclipseDetails v-if="ev.is_lunar" :event="ev" />
-            <SolarEclipseDetails v-else :event="ev" />
+            <LunarEclipseDetails 
+              v-if="ev.is_lunar" 
+              :event="ev"
+              :loading="loadingEventDates.has(ev.date)"
+              :error="contactTimesErrors[ev.date] || null"
+            />
+            <SolarEclipseDetails 
+              v-else 
+              :event="ev"
+              :loading="loadingEventDates.has(ev.date)"
+              :error="contactTimesErrors[ev.date] || null"
+            />
           </EventListItem>
         </ul>
         <p v-else-if="hasSearched" class="empty-state">{{ t('events.noResults') }}</p>
@@ -104,6 +144,8 @@ import { ref, defineAsyncComponent } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { useAstronomicalEvents } from '@/composables/useAstronomicalEvents';
+import { fetchContactTimesInQueue } from '@/composables/useContactTimesQueue';
+import { exportContactTimesToCSV, exportContactTimesToJSON, generateFilename } from '@/services/export';
 import AppHeader from '@/components/Header.vue';
 import AppFooter from '@/components/Footer.vue';
 import EventListItem from '@/components/events/EventListItem.vue';
@@ -114,15 +156,20 @@ const DateRangePicker = defineAsyncComponent(() => import('@/components/DateRang
 
 const { t, locale } = useI18n();
 const router = useRouter();
-const { events, pagination, loading, error, hasSearched, fetchEventsSSE, cancelSSE, goToPage, sseEventCount } = useAstronomicalEvents();
+const { events, pagination, loading, error, hasSearched, fetchEventsSSE, cancelSSE, goToPage, sseEventCount, fetchContactTimesForEvent, allSseEvents } = useAstronomicalEvents();
 
 const PAGE_SIZE = 10;
+const loadingEventDates = ref<Set<string>>(new Set());
+const contactTimesErrors = ref<Record<string, string>>({});
 
 const today = new Date();
 const oneYearFromToday = new Date(today);
 oneYearFromToday.setFullYear(today.getFullYear() + 1);
 const startDate = ref(toDateString(today));
 const endDate = ref(toDateString(oneYearFromToday));
+const isPreparingExport = ref(false);
+const exportMessage = ref<string | null>(null);
+const exportStatus = ref<'success' | 'error' | 'warning' | null>(null);
 
 function toDateString(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -142,6 +189,13 @@ function onDateRangeSelected(dates: { start: Date; end: Date }) {
   endDate.value = toDateString(dates.end);
 }
 
+function onDateRangeSelectedSafe(dates: { start: Date; end: Date }) {
+  // Prevent date changes during export preparation
+  if (!isPreparingExport.value) {
+    onDateRangeSelected(dates);
+  }
+}
+
 function onSelectMode(mode: 'solarSystem' | 'eclipses') {
   if (mode === 'solarSystem') {
     router.push(`/${locale.value}/`);
@@ -149,14 +203,169 @@ function onSelectMode(mode: 'solarSystem' | 'eclipses') {
 }
 
 function search() {
+  // Prevent search while preparing export
+  if (isPreparingExport.value) {
+    return;
+  }
   fetchEventsSSE({
     start_date: startDate.value,
     end_date: endDate.value,
     page_size: PAGE_SIZE,
+    include_contact_times: false,  // Load contact times on-demand, not upfront
   }).catch(() => {
     // Composable updates error state; rejection handled here to prevent unhandled rejection.
   });
 }
+
+async function loadContactTimesForEvent(event: any) {
+  // Only fetch if it's an eclipse and we don't already have contact times
+  if (!event.eclipse_occurs || event.contact_times) {
+    return;
+  }
+
+  const dateStr = event.date;
+  
+  // Skip if already loading this date (prevents duplicate requests from rapid expand/collapse)
+  if (loadingEventDates.value.has(dateStr)) {
+    return;
+  }
+  
+  try {
+    loadingEventDates.value = new Set(loadingEventDates.value).add(dateStr);
+    delete contactTimesErrors.value[dateStr];
+    
+    await fetchContactTimesForEvent(dateStr, event.is_lunar);
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : t('errors.unknown');
+    contactTimesErrors.value[dateStr] = errorMsg;
+  } finally {
+    const newSet = new Set(loadingEventDates.value);
+    newSet.delete(dateStr);
+    loadingEventDates.value = newSet;
+  }
+}
+
+function handleExport(format: 'csv' | 'json') {
+  // Export all results from the complete search, not just the current page
+  const resultsToExport = allSseEvents.value;
+  if (!resultsToExport || resultsToExport.length === 0) {
+    exportMessage.value = t('events.noDataToExport');
+    exportStatus.value = 'error';
+    return;
+  }
+
+  // Check if any eclipse events are missing contact times
+  const eclipsesNeedingContactTimes = resultsToExport.filter(
+    (ev: any) => ev.eclipse_occurs && !ev.contact_times
+  );
+
+  if (eclipsesNeedingContactTimes.length > 0) {
+    exportMessage.value = t('events.loadingContactTimesForExport');
+    exportStatus.value = null;  // Loading state, no styling
+    isPreparingExport.value = true;
+
+    // Fetch all missing contact times sequentially with rate limit awareness
+    fetchContactTimesInQueue(
+      eclipsesNeedingContactTimes.map((ev: any) => ({ 
+        date: ev.date, 
+        is_lunar: ev.is_lunar 
+      })),
+      fetchContactTimesForEvent,
+      (completed, total) => {
+        // Update progress message
+        exportMessage.value = t('events.loadingContactTimesProgress', { 
+          completed, 
+          total 
+        });
+      }
+    )
+      .then((results) => {
+        // Check if any fetches failed
+        const failures = results.filter((r: any) => !r.success);
+        
+        exportMessage.value = null;
+        exportStatus.value = null;
+        const exportSuccess = performExport(format, resultsToExport);
+        
+        // Display appropriate message after export (but don't overwrite if export failed)
+        if (!exportSuccess) {
+          // performExport already set the error message and status, don't overwrite it
+          return;
+        }
+        
+        if (failures.length > 0) {
+          const failureCount = failures.length;
+          const totalCount = eclipsesNeedingContactTimes.length;
+          exportMessage.value = t('events.partialExportWarning', { 
+            failed: failureCount, 
+            total: totalCount 
+          });
+          exportStatus.value = 'warning';
+          setTimeout(() => {
+            exportMessage.value = null;
+            exportStatus.value = null;
+          }, 5000);
+        } else {
+          exportMessage.value = t('events.exportSuccess');
+          exportStatus.value = 'success';
+          setTimeout(() => {
+            exportMessage.value = null;
+            exportStatus.value = null;
+          }, 3000);
+        }
+      })
+      .catch((err) => {
+        const errorMsg = err instanceof Error ? err.message : t('errors.unknown');
+        exportMessage.value = t('events.exportError', { error: errorMsg });
+        exportStatus.value = 'error';
+      })
+      .finally(() => {
+        isPreparingExport.value = false;
+      });
+  } else {
+    // All contact times available, proceed with export
+    exportMessage.value = null;
+    exportStatus.value = null;
+    const exportSuccess = performExport(format, resultsToExport);
+    
+    // Only sh  ow success message if export actually succeeded
+    if (!exportSuccess) {
+      // performExport already set the error message and status, no need to show success
+      return;
+    }
+    
+    exportMessage.value = t('events.exportSuccess');
+    exportStatus.value = 'success';
+    setTimeout(() => {
+      exportMessage.value = null;
+      exportStatus.value = null;
+    }, 3000);
+  }
+}
+
+function performExport(format: 'csv' | 'json', resultsToExport: any[] = allSseEvents.value) {
+  if (!resultsToExport || resultsToExport.length === 0) {
+    return false;
+  }
+
+  const filename = generateFilename(format);
+
+  try {
+    if (format === 'csv') {
+      exportContactTimesToCSV(resultsToExport, filename);
+    } else {
+      exportContactTimesToJSON(resultsToExport, filename);
+    }
+    return true;
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : t('errors.unknown');
+    console.error('Export error:', errorMsg);
+    exportMessage.value = t('events.exportError', { error: errorMsg });
+    exportStatus.value = 'error';
+    return false;
+  }
+}
+
 </script>
 
 <style scoped>
@@ -312,11 +521,25 @@ function search() {
   margin-bottom: 1rem;
 }
 
+.header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
 .utc-notice {
   color: #d4d4d4;
   font-size: 0.9em;
   margin: 0;
   padding: 0;
+  flex: 1;
+}
+
+.export-controls {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .event-list {
@@ -349,5 +572,57 @@ function search() {
 
 .pagination-info {
   color: #ccc;
+}
+
+.export-btn {
+  padding: 0.5rem 1rem;
+  background: #004FA3;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9em;
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  white-space: nowrap;
+}
+
+.export-btn:hover:not(:disabled) {
+  background: #003d82;
+}
+
+.export-btn:disabled {
+  background: #555;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.export-message {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 4px;
+  font-size: 0.9em;
+  background: rgba(255, 193, 7, 0.2);
+  border: 1px solid rgba(255, 193, 7, 0.5);
+  color: #ffc107;
+}
+
+.export-message.export-success {
+  background: rgba(76, 175, 80, 0.2);
+  border: 1px solid rgba(76, 175, 80, 0.5);
+  color: #4caf50;
+}
+
+.export-message.export-warning {
+  background: rgba(255, 193, 7, 0.2);
+  border: 1px solid rgba(255, 193, 7, 0.5);
+  color: #ffc107;
+}
+
+.export-message.export-error {
+  background: rgba(255, 0, 0, 0.2);
+  border: 1px solid rgba(255, 0, 0, 0.5);
+  color: #ff0000;
 }
 </style>

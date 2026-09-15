@@ -82,4 +82,57 @@ describe('LunarEclipseDetails', () => {
     const wrapper = mount(LunarEclipseDetails, { props: { event: invalidEvent } });
     expect(wrapper.text()).toContain('not-a-real-date');
   });
+
+  it('renders loading spinner when loading prop is true', () => {
+    const wrapper = mount(LunarEclipseDetails, {
+      props: { event: baseEvent, loading: true },
+    });
+
+    expect(wrapper.find('.loading-spinner').exists()).toBe(true);
+    expect(wrapper.find('i.fa-spinner').exists()).toBe(true);
+  });
+
+  it('renders error message when error prop is set', () => {
+    const errorMessage = 'Failed to load eclipse data';
+    const wrapper = mount(LunarEclipseDetails, {
+      props: { event: baseEvent, error: errorMessage },
+    });
+
+    expect(wrapper.find('.error-message').exists()).toBe(true);
+    expect(wrapper.text()).toContain(errorMessage);
+  });
+
+  it('does not render contact times heading when loading is true', () => {
+    const wrapper = mount(LunarEclipseDetails, {
+      props: { event: baseEvent, loading: true },
+    });
+
+    // Contact times section should not be rendered when loading
+    const detailRows = wrapper.findAll('.detail-row');
+    // Only the base info (magnitudes, greatest eclipse) should be shown
+    expect(detailRows.length).toBeLessThan(8);
+  });
+
+  it('renders both loading and base info when loading is true', () => {
+    const wrapper = mount(LunarEclipseDetails, {
+      props: { event: baseEvent, loading: true },
+    });
+
+    // Should render the base event info (magnitudes)
+    expect(wrapper.text()).toContain('1.3635');
+    expect(wrapper.text()).toContain('2.4123');
+    // And should render the loading spinner
+    expect(wrapper.find('.loading-spinner').exists()).toBe(true);
+  });
+
+  it('renders both error and base info', () => {
+    const wrapper = mount(LunarEclipseDetails, {
+      props: { event: baseEvent, error: 'Network failed' },
+    });
+
+    // Should render the base event info
+    expect(wrapper.text()).toContain('1.3635');
+    // And should render the error
+    expect(wrapper.text()).toContain('Network failed');
+  });
 });
