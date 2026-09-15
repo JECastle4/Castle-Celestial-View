@@ -213,6 +213,8 @@ class TestRateLimitingWithRealLimiter:
         env["RATE_LIMIT_ENABLED"] = "true"
         env["LIMIT_EXPENSIVE_BATCH"] = "3/minute"  # Use 3/min for faster testing
         env["PYTHONPATH"] = str(project_root)
+        # Trust loopback so X-Forwarded-For headers from test clients are respected
+        env["TRUSTED_PROXIES"] = "127.0.0.1"
         # Remove pytest environment variables that would trigger is_test_mode()
         env.pop("PYTEST_CURRENT_TEST", None)
         

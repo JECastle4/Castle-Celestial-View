@@ -232,14 +232,14 @@ class RequestSizeLimitMiddleware:  # pylint: disable=too-few-public-methods
 
         async def size_limited_send(message):
             """Wrap send() to prevent app from sending response after middleware sends 413."""
-            # If middleware has already sent a response (413), reject app's response attempts
-            # to prevent ASGI protocol violation (multiple http.response.start)
+            # If middleware has already sent a response (413), reject ALL downstream messages
+            # to prevent ASGI protocol violation and framing violations (extra body chunks)
             if middleware_sent_response:
-                if message["type"] == "http.response.start":
-                    logger.warning(
-                        "Rejected app response attempt after middleware already sent 413 response"
-                    )
-                    return  # Silently drop the response start
+                logger.warning(
+                    "Rejected downstream message after middleware already sent 413 response: %s",
+                    message.get("type")
+                )
+                return  # Silently drop all messages
             await send(message)
 
         # Pass the wrapped receive and send to the app

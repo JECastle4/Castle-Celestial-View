@@ -67,7 +67,7 @@ The application currently operates as a **single-instance, single-machine** depl
 
 ### Phase 2: Rate Limiting (v1.3.0) ✅ COMPLETE
 - [x] Implement slowapi (per-IP request throttling)
-- [x] Per-endpoint rate limit configuration (standard: 100 req/min, batch: 10 req/min)
+- [x] Per-endpoint rate limit configuration (cheap: 100 req/min, batch: 5 req/min, events: 8 req/min, contact-times: 30 req/min)
 - [x] Graceful handling of rate-limited requests (429 Too Many Requests)
 - [x] Configurable via environment variables
 - [x] Timeout system with adaptive scaling based on system load

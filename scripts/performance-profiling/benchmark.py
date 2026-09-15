@@ -98,6 +98,8 @@ class PerformanceBenchmark:
                     )
 
                     # Check success criteria and set status
+                    # Determine threshold based on frame count
+                    threshold = 10.0 if frame_count == 1000 else 50.0
                     status = "pass"
                     if frame_count == 1000 and elapsed > 10.0:
                         status = "⚠️ SLOW (>10s for 1000 frames)"
@@ -115,7 +117,7 @@ class PerformanceBenchmark:
                     if status == "pass":
                         print(f"    [PASS] Response time: {elapsed:.2f}s")
                     else:
-                        print(f"    [SLOW] Response time: {elapsed:.2f}s (expected <40s)")
+                        print(f"    [SLOW] Response time: {elapsed:.2f}s (expected <{threshold}s)")
 
                     benchmark_data["tests"][f"batch_{frame_count}"] = test_result
                 else:

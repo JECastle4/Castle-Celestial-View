@@ -381,3 +381,130 @@ class TestMidStreamTimeoutScenario:
                 assert mock_metrics.record_timeout_exceeded.called
 
             asyncio.run(run_test())
+
+
+class TestRequestSizeLimitASGIProtocol:
+    """Tests for RequestSizeLimitMiddleware ASGI protocol correctness.
+    
+    Verifies that the middleware prevents ASGI protocol violations when
+    downstream exception handlers try to send additional messages after
+    the middleware has already sent the 413 Payload Too Large response.
+    """
+
+    @pytest.mark.asyncio
+    async def test_middleware_drops_all_downstream_messages_after_413(self):
+        """After sending 413, middleware should drop ALL downstream send() calls.
+        
+        This tests the fix for ASGI framing violations where exception handlers
+        could append body chunks after the middleware's 413 response.
+        
+        Scenario:
+        1. Middleware detects oversized body during streaming
+        2. Middleware sends 413 response (start + body)
+        3. Downstream app's exception handler tries to send additional body
+        4. Middleware should silently drop this to prevent framing violation
+        """
+        # Track what messages were sent to the original send
+        original_sent_messages = []
+
+        async def original_send(message):
+            """Track messages sent to outer send."""
+            original_sent_messages.append(message)
+
+        # Create a streaming ASGI app that would send multiple body chunks
+        async def problematic_app(scope, receive, send):
+            """App that sends body chunks even after middleware sends 413."""
+            if scope["type"] != "http":
+                return
+            
+            body_parts = []
+            while True:
+                message = await receive()
+                if message["type"] == "http.request":
+                    body_parts.append(message.get("body", b""))
+                    if not message.get("more_body"):
+                        break
+                elif message["type"] == "http.disconnect":
+                    # Client disconnected - app still tries to send response
+                    break
+            
+            # Try to send response (middleware will have already sent 413)
+            # App should not send anything, but middleware should silently drop it
+            try:
+                await send({
+                    "type": "http.response.start",
+                    "status": 200,
+                    "headers": [[b"content-type", b"application/json"]],
+                })
+                await send({
+                    "type": "http.response.body",
+                    "body": b'{"error": "too late"}',
+                    "more_body": False
+                })
+            except Exception:
+                pass  # App might error if middleware closed connection
+
+        middleware = RequestSizeLimitMiddleware(problematic_app)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/test",
+            "query_string": b"",
+            "headers": [],
+            "client": ("127.0.0.1", 8000),
+        }
+
+        chunk_index = [0]
+
+        async def mock_receive():
+            """Send chunks that exceed size limit."""
+            # First chunk: OK
+            if chunk_index[0] == 0:
+                chunk_index[0] += 1
+                return {
+                    "type": "http.request",
+                    "body": b"x" * 100,
+                    "more_body": True
+                }
+            # Second chunk: exceeds limit (middleware will send 413 and disconnect)
+            elif chunk_index[0] == 1:
+                chunk_index[0] += 1
+                # Create oversized chunk
+                return {
+                    "type": "http.request",
+                    "body": b"x" * (5 * 1024 * 1024 + 1),  # Over 5MB limit
+                    "more_body": False
+                }
+            else:
+                return {"type": "http.disconnect"}
+
+        # Patch MAX_REQUEST_SIZE_BYTES for this test
+        with patch("api.main.MAX_REQUEST_SIZE_BYTES", 5 * 1024 * 1024):
+            with patch("api.main.logger"):
+                await middleware(scope, mock_receive, original_send)
+
+        # Verify that only middleware's 413 response was sent, not app's response
+        assert len(original_sent_messages) >= 2, (
+            f"Should have at least response.start and response.body, got {len(original_sent_messages)}"
+        )
+
+        # First message should be middleware's 413 response.start
+        start_msg = original_sent_messages[0]
+        assert start_msg["type"] == "http.response.start"
+        assert start_msg["status"] == 413, "First message should be 413 from middleware"
+
+        # Second message should be middleware's 413 response.body
+        body_msg = original_sent_messages[1]
+        assert body_msg["type"] == "http.response.body"
+        assert body_msg["body"] == b"Payload Too Large", "Second message should be 413 body"
+
+        # Verify no additional messages from the app were sent
+        # (app tried to send 200 + body, but middleware dropped them)
+        app_response_messages = [
+            m for m in original_sent_messages[2:]
+            if m.get("status") == 200
+        ]
+        assert len(app_response_messages) == 0, (
+            "App's 200 response should have been dropped by middleware after 413"
+        )

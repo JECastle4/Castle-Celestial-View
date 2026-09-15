@@ -69,6 +69,7 @@ export class AstronomyApiClient {
 
   /**
    * Fetch contact times for a specific eclipse (lazy-loaded on demand)
+   * Uses 120-second timeout to align with backend contract (CPU-bound computation)
    */
   async getContactTimesForEvent(
     eventDate: string,
@@ -79,12 +80,14 @@ export class AstronomyApiClient {
       event_date: eventDate,
       is_lunar: isLunar,
     };
-    return this.postJson<EclipseContactTimesResponse>(url, body);
+    // Contact times endpoint is CPU-bound; use backend's 120-second base timeout
+    return this.postJson<EclipseContactTimesResponse>(url, body, 120000);
   }
 
-  private async postJson<T>(url: string, body: unknown): Promise<T> {
+  private async postJson<T>(url: string, body: unknown, timeoutMs?: number): Promise<T> {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+    const timeout = timeoutMs ?? this.timeout;
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
 
     try {
       const response = await fetch(url, {

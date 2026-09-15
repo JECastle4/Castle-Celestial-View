@@ -148,7 +148,7 @@ else:
   - Batch endpoint: 240s ÷ 40s/req = 6 requests/min max throughput
   - Events endpoint: 240s ÷ 30s/req = 8 requests/min max throughput
 - N instances: 240N s CPU budget/min
-- Rate limiter already configured per IP: 10 batch/min, 15 events/min (above capacity; admission control required)
+- Rate limiter already configured per IP: 5 batch/min, 8 events/min (conservative defaults; admission control required for multi-instance)
 - Admission control per endpoint prevents overload: batch capacity ~4 in-flight, events capacity ~4 in-flight
 - Load balancer distributes evenly, admission control at each instance prevents overload
 
@@ -164,7 +164,7 @@ else:
 
 **Single-instance (Phase 3 - Current):**
 - ✓ DDoS requests timeout after adaptive budget
-- ✓ Rate limiting prevents request flood (10 batch/min)
+- ✓ Rate limiting prevents request flood (5 batch/min, 8 events/min)
 - ✓ Adaptive timeout reduces budget under load
 - ✓ Metrics prevent cardinality explosion
 

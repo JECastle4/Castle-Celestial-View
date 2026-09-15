@@ -97,6 +97,8 @@ class TestBenchmarkFrameCounts:
             "benchmark.py must have check: frame_count == 5000 and elapsed > N"
         
         threshold = float(match.group(1))
+        assert threshold == 50.0, \
+            f"5000-frame threshold should be 50.0s, got {threshold}s"
 
 
 class TestBenchmarkSuccessCriteria:
