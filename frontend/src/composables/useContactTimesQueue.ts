@@ -11,6 +11,50 @@ export interface QueueResult {
   error?: Error;
 }
 
+function runWithAbort<T>(
+  task: Promise<T>,
+  signal?: AbortSignal
+): Promise<{ aborted: true } | { aborted: false; value: T }> {
+  if (!signal) {
+    return task.then((value) => ({ aborted: false, value }));
+  }
+  if (signal.aborted) {
+    return Promise.resolve({ aborted: true });
+  }
+
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      signal.removeEventListener('abort', onAbort);
+      resolve({ aborted: true });
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+    task.then(
+      (value) => resolve({ aborted: false, value }),
+      reject
+    ).finally(() => signal.removeEventListener('abort', onAbort));
+  });
+}
+
+function waitForDelay(delayMs: number, signal?: AbortSignal): Promise<boolean> {
+  if (signal?.aborted) {
+    return Promise.resolve(false);
+  }
+
+  return new Promise((resolve) => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const onAbort = () => {
+      clearTimeout(timeoutId);
+      signal?.removeEventListener('abort', onAbort);
+      resolve(false);
+    };
+    timeoutId = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve(true);
+    }, delayMs);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
 /**
  * Process eclipse contact time requests sequentially with rate limiting
  * @param eclipsesToFetch - Array of eclipses to fetch contact times for
@@ -21,17 +65,29 @@ export interface QueueResult {
 export async function fetchContactTimesInQueue(
   eclipsesToFetch: Array<{ date: string; is_lunar: boolean }>,
   fetchFn: (date: string, is_lunar: boolean) => Promise<void>,
-  onProgress?: (completed: number, total: number) => void
+  onProgress?: (completed: number, total: number) => void,
+  signal?: AbortSignal
 ): Promise<QueueResult[]> {
   const results: QueueResult[] = [];
   let completed = 0;
 
   // Process requests sequentially with rate limit awareness
   for (const eclipse of eclipsesToFetch) {
+    if (signal?.aborted) {
+      break;
+    }
+
     try {
-      await fetchFn(eclipse.date, eclipse.is_lunar);
+      const attempt = await runWithAbort(fetchFn(eclipse.date, eclipse.is_lunar), signal);
+      if (attempt.aborted) {
+        break;
+      }
       results.push({ success: true, date: eclipse.date });
     } catch (err) {
+      if (signal?.aborted) {
+        break;
+      }
+
       // Check if error is a 429 rate limit error
       if (err instanceof ApiError && err.status === 429) {
         // Extract retry-after value from JSON response body
@@ -46,13 +102,21 @@ export async function fetchContactTimesInQueue(
         }
         
         // Wait before retrying this request
-        await new Promise(resolve => setTimeout(resolve, retryAfter));
+        if (!(await waitForDelay(retryAfter, signal))) {
+          break;
+        }
         
         try {
           // Retry once
-          await fetchFn(eclipse.date, eclipse.is_lunar);
+          const retry = await runWithAbort(fetchFn(eclipse.date, eclipse.is_lunar), signal);
+          if (retry.aborted) {
+            break;
+          }
           results.push({ success: true, date: eclipse.date });
         } catch (retryErr) {
+          if (signal?.aborted) {
+            break;
+          }
           results.push({ 
             success: false, 
             date: eclipse.date, 
@@ -74,7 +138,9 @@ export async function fetchContactTimesInQueue(
     // Pace requests to stay within server limit: LIMIT_CONTACT_TIMES default is 30/min,
     // so 2000ms between requests = 30 req/min (at limit). Using 2500ms for safe headroom.
     if (completed < eclipsesToFetch.length) {
-      await new Promise(resolve => setTimeout(resolve, 2500));
+      if (!(await waitForDelay(2500, signal))) {
+        break;
+      }
     }
   }
 

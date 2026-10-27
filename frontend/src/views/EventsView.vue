@@ -140,7 +140,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, defineAsyncComponent } from 'vue';
+import { ref, defineAsyncComponent, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { useAstronomicalEvents } from '@/composables/useAstronomicalEvents';
@@ -170,6 +170,11 @@ const endDate = ref(toDateString(oneYearFromToday));
 const isPreparingExport = ref(false);
 const exportMessage = ref<string | null>(null);
 const exportStatus = ref<'success' | 'error' | 'warning' | null>(null);
+let exportAbortController: AbortController | null = null;
+
+onUnmounted(() => {
+  exportAbortController?.abort();
+});
 
 function toDateString(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -232,9 +237,9 @@ async function loadContactTimesForEvent(event: any) {
   
   try {
     loadingEventDates.value = new Set(loadingEventDates.value).add(dateStr);
-    delete contactTimesErrors.value[dateStr];
     
     await fetchContactTimesForEvent(dateStr, event.is_lunar);
+    delete contactTimesErrors.value[dateStr];
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : t('errors.unknown');
     contactTimesErrors.value[dateStr] = errorMsg;
@@ -263,6 +268,8 @@ function handleExport(format: 'csv' | 'json') {
     exportMessage.value = t('events.loadingContactTimesForExport');
     exportStatus.value = null;  // Loading state, no styling
     isPreparingExport.value = true;
+    const controller = new AbortController();
+    exportAbortController = controller;
 
     // Fetch all missing contact times sequentially with rate limit awareness
     fetchContactTimesInQueue(
@@ -277,9 +284,14 @@ function handleExport(format: 'csv' | 'json') {
           completed, 
           total 
         });
-      }
+      },
+      controller.signal
     )
       .then((results) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+
         // Check if any fetches failed
         const failures = results.filter((r: any) => !r.success);
         
@@ -315,12 +327,18 @@ function handleExport(format: 'csv' | 'json') {
         }
       })
       .catch((err) => {
+        if (controller.signal.aborted) {
+          return;
+        }
         const errorMsg = err instanceof Error ? err.message : t('errors.unknown');
         exportMessage.value = t('events.exportError', { error: errorMsg });
         exportStatus.value = 'error';
       })
       .finally(() => {
         isPreparingExport.value = false;
+        if (exportAbortController === controller) {
+          exportAbortController = null;
+        }
       });
   } else {
     // All contact times available, proceed with export

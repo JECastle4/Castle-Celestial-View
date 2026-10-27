@@ -287,6 +287,18 @@ describe('AstronomyApiClient', () => {
       );
     });
 
+    it('allows the backend maximum adaptive timeout for contact times', async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ contact_times: null }),
+      });
+      const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+
+      await client.getContactTimesForEvent('2026-02-17 12:12:00.000', false);
+
+      expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 240000);
+    });
+
     it('should handle null contact times', async () => {
       const mockResponse = { contact_times: null };
 

@@ -81,6 +81,8 @@ beforeEach(() => {
 
 afterEach(() => {
   globalThis.EventSource = origEventSource;
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
 describe('EventsView', () => {
@@ -502,6 +504,39 @@ describe('EventsView', () => {
     expect(eventDetails.exists()).toBe(true);
   });
 
+  it('clears a contact-time error only after a retry succeeds', async () => {
+    const wrapper = mount(EventsView);
+    await flushPromises();
+    await wrapper.find('.search-btn').trigger('click');
+    await flushPromises();
+
+    const event = makeEvent({ contact_times: null });
+    instances[0].emit('page', { page: 1, events: [event] });
+    instances[0].emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+    await flushPromises();
+
+    const component = wrapper.vm as any;
+    component.contactTimesErrors[event.date] = 'Previous request failed';
+    let resolveRequest!: (response: Response) => void;
+    const request = new Promise<Response>((resolve) => {
+      resolveRequest = resolve;
+    });
+    const fetchMock = vi.fn(() => request);
+    vi.stubGlobal('fetch', fetchMock);
+
+    await wrapper.find('.event-summary').trigger('click');
+    await flushPromises();
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(component.contactTimesErrors[event.date]).toBe('Previous request failed');
+
+    resolveRequest({
+      ok: true,
+      json: async () => ({ contact_times: { p1: '2025-09-07 15:29:50.911' } }),
+    } as Response);
+    await flushPromises();
+    expect(component.contactTimesErrors[event.date]).toBeUndefined();
+  });
+
   it('skips loading contact times if event.contact_times already exists', async () => {
     const wrapper = mount(EventsView);
     await flushPromises();
@@ -816,6 +851,36 @@ describe('EventsView', () => {
       resolveContactTime();
       await flushPromises();
       await wrapper.vm.$nextTick();
+    });
+
+    it('cancels the export queue when the view is unmounted', async () => {
+      const wrapper = mount(EventsView);
+      await flushPromises();
+      await wrapper.find('.search-btn').trigger('click');
+      await flushPromises();
+
+      const eclipseEvents = [
+        makeEvent({ date: '2025-09-07 18:11:42.600', contact_times: null }),
+        makeEvent({ date: '2025-09-21 19:54:00.000', contact_times: null }),
+      ];
+      instances[0].emit('page', { page: 1, events: eclipseEvents });
+      instances[0].emit('metadata', { page_size: 10, total_events: 2, total_pages: 1 });
+      await flushPromises();
+
+      vi.useFakeTimers();
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ contact_times: { p1: '2025-09-07 15:29:50.911' } }),
+      });
+      vi.stubGlobal('fetch', mockFetch);
+
+      await wrapper.findAll('.export-btn')[0].trigger('click');
+      await flushPromises();
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      wrapper.unmount();
+      await vi.runAllTimersAsync();
+      expect(mockFetch).toHaveBeenCalledTimes(1);
     });
 
     it('disables export buttons during contact time pre-loading', async () => {
@@ -1608,5 +1673,3 @@ describe('EventsView', () => {
     });
   });
 });
-
-

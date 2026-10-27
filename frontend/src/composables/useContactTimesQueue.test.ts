@@ -195,6 +195,65 @@ describe('useContactTimesQueue', () => {
       expect(pacingDelays).toHaveLength(0);
     });
 
+    it('cancels the pacing wait and skips remaining requests when aborted', async () => {
+      const fetchFn = vi.fn().mockResolvedValue(undefined);
+      const controller = new AbortController();
+      const eclipses = [
+        { date: '2025-01-01', is_lunar: false },
+        { date: '2025-02-01', is_lunar: false },
+      ];
+
+      const resultsPromise = fetchContactTimesInQueue(eclipses, fetchFn, undefined, controller.signal);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(fetchFn).toHaveBeenCalledTimes(1);
+
+      controller.abort();
+      const results = await resultsPromise;
+
+      expect(fetchFn).toHaveBeenCalledTimes(1);
+      expect(results).toEqual([{ success: true, date: '2025-01-01' }]);
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('cancels the 429 retry delay when aborted', async () => {
+      const fetchFn = vi.fn().mockRejectedValue(
+        new ApiError(429, 'Too Many Requests', '{"retry_after":30}')
+      );
+      const controller = new AbortController();
+      const resultsPromise = fetchContactTimesInQueue(
+        [{ date: '2025-01-01', is_lunar: false }],
+        fetchFn,
+        undefined,
+        controller.signal
+      );
+
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(vi.getTimerCount()).toBe(1);
+
+      controller.abort();
+
+      await expect(resultsPromise).resolves.toEqual([]);
+      expect(fetchFn).toHaveBeenCalledTimes(1);
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('settles immediately when aborted during an active request', async () => {
+      const fetchFn = vi.fn(() => new Promise<void>(() => {}));
+      const controller = new AbortController();
+      const eclipses = [
+        { date: '2025-01-01', is_lunar: false },
+        { date: '2025-02-01', is_lunar: false },
+      ];
+
+      const resultsPromise = fetchContactTimesInQueue(eclipses, fetchFn, undefined, controller.signal);
+      await Promise.resolve();
+      controller.abort();
+
+      await expect(resultsPromise).resolves.toEqual([]);
+      expect(fetchFn).toHaveBeenCalledTimes(1);
+    });
+
     it('should handle mixed success and failure results', async () => {
       const fetchFn = vi.fn();
       fetchFn.mockResolvedValueOnce(undefined); // First request succeeds
