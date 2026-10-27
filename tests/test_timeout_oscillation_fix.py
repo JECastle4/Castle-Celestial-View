@@ -131,7 +131,7 @@ class TestTimeoutOscillationPrevention:
         
         # Add timeout samples at 0.7 * base = 84s (would lower p95 if included)
         timeout_at_degraded = base * 0.7  # 84s
-        for i in range(20):
+        for i in range(1000):
             tracker.record_completion(endpoint, timeout_at_degraded, is_timeout=True)
         
         p95_after = tracker.get_percentile(endpoint)
@@ -141,7 +141,7 @@ class TestTimeoutOscillationPrevention:
         assert p95_after > degraded_threshold
         
         # Verify timeout count increased
-        assert tracker.get_timeout_count(endpoint) == 20
+        assert tracker.get_timeout_count(endpoint) == 1000
 
     def test_timeout_samples_don_affect_timeout_calculation(self):
         """Test that timeout samples don't trigger timeout multiplier changes."""
@@ -162,7 +162,7 @@ class TestTimeoutOscillationPrevention:
         
         # Add many timeout samples (would lower p95 if included)
         get_tracker()._percentile_cache.clear()
-        for i in range(50):
+        for i in range(1000):
             get_tracker().record_completion(
                 endpoint, base * 0.5, is_timeout=True  # Very low timeouts
             )

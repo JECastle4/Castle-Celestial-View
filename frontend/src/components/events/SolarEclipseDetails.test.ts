@@ -46,6 +46,24 @@ describe('SolarEclipseDetails', () => {
     expect(wrapper.findAll('.detail-row')).toHaveLength(1); // just greatest eclipse time
   });
 
+  it('hides contact times when no contact values are available', () => {
+    const emptyContacts: AstronomicalEvent = { ...baseEvent, contact_times: {} };
+    const nullContacts: AstronomicalEvent = {
+      ...baseEvent,
+      contact_times: {
+        eclipse_begins: null,
+        central_phase_begins: null,
+        central_phase_ends: null,
+        eclipse_ends: null,
+      },
+    };
+
+    for (const event of [emptyContacts, nullContacts]) {
+      const wrapper = mount(SolarEclipseDetails, { props: { event } });
+      expect(wrapper.find('.details-heading').exists()).toBe(false);
+    }
+  });
+
   it('omits the greatest eclipse row when null', () => {
     const noGreatestEvent: AstronomicalEvent = {
       ...baseEvent,

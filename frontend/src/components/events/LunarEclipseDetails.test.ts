@@ -64,6 +64,19 @@ describe('LunarEclipseDetails', () => {
     expect(wrapper.findAll('.detail-row')).toHaveLength(1); // just greatest eclipse time
   });
 
+  it('hides contact times when no contact values are available', () => {
+    const emptyContacts: AstronomicalEvent = { ...baseEvent, contact_times: {} };
+    const nullContacts: AstronomicalEvent = {
+      ...baseEvent,
+      contact_times: { p1: null, u1: null, u2: null, u3: null, u4: null, p4: null },
+    };
+
+    for (const event of [emptyContacts, nullContacts]) {
+      const wrapper = mount(LunarEclipseDetails, { props: { event } });
+      expect(wrapper.find('.details-heading').exists()).toBe(false);
+    }
+  });
+
   it('omits the greatest eclipse row when null', () => {
     const noGreatestEvent: AstronomicalEvent = {
       ...baseEvent,

@@ -19,12 +19,23 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
+def validate_request_model(model: type[T], **data) -> T:
+    """Validate a request model and translate invalid client input to 422."""
+    try:
+        return model(**data)
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid input: {str(e)}"
+        ) from e
+
+
 def handle_route_errors(action: str = "processing request"):
     """
     Decorator to handle exceptions in route handlers uniformly.
 
     Converts:
-    - ValidationError → 422 (Unprocessable Entity)
+    - ValidationError → 500 (Internal Server Error)
     - ValueError → 400 (Bad Request)
     - Exception → 500 (Internal Server Error)
 
@@ -48,10 +59,17 @@ def handle_route_errors(action: str = "processing request"):
         async def async_wrapper(*args, **kwargs) -> T:
             try:
                 return await func(*args, **kwargs)
+            except HTTPException:
+                raise
             except ValidationError as e:
+                logger.error(
+                    "Unexpected error while %s",
+                    action,
+                    exc_info=True
+                )
                 raise HTTPException(
-                    status_code=422,
-                    detail=f"Invalid input: {str(e)}"
+                    status_code=500,
+                    detail="An internal error occurred. Please try again later."
                 ) from e
             except ValueError as e:
                 raise HTTPException(
@@ -75,10 +93,17 @@ def handle_route_errors(action: str = "processing request"):
         def sync_wrapper(*args, **kwargs) -> T:
             try:
                 return func(*args, **kwargs)
+            except HTTPException:
+                raise
             except ValidationError as e:
+                logger.error(
+                    "Unexpected error while %s",
+                    action,
+                    exc_info=True
+                )
                 raise HTTPException(
-                    status_code=422,
-                    detail=f"Invalid input: {str(e)}"
+                    status_code=500,
+                    detail="An internal error occurred. Please try again later."
                 ) from e
             except ValueError as e:
                 raise HTTPException(
@@ -200,7 +225,8 @@ def build_time_range(
 
     # Build TimeRange - this validates business logic and raises
     # ValidationError for logic errors
-    return TimeRange(
+    return validate_request_model(
+        TimeRange,
         start=start,
         end=end,
         frame_count=frame_count

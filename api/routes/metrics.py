@@ -1,7 +1,7 @@
 """
 Prometheus metrics endpoint.
 
-Exposes `/metrics` in text format for Prometheus scraping.
+Exposes `/api/metrics` in text format for Prometheus scraping.
 """
 
 from fastapi import APIRouter

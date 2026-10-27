@@ -27,7 +27,7 @@ from api.services.astronomical_events import (
     validate_date_range,
 )
 
-from .helpers import handle_route_errors
+from .helpers import handle_route_errors, validate_request_model
 
 
 router = APIRouter(tags=["astronomical-events"])
@@ -112,7 +112,8 @@ def stream_astronomical_events_route(
     # ValidationError -> 422), plus the date-range-size check (raises
     # ValueError -> 400), before the stream starts - so bad requests fail
     # fast instead of erroring out mid-stream.
-    AstronomicalEventsRequest(
+    validate_request_model(
+        AstronomicalEventsRequest,
         start_date=start_date,
         end_date=end_date,
         page_size=page_size,

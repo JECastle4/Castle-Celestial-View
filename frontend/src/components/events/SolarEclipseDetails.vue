@@ -19,7 +19,7 @@
     {{ error }}
   </div>
 
-  <template v-if="event.contact_times && !loading">
+  <template v-if="event.contact_times && contactKeys.length > 0 && !loading">
     <h3 class="details-heading">{{ t('events.solar.contactTimes') }}</h3>
     <dl class="eclipse-details">
       <div v-for="key in contactKeys" :key="key" class="detail-row">
