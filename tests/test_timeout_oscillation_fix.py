@@ -220,6 +220,24 @@ class TestTimeoutOscillationPrevention:
             base * TIMEOUT_MULTIPLIERS['generous']
         )
 
+    def test_timeout_rate_is_not_biased_by_sample_caps(self):
+        tracker = get_tracker()
+        tracker.clear()
+        endpoint = '/api/v1/batch-earth-observations'
+        base = BASE_TIMEOUTS['expensive']
+
+        for _ in range(9000):
+            tracker.record_completion(endpoint, 1.0)
+        for _ in range(1500):
+            tracker.record_completion(endpoint, base * 0.7, is_timeout=True)
+
+        assert len(tracker._observations[endpoint]) == 5000
+        assert len(tracker._timeout_observations[endpoint]) == 1500
+        assert tracker.get_timeout_rate(endpoint) == pytest.approx(1500 / 10500)
+        assert calculate_adaptive_timeout(endpoint) == (
+            base * TIMEOUT_MULTIPLIERS['generous']
+        )
+
     def test_timeout_observations_pruned_by_sliding_window(self):
         """Test that old timeout observations are pruned like normal ones."""
         tracker = PercentileTracker()

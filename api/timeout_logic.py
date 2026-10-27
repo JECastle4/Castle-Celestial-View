@@ -29,6 +29,7 @@ from api.timeout_config import (
 # At 1000 req/s, 5000 samples = ~5 seconds of data; sorted every 5 seconds is acceptable.
 # At normal rates (10 req/s), 5000 samples = ~500 seconds of data, well within sliding window.
 MAX_OBSERVATIONS_PER_ENDPOINT = 5000
+TIMEOUT_RATE_BUCKET_SECONDS = 1
 
 
 class PercentileTracker:
@@ -52,6 +53,8 @@ class PercentileTracker:
         self._observations = {}
         # {endpoint: deque of (timestamp, timeout_duration) tuples for timed-out requests}
         self._timeout_observations = {}
+        # {endpoint: deque of (bucket_start, normal_count, timeout_count) tuples}
+        self._timeout_rate_observations = {}
         self._lock = Lock()
         # {endpoint: (p95_value, timestamp_calculated)}
         self._percentile_cache = {}
@@ -106,6 +109,36 @@ class PercentileTracker:
         while len(self._observations[endpoint]) > MAX_OBSERVATIONS_PER_ENDPOINT:
             self._observations[endpoint].popleft()
 
+    def _record_timeout_rate_observation(
+        self, endpoint: str, now: float, is_timeout: bool
+    ) -> None:
+        """Record outcomes in bounded time buckets for timeout-rate calculation."""
+        if endpoint not in self._timeout_rate_observations:
+            self._timeout_rate_observations[endpoint] = deque()
+
+        observations = self._timeout_rate_observations[endpoint]
+        bucket_start = (
+            int(now // TIMEOUT_RATE_BUCKET_SECONDS) * TIMEOUT_RATE_BUCKET_SECONDS
+        )
+        if observations and observations[-1][0] == bucket_start:
+            _, normal_count, timeout_count = observations[-1]
+        else:
+            normal_count = timeout_count = 0
+            observations.append((bucket_start, 0, 0))
+
+        if is_timeout:
+            timeout_count += 1
+        else:
+            normal_count += 1
+        observations[-1] = (bucket_start, normal_count, timeout_count)
+
+        cutoff = now - SLIDING_WINDOW_SECONDS
+        while (
+            observations
+            and observations[0][0] + TIMEOUT_RATE_BUCKET_SECONDS <= cutoff
+        ):
+            observations.popleft()
+
     def record_completion(
         self,
         endpoint: str,
@@ -128,6 +161,7 @@ class PercentileTracker:
         now = time.time()
 
         with self._lock:
+            self._record_timeout_rate_observation(endpoint, now, is_timeout)
             if is_timeout:
                 self._record_timeout_observation(endpoint, now, duration_seconds)
             else:
@@ -290,17 +324,18 @@ class PercentileTracker:
         with self._lock:
             now = time.time()
             cutoff = now - SLIDING_WINDOW_SECONDS
-            for observations in (
-                self._observations.get(endpoint),
-                self._timeout_observations.get(endpoint),
-            ):
-                if observations is None:
-                    continue
-                while observations and observations[0][0] < cutoff:
-                    observations.popleft()
+            observations = self._timeout_rate_observations.get(endpoint)
+            if observations is None:
+                return None
 
-            normal_count = len(self._observations.get(endpoint, ()))
-            timeout_count = len(self._timeout_observations.get(endpoint, ()))
+            while (
+                observations
+                and observations[0][0] + TIMEOUT_RATE_BUCKET_SECONDS <= cutoff
+            ):
+                observations.popleft()
+
+            normal_count = sum(normal for _, normal, _ in observations)
+            timeout_count = sum(timed_out for _, _, timed_out in observations)
             sample_count = normal_count + timeout_count
             if sample_count < MIN_TIMEOUT_RATE_SAMPLES:
                 return None
@@ -312,6 +347,7 @@ class PercentileTracker:
         with self._lock:
             self._observations.clear()
             self._timeout_observations.clear()
+            self._timeout_rate_observations.clear()
             self._percentile_cache.clear()
 
 
