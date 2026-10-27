@@ -27,7 +27,7 @@
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^7.3.1",
-    "flag-icons": "^7.5.0",
+    "flag-icons": "^7.6.0",
     "ol": "^10.11.0",
     "three": "^0.186.1",
     "vue": "^3.5.43",
