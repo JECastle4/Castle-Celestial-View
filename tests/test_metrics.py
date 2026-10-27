@@ -32,6 +32,15 @@ class TestMetricsCollector:
         metrics.record_request('/api/test', 'GET', 200, 0.5)
         metrics.record_request('/api/test', 'GET', 429, 0.1)
 
+    def test_record_request_uses_bounded_method_labels(self):
+        metrics = get_metrics()
+        metrics.record_request('/api/test', 'PROBE0', 200, 0.1)
+        metrics.record_request('/api/test', 'PROBE1', 200, 0.1)
+
+        metric_text = metrics.get_metrics_text()
+        assert b'method="OTHER"' in metric_text
+        assert b'method="PROBE0"' not in metric_text
+
     def test_record_cache_hit(self):
         """Test recording cache hit."""
         metrics = get_metrics()

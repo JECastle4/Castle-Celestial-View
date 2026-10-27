@@ -16,6 +16,10 @@ from prometheus_client import (
     Counter, Histogram, Gauge, REGISTRY, generate_latest
 )
 
+_HTTP_METHODS = frozenset({
+    'CONNECT', 'DELETE', 'GET', 'HEAD', 'OPTIONS', 'PATCH', 'POST', 'PUT', 'TRACE',
+})
+
 
 class MetricsCollector:  # pylint: disable=too-many-instance-attributes
     """
@@ -139,6 +143,8 @@ class MetricsCollector:  # pylint: disable=too-many-instance-attributes
     ) -> None:
         """Record HTTP request metrics."""
         status = str(status_code)
+        if method not in _HTTP_METHODS:
+            method = 'OTHER'
         self.http_request_duration.labels(
             endpoint=endpoint, method=method, status=status
         ).observe(duration_seconds)

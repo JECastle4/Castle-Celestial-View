@@ -18,6 +18,8 @@ dependencies = [
     "PyOpenGL-accelerate",
     "fastapi",
     "uvicorn[standard]",
+    "slowapi>=0.1.9",
+    "prometheus-client>=0.20.0",
     # Security: CVE-2026-25990, CVE-2026-40192 fixed in 12.2.0
     "pillow>=12.2.0",
     # Security: CVE-2026-4539 fixed in 2.20.0

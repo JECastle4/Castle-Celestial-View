@@ -236,6 +236,32 @@ describe('useAstronomicalEvents SSE', () => {
 });
 
 describe('useAstronomicalEvents - fetchContactTimesForEvent', () => {
+  it('shares in-flight requests for the same event and eclipse type', async () => {
+    const resolveRequests: Array<(response: { contact_times: { p1: string } }) => void> = [];
+    const mockApi = {
+      getBatchEarthObservations: vi.fn(),
+      getAstronomicalEvents: vi.fn(),
+      getContactTimesForEvent: vi.fn().mockImplementation(
+        () => new Promise((resolve) => { resolveRequests.push(resolve); }),
+      ),
+    };
+    const { fetchContactTimesForEvent } = useAstronomicalEvents(mockApi);
+
+    const firstRequest = fetchContactTimesForEvent('2025-09-07', true);
+    const secondRequest = fetchContactTimesForEvent('2025-09-07', true);
+    const differentEclipseType = fetchContactTimesForEvent('2025-09-07', false);
+
+    await Promise.resolve();
+    expect(mockApi.getContactTimesForEvent).toHaveBeenCalledTimes(2);
+    expect(mockApi.getContactTimesForEvent).toHaveBeenNthCalledWith(1, '2025-09-07', true);
+    expect(mockApi.getContactTimesForEvent).toHaveBeenNthCalledWith(2, '2025-09-07', false);
+
+    resolveRequests.forEach((resolve) => {
+      resolve({ contact_times: { p1: '2025-09-07 15:29:50.911' } });
+    });
+    await Promise.all([firstRequest, secondRequest, differentEclipseType]);
+  });
+
   it('fetches contact times and updates event in events list', async () => {
     const eventToUpdate = { ...mockResponse.events[0], contact_times: null };
     const mockApi = {

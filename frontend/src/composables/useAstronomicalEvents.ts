@@ -28,6 +28,7 @@ export function useAstronomicalEvents(api: AstronomyApi = astronomyApi) {
   // navigation after a search doesn't need another round trip.
   // Exposed as ref so export/preload operations can access all results.
   const allSseEvents = ref<AstronomicalEvent[]>([]);
+  const contactTimesRequests = new Map<string, Promise<void>>();
 
   async function fetchEvents(params: AstronomicalEventsParams) {
     loading.value = true;
@@ -143,31 +144,43 @@ export function useAstronomicalEvents(api: AstronomyApi = astronomyApi) {
    * Fetch contact times for a specific eclipse event.
    * Updates the event in-place with the fetched contact_times.
    */
-  async function fetchContactTimesForEvent(eventDate: string, isLunar: boolean) {
-    try {
-      const response = await api.getContactTimesForEvent(eventDate, isLunar);
-      
-      // Find and update the event in the current events list
-      const event = events.value.find((ev) => ev.date === eventDate);
-      if (event) {
-        event.contact_times = response.contact_times || null;
-      }
-      
-      // Also update in allSseEvents if available
-      const sseEvent = allSseEvents.value.find((ev) => ev.date === eventDate);
-      if (sseEvent) {
-        sseEvent.contact_times = response.contact_times || null;
-      }
-    } catch (err) {
-      if (err instanceof ApiError) {
-        throw err;
-      } else if (err instanceof Error) {
-        throw err;
-      } else {
-        // c8 ignore next 1 - defensive: JavaScript always throws Error-like objects
-        throw new Error(t('errors.unknown'));
-      }
+  function fetchContactTimesForEvent(eventDate: string, isLunar: boolean): Promise<void> {
+    const requestKey = JSON.stringify([eventDate, isLunar]);
+    const inFlightRequest = contactTimesRequests.get(requestKey);
+    if (inFlightRequest) {
+      return inFlightRequest;
     }
+
+    const request = Promise.resolve()
+      .then(() => api.getContactTimesForEvent(eventDate, isLunar))
+      .then((response) => {
+        // Find and update the event in the current events list
+        const event = events.value.find((ev) => ev.date === eventDate);
+        if (event) {
+          event.contact_times = response.contact_times || null;
+        }
+
+        // Also update in allSseEvents if available
+        const sseEvent = allSseEvents.value.find((ev) => ev.date === eventDate);
+        if (sseEvent) {
+          sseEvent.contact_times = response.contact_times || null;
+        }
+      })
+      .catch((err) => {
+        if (err instanceof ApiError) {
+          throw err;
+        } else if (err instanceof Error) {
+          throw err;
+        } else {
+          // c8 ignore next 1 - defensive: JavaScript always throws Error-like objects
+          throw new Error(t('errors.unknown'));
+        }
+      })
+      .finally(() => {
+        contactTimesRequests.delete(requestKey);
+      });
+    contactTimesRequests.set(requestKey, request);
+    return request;
   }
 
   return {
@@ -185,4 +198,3 @@ export function useAstronomicalEvents(api: AstronomyApi = astronomyApi) {
     allSseEvents,
   };
 }
-

@@ -580,10 +580,10 @@ class TestRateLimitingI18n:
             assert isinstance(msg, str), f"tooManyRequests should be string in {locale}.json"
             assert len(msg) > 0, f"tooManyRequests message is empty in {locale}.json"
             
-            # xx-reverse should have reversed placeholder, all others forward
+            # xx-reverse preserves the format placeholder, like all other locales
             if locale == 'xx-reverse':
-                assert '}retfa_yrter{' in msg, \
-                    f"tooManyRequests should have reversed placeholder in {locale}.json"
+                assert '{retry_after}' in msg, \
+                    f"tooManyRequests should preserve its placeholder in {locale}.json"
             else:
                 assert '{retry_after}' in msg, \
                     f"tooManyRequests should have {{retry_after}} placeholder in {locale}.json"

@@ -223,7 +223,7 @@
     "loadingContactTimesProgress": "{total} fo {completed} ...semit tcatnoc gnidaoL",
     "loadingContactTimesForExport": "...trope rof semit tcatnoc gnidaoL",
     "exportSuccess": "yllufsseccus detelpmoC tropxE",
-    "exportError": "}rorre{ :rorre tropxE",
+    "exportError": "{error} :rorre tropxE",
     "partialExportWarning": "detaol dluoc ton semit tcatnoc {failed} fo {total} tub ,yllufsseccus detelpmoC tropxE",
     "pageOf": "{total} fo {page} egaP",
     "searchParameters": "sretemaraP hcraeS",

@@ -65,6 +65,6 @@
   },
   "errors": {
     "unknown": "derrucco rorre nwonknu nA",
-    "tooManyRequests": ".sdnoces }retfa_yrter{ retfa yerter esaelP .tseuqer ot ynam ooT"
+    "tooManyRequests": ".sdnoces {retry_after} retfa yerter esaelP .tseuqer ot ynam ooT"
   }
 }
