@@ -17,9 +17,11 @@ from api.timeout_config import (
     get_endpoint_cost,
     get_base_timeout,
     HARD_LIMIT_SECONDS,
+    MIN_TIMEOUT_RATE_SAMPLES,
     PERCENTILE_TO_TRACK,
     PERCENTILE_CACHE_TTL_SECONDS,
     SLIDING_WINDOW_SECONDS,
+    TIMEOUT_RATE_DEGRADED_THRESHOLD,
     TIMEOUT_MULTIPLIERS,
 )
 
@@ -283,6 +285,28 @@ class PercentileTracker:
 
             return len(self._timeout_observations[endpoint])
 
+    def get_timeout_rate(self, endpoint: str) -> Optional[float]:
+        """Get the recent timeout fraction for an endpoint."""
+        with self._lock:
+            now = time.time()
+            cutoff = now - SLIDING_WINDOW_SECONDS
+            for observations in (
+                self._observations.get(endpoint),
+                self._timeout_observations.get(endpoint),
+            ):
+                if observations is None:
+                    continue
+                while observations and observations[0][0] < cutoff:
+                    observations.popleft()
+
+            normal_count = len(self._observations.get(endpoint, ()))
+            timeout_count = len(self._timeout_observations.get(endpoint, ()))
+            sample_count = normal_count + timeout_count
+            if sample_count < MIN_TIMEOUT_RATE_SAMPLES:
+                return None
+
+            return timeout_count / sample_count
+
     def clear(self) -> None:
         """Clear all observations and cache (for testing/memory management)."""
         with self._lock:
@@ -337,20 +361,26 @@ def calculate_adaptive_timeout(endpoint: str) -> float:
     # Get observed p95 completion time
     p95 = _percentile_tracker.get_percentile(endpoint)
 
-    if p95 is None:
+    timeout_rate = _percentile_tracker.get_timeout_rate(endpoint)
+    if (
+        timeout_rate is not None
+        and timeout_rate >= TIMEOUT_RATE_DEGRADED_THRESHOLD
+    ):
+        multiplier = TIMEOUT_MULTIPLIERS["degraded"]
+    elif p95 is None:
         # Cold start: no sufficient data yet, use base timeout
         return float(base_timeout)
-
-    # Determine scaling factor based on p95 vs base
-    if p95 < base_timeout * 0.5:
-        # System is fast, be generous
-        multiplier = TIMEOUT_MULTIPLIERS["generous"]
-    elif p95 < base_timeout * 0.8:
-        # System is healthy, use base
-        multiplier = TIMEOUT_MULTIPLIERS["normal"]
     else:
-        # System is degraded, tighten
-        multiplier = TIMEOUT_MULTIPLIERS["degraded"]
+        # Determine scaling factor based on p95 vs base
+        if p95 < base_timeout * 0.5:
+            # System is fast, be generous
+            multiplier = TIMEOUT_MULTIPLIERS["generous"]
+        elif p95 < base_timeout * 0.8:
+            # System is healthy, use base
+            multiplier = TIMEOUT_MULTIPLIERS["normal"]
+        else:
+            # System is degraded, tighten
+            multiplier = TIMEOUT_MULTIPLIERS["degraded"]
 
     # Calculate timeout
     calculated_timeout = base_timeout * multiplier

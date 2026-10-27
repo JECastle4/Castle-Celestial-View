@@ -17,7 +17,11 @@ from api.timeout_logic import (
     get_timeout_count,
     get_tracker,
 )
-from api.timeout_config import BASE_TIMEOUTS, TIMEOUT_MULTIPLIERS
+from api.timeout_config import (
+    BASE_TIMEOUTS,
+    MIN_TIMEOUT_RATE_SAMPLES,
+    TIMEOUT_MULTIPLIERS,
+)
 
 
 class TestTimeoutObservationsTracking:
@@ -99,6 +103,22 @@ class TestTimeoutObservationsTracking:
         timeout_count = tracker.get_timeout_count('/unknown')
         assert timeout_count == 0
 
+    def test_timeout_rate_uses_normal_and_timeout_samples(self):
+        tracker = PercentileTracker()
+        for _ in range(15):
+            tracker.record_completion('/test', 1.0)
+        for _ in range(5):
+            tracker.record_completion('/test', 1.0, is_timeout=True)
+
+        assert tracker.get_timeout_rate('/test') == 0.25
+
+    def test_timeout_rate_requires_minimum_sample_count(self):
+        tracker = PercentileTracker()
+        for _ in range(MIN_TIMEOUT_RATE_SAMPLES - 1):
+            tracker.record_completion('/test', 1.0, is_timeout=True)
+
+        assert tracker.get_timeout_rate('/test') is None
+
 
 class TestTimeoutOscillationPrevention:
     """Test that timeout samples don't cause degraded→normal oscillation."""
@@ -170,6 +190,35 @@ class TestTimeoutOscillationPrevention:
         # Timeout should remain degraded (not flip to normal)
         timeout_after_timeouts = calculate_adaptive_timeout(endpoint)
         assert timeout_after_timeouts == expected_degraded
+
+    def test_high_timeout_rate_degrades_despite_fast_normal_completions(self):
+        get_tracker().clear()
+        endpoint = '/api/v1/batch-earth-observations'
+        base = BASE_TIMEOUTS['expensive']
+
+        for _ in range(80):
+            get_tracker().record_completion(endpoint, 1.0)
+        for _ in range(20):
+            get_tracker().record_completion(endpoint, base * 0.7, is_timeout=True)
+
+        assert get_tracker().get_percentile(endpoint) < base * 0.5
+        assert calculate_adaptive_timeout(endpoint) == (
+            base * TIMEOUT_MULTIPLIERS['degraded']
+        )
+
+    def test_low_timeout_rate_preserves_fast_system_timeout(self):
+        get_tracker().clear()
+        endpoint = '/api/v1/batch-earth-observations'
+        base = BASE_TIMEOUTS['expensive']
+
+        for _ in range(90):
+            get_tracker().record_completion(endpoint, 1.0)
+        for _ in range(10):
+            get_tracker().record_completion(endpoint, base * 0.7, is_timeout=True)
+
+        assert calculate_adaptive_timeout(endpoint) == (
+            base * TIMEOUT_MULTIPLIERS['generous']
+        )
 
     def test_timeout_observations_pruned_by_sliding_window(self):
         """Test that old timeout observations are pruned like normal ones."""

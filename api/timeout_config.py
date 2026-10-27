@@ -54,6 +54,8 @@ HARD_LIMIT_SECONDS = 300  # 5 minutes
 PERCENTILE_TO_TRACK = 0.95  # p95 (95th percentile)
 PERCENTILE_CACHE_TTL_SECONDS = 5  # Recalculate p95 every 5 seconds
 SLIDING_WINDOW_SECONDS = 300  # Track last 5 minutes of request times
+MIN_TIMEOUT_RATE_SAMPLES = 20  # Require enough samples for a stable rate
+TIMEOUT_RATE_DEGRADED_THRESHOLD = 0.2  # Tighten timeouts when >=20% time out
 
 # Adaptive timeout scaling factors
 # Based on ratio of observed p95 to base timeout
