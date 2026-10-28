@@ -233,8 +233,8 @@ class TestSolarContactTimes:
         
         # Result should still be valid dict, but might have None values
         assert isinstance(result, dict)
-        # At least one of these should likely be None for non-eclipse time
-        assert result['eclipse_begins'] is not None or result['eclipse_ends'] is None
+        # A non-eclipse time must have at least one missing contact.
+        assert result['eclipse_begins'] is None or result['eclipse_ends'] is None
 
 
 class TestLunarContactTimes:

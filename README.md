@@ -46,7 +46,7 @@ uvicorn api.main:app --reload --port 8000
 
 #### Python
 
-```bash
+```powershell
 $env:PYTHONPATH="." ; pytest tests/ --cov=. --cov-report=xml --cov-report=term-missing
 ```
 

@@ -1,14 +1,13 @@
 <template>
   <li class="event-item">
-    <!-- All rows: interactive buttons for keyboard/screen-reader accessibility.
-         Only eclipse rows expand on click; non-eclipse rows are readable but non-functional.
-         This ensures all new/full moon events are discoverable by all users. -->
-    <button
-      type="button"
+    <!-- Eclipse rows expand; non-eclipse rows remain readable as static content. -->
+    <component
+      :is="eclipseOccurs ? 'button' : 'div'"
+      :type="eclipseOccurs ? 'button' : undefined"
       class="event-summary"
       :class="{ 'event-summary-static': !eclipseOccurs }"
-      :aria-label="ariaLabel"
-      :aria-expanded="eclipseOccurs && expanded"
+      :aria-label="eclipseOccurs ? ariaLabel : undefined"
+      :aria-expanded="eclipseOccurs ? expanded : undefined"
       :aria-controls="eclipseOccurs ? detailsId : undefined"
       @click="eclipseOccurs && (expanded = !expanded)"
     >
@@ -20,7 +19,7 @@
         :class="eclipseOccurs ? (expanded ? 'fa-chevron-up' : 'fa-chevron-down') : 'fa-circle no-eclipse-indicator'"
         aria-hidden="true"
       ></i>
-    </button>
+    </component>
     <div
       v-if="eclipseOccurs && expanded"
       ref="detailsRegion"
@@ -80,7 +79,6 @@ const formattedDate = computed(() => {
   return new Intl.DateTimeFormat(intlLocale, {
     dateStyle: 'medium',
     timeStyle: 'short',
-    timeZone: 'UTC',
   }).format(parsed);
 });
 
@@ -128,15 +126,15 @@ button.event-summary:focus-visible {
 }
 
 /* Static (non-expandable) rows */
-button.event-summary-static {
+.event-summary-static {
   cursor: default;
 }
 
-button.event-summary-static:hover {
+.event-summary-static:hover {
   background: none;
 }
 
-button.event-summary-static:focus-visible {
+.event-summary-static:focus-visible {
   background: none;
 }
 

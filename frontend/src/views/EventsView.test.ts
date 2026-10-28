@@ -5,6 +5,7 @@ import AppHeader from '@/components/Header.vue';
 import * as exportService from '@/services/export';
 import { fetchContactTimesInQueue } from '@/composables/useContactTimesQueue';
 import { ApiError } from '@/services/api';
+import { getCurrentLocale, setCurrentLocale } from '@/i18n';
 
 const pushMock = vi.fn();
 vi.mock('vue-router', async () => {
@@ -86,6 +87,36 @@ afterEach(() => {
 });
 
 describe('EventsView', () => {
+  it('restarts an active search when the locale changes', async () => {
+    const previousLocale = getCurrentLocale();
+    const wrapper = mount(EventsView);
+    await flushPromises();
+
+    try {
+      await wrapper.find('.search-btn').trigger('click');
+      await flushPromises();
+      const activeSource = instances[0];
+
+      setCurrentLocale(previousLocale === 'en-US' ? 'en-UK' : 'en-US');
+      await flushPromises();
+
+      expect(activeSource.close).toHaveBeenCalledOnce();
+      expect(instances).toHaveLength(2);
+      expect(instances[1].url).toContain(`lang=${previousLocale === 'en-US' ? 'en-UK' : 'en-US'}`);
+    } finally {
+      wrapper.unmount();
+      setCurrentLocale(previousLocale);
+    }
+  });
+
+  it('keeps the header and footer outside the main content landmark', () => {
+    const wrapper = mount(EventsView);
+
+    expect(wrapper.find('main.events-content').exists()).toBe(true);
+    expect(wrapper.find('header').element.closest('main')).toBeNull();
+    expect(wrapper.find('footer').element.closest('main')).toBeNull();
+  });
+
   it('renders the title and description', () => {
     const wrapper = mount(EventsView);
     expect(wrapper.text()).toContain('Astronomical Events');
@@ -163,6 +194,18 @@ describe('EventsView', () => {
     expect(wrapper.find('.error').text()).toContain('cancelled');
   });
 
+  it('cancels an active search when the view is unmounted', async () => {
+    const wrapper = mount(EventsView);
+    await flushPromises();
+    await wrapper.find('.search-btn').trigger('click');
+    await flushPromises();
+
+    const source = instances[0];
+    wrapper.unmount();
+
+    expect(source.close).toHaveBeenCalledOnce();
+  });
+
   it('navigates back to the solar system view when the Solar System mode button is clicked', async () => {
     const wrapper = mount(EventsView);
     await flushPromises();
@@ -226,6 +269,42 @@ describe('EventsView', () => {
     expect(parametersPanel.text()).toContain('Search Parameters');
     const parameterItems = wrapper.findAll('.parameter-item');
     expect(parameterItems.length).toBeGreaterThan(0);
+  });
+
+  it('formats selected civil dates in UTC', async () => {
+    const formatDate = vi.spyOn(Date.prototype, 'toLocaleDateString');
+    const wrapper = mount(EventsView);
+    await flushPromises();
+
+    expect(formatDate).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ timeZone: 'UTC' }),
+    );
+    formatDate.mockRestore();
+    wrapper.unmount();
+  });
+
+  it('initializes the search range from local calendar dates', async () => {
+    const previousTimezone = process.env.TZ;
+    process.env.TZ = 'America/Los_Angeles';
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-28T01:00:00.000Z'));
+    const wrapper = mount(EventsView);
+
+    try {
+      await flushPromises();
+      const datePicker = wrapper.findComponent({ name: 'DateRangePicker' });
+      expect(datePicker.props('initialStartDate')).toBe('2026-10-27');
+      expect(datePicker.props('initialEndDate')).toBe('2027-10-27');
+    } finally {
+      wrapper.unmount();
+      vi.useRealTimers();
+      if (previousTimezone === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = previousTimezone;
+      }
+    }
   });
 
   it('correctly identifies and renders lunar eclipse events', async () => {

@@ -363,7 +363,7 @@ def get_sun_moon_parameters(time_obj):
     }
 
 
-def calculate_earth_shadow_cone(time_obj):
+def calculate_earth_shadow_cone(time_obj, params=None):
     """
     Calculate Earth's shadow cone at Moon distance (for lunar eclipses).
 
@@ -373,11 +373,13 @@ def calculate_earth_shadow_cone(time_obj):
 
     Args:
         time_obj: astropy Time object (should be at full moon)
+        params: Optional result from get_sun_moon_parameters(time_obj)
 
     Returns:
         dict with umbral and penumbral radii (km and angular)
     """
-    params = get_sun_moon_parameters(time_obj)
+    if params is None:
+        params = get_sun_moon_parameters(time_obj)
     sun_dist = params['sun_dist_km']
     moon_dist = params['moon_dist_km']
 
@@ -397,7 +399,7 @@ def calculate_earth_shadow_cone(time_obj):
     }
 
 
-def calculate_moon_shadow_cone(time_obj):
+def calculate_moon_shadow_cone(time_obj, params=None):
     """
     Calculate Moon's shadow cone at Earth distance (for solar eclipses).
 
@@ -409,11 +411,13 @@ def calculate_moon_shadow_cone(time_obj):
 
     Args:
         time_obj: astropy Time object (should be at new moon)
+        params: Optional result from get_sun_moon_parameters(time_obj)
 
     Returns:
         dict with umbral/penumbral radii and umbral_exists flag
     """
-    params = get_sun_moon_parameters(time_obj)
+    if params is None:
+        params = get_sun_moon_parameters(time_obj)
     sun_dist = params['sun_dist_km']
     moon_dist = params['moon_dist_km']
 

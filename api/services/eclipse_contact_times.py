@@ -83,7 +83,7 @@ def calculate_lunar_contact_times(greatest_eclipse_time, search_window_hours=6):
     """
     def shadow_params(t):
         params = get_sun_moon_parameters(t)
-        shadow = calculate_earth_shadow_cone(t)
+        shadow = calculate_earth_shadow_cone(t, params)
         return (
             params['moon_ang_radius_deg'],
             params['antisolar_separation_deg'],
@@ -144,7 +144,7 @@ def calculate_solar_contact_times(greatest_eclipse_time, search_window_hours=3):
     """
     def offset_and_thresholds(t):
         params = get_sun_moon_parameters(t)
-        shadow = calculate_moon_shadow_cone(t)
+        shadow = calculate_moon_shadow_cone(t, params)
         offset_km = params['moon_dist_km'] * np.radians(params['sun_moon_separation_deg'])
         penumbral_threshold_km = shadow['penumbral_radius_km'] + R_EARTH_KM
         central_threshold_km = abs(shadow['umbral_radius_km']) + R_EARTH_KM

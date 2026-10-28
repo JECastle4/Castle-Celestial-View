@@ -18,8 +18,9 @@ import time
 import functools
 import inspect
 import threading
-from typing import Any, Callable, Optional, Hashable
+from typing import Any, Callable, Optional
 from collections import OrderedDict
+from collections.abc import Hashable
 from pydantic import BaseModel
 from api.metrics import record_cache_hit_safe, record_cache_miss_safe
 
