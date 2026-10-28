@@ -348,6 +348,7 @@ jobs:
           npx playwright test
       env:
         CI: true
+        RATE_LIMIT_ENABLED: 'false'
         LIBGL_ALWAYS_SOFTWARE: '1'
         MESA_GL_VERSION_OVERRIDE: '4.5'
 
