@@ -22,6 +22,9 @@ function runWithAbort<T>(
     return Promise.resolve({ aborted: true });
   }
 
+  // Aborting stops this queue from waiting, but cannot cancel the underlying request.
+  // Keep observing its settlement so a late rejection is handled after the caller leaves.
+  // See #272 for the follow-up on defining cancellation across the client and backend.
   return new Promise((resolve, reject) => {
     const onAbort = () => {
       signal.removeEventListener('abort', onAbort);
@@ -60,6 +63,7 @@ function waitForDelay(delayMs: number, signal?: AbortSignal): Promise<boolean> {
  * @param eclipsesToFetch - Array of eclipses to fetch contact times for
  * @param fetchFn - Function to call for each eclipse (should accept date and is_lunar)
  * @param onProgress - Optional callback for progress updates (completed, total)
+ * @param signal - Stops queued work and waits; an already-started request may continue
  * @returns Array of results with success/failure status
  */
 export async function fetchContactTimesInQueue(

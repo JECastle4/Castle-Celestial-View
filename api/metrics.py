@@ -3,10 +3,10 @@ Prometheus metrics collection for API monitoring.
 
 Provides MetricsCollector singleton that tracks:
 - HTTP request latency/throughput (via middleware)
-- Cache performance (hits, misses, memory, evictions)
+- Cache hit/miss counts (memory, entry, and eviction metrics are not yet wired)
 - Rate limiting statistics
 - Astropy computation metrics
-- Error tracking
+- Error metric definitions (not yet emitted by runtime error handling)
 
 Ultra-lightweight (~2-3 μs per request overhead).
 """
@@ -68,7 +68,9 @@ class MetricsCollector:  # pylint: disable=too-many-instance-attributes
             labelnames=['endpoint'],
         )
 
-        # Cache metrics (instrumented via cache decorator)
+        # Cache hit/miss metrics are emitted by the response-cache decorator.
+        # The cache gauges and eviction counter are defined but not wired to cache
+        # lifecycle events yet; see #272.
         self.cache_hits_total = Counter(
             'cache_hits_total',
             'Total cache hits',
@@ -120,7 +122,8 @@ class MetricsCollector:  # pylint: disable=too-many-instance-attributes
             labelnames=['endpoint', 'event_type'],
         )
 
-        # Error metrics
+        # Defined for a future runtime integration; current error handlers do not
+        # record this counter yet. See #272.
         self.errors_total = Counter(
             'errors_total',
             'Total errors by type',
