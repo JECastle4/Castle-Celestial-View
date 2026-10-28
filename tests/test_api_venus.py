@@ -9,6 +9,39 @@ from pydantic import ValidationError
 class TestVenusPositionBasic:
     """Basic Venus position calculation tests."""
 
+    @staticmethod
+    def _verify_venus_fields_present(result: dict):
+        """Verify all expected Venus result fields are present."""
+        required_fields = [
+            "altitude", "azimuth", "is_visible", "sun_separation",
+            "naked_eye_visible", "illumination", "phase_angle",
+            "phase_name", "julian_date", "location", "input_datetime"
+        ]
+        for field in required_fields:
+            assert field in result, f"Missing field: {field}"
+
+    @staticmethod
+    def _verify_venus_types(result: dict):
+        """Verify Venus result fields have correct types."""
+        type_checks = {
+            "altitude": float, "azimuth": float, "is_visible": bool,
+            "sun_separation": float, "naked_eye_visible": bool,
+            "illumination": float, "phase_angle": float, "phase_name": str,
+            "julian_date": float
+        }
+        for field, expected_type in type_checks.items():
+            assert isinstance(result[field], expected_type),\
+                f"{field} should be {expected_type.__name__}"
+
+    @staticmethod
+    def _verify_venus_ranges(result: dict):
+        """Verify Venus result numeric fields are in valid ranges."""
+        assert -90 <= result["altitude"] <= 90, "Altitude out of range"
+        assert 0 <= result["azimuth"] <= 360, "Azimuth out of range"
+        assert result["sun_separation"] >= 0, "Sun separation cannot be negative"
+        assert 0.0 <= result["illumination"] <= 1.0, "Illumination out of range"
+        assert 0.0 <= result["phase_angle"] < 360.0, "Phase angle out of range"
+
     def test_venus_position_basic(self):
         """Test basic Venus position calculation."""
         result = calculate_venus_position(
@@ -16,34 +49,9 @@ class TestVenusPositionBasic:
             LocationModel(latitude=0.0, longitude=0.0, elevation=0.0)
         )
 
-        assert "altitude" in result
-        assert "azimuth" in result
-        assert "is_visible" in result
-        assert "sun_separation" in result
-        assert "naked_eye_visible" in result
-        assert "illumination" in result
-        assert "phase_angle" in result
-        assert "phase_name" in result
-        assert "julian_date" in result
-        assert "location" in result
-        assert "input_datetime" in result
-
-        assert isinstance(result["altitude"], float)
-        assert isinstance(result["azimuth"], float)
-        assert isinstance(result["is_visible"], bool)
-        assert isinstance(result["sun_separation"], float)
-        assert isinstance(result["naked_eye_visible"], bool)
-        assert isinstance(result["illumination"], float)
-        assert isinstance(result["phase_angle"], float)
-        assert isinstance(result["phase_name"], str)
-        assert isinstance(result["julian_date"], float)
-
-        # Check value ranges
-        assert -90 <= result["altitude"] <= 90
-        assert 0 <= result["azimuth"] <= 360
-        assert result["sun_separation"] >= 0
-        assert 0.0 <= result["illumination"] <= 1.0
-        assert 0.0 <= result["phase_angle"] < 360.0
+        self._verify_venus_fields_present(result)
+        self._verify_venus_types(result)
+        self._verify_venus_ranges(result)
 
     def test_venus_position_at_equator(self):
         """Test Venus position at equator."""

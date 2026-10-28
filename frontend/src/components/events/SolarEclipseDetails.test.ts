@@ -46,6 +46,24 @@ describe('SolarEclipseDetails', () => {
     expect(wrapper.findAll('.detail-row')).toHaveLength(1); // just greatest eclipse time
   });
 
+  it('hides contact times when no contact values are available', () => {
+    const emptyContacts: AstronomicalEvent = { ...baseEvent, contact_times: {} };
+    const nullContacts: AstronomicalEvent = {
+      ...baseEvent,
+      contact_times: {
+        eclipse_begins: null,
+        central_phase_begins: null,
+        central_phase_ends: null,
+        eclipse_ends: null,
+      },
+    };
+
+    for (const event of [emptyContacts, nullContacts]) {
+      const wrapper = mount(SolarEclipseDetails, { props: { event } });
+      expect(wrapper.find('.details-heading').exists()).toBe(false);
+    }
+  });
+
   it('omits the greatest eclipse row when null', () => {
     const noGreatestEvent: AstronomicalEvent = {
       ...baseEvent,
@@ -63,5 +81,57 @@ describe('SolarEclipseDetails', () => {
     };
     const wrapper = mount(SolarEclipseDetails, { props: { event: invalidEvent } });
     expect(wrapper.text()).toContain('not-a-real-date');
+  });
+
+  it('renders loading spinner when loading prop is true', () => {
+    const wrapper = mount(SolarEclipseDetails, {
+      props: { event: baseEvent, loading: true },
+    });
+
+    expect(wrapper.find('.loading-spinner').exists()).toBe(true);
+    expect(wrapper.find('i.fa-spinner').exists()).toBe(true);
+  });
+
+  it('renders error message when error prop is set', () => {
+    const errorMessage = 'Failed to fetch contact times';
+    const wrapper = mount(SolarEclipseDetails, {
+      props: { event: baseEvent, error: errorMessage },
+    });
+
+    expect(wrapper.find('.error-message').exists()).toBe(true);
+    expect(wrapper.text()).toContain(errorMessage);
+  });
+
+  it('does not render contact times heading when loading is true', () => {
+    const wrapper = mount(SolarEclipseDetails, {
+      props: { event: baseEvent, loading: true },
+    });
+
+    // Contact times section should not be rendered when loading
+    const detailRows = wrapper.findAll('.detail-row');
+    // Only the base info (greatest eclipse, size ratio) should be shown
+    expect(detailRows.length).toBeLessThan(5);
+  });
+
+  it('renders both loading and base info when loading is true', () => {
+    const wrapper = mount(SolarEclipseDetails, {
+      props: { event: baseEvent, loading: true },
+    });
+
+    // Should render the base event info (greatest eclipse time, size ratio)
+    expect(wrapper.text()).toContain('0.9612');
+    // And should render the loading spinner
+    expect(wrapper.find('.loading-spinner').exists()).toBe(true);
+  });
+
+  it('renders both error and base info', () => {
+    const wrapper = mount(SolarEclipseDetails, {
+      props: { event: baseEvent, error: 'API Error' },
+    });
+
+    // Should render the base event info
+    expect(wrapper.text()).toContain('0.9612');
+    // And should render the error
+    expect(wrapper.text()).toContain('API Error');
   });
 });

@@ -12,6 +12,39 @@ import astropy.units as u
 class TestMarsPositionBasic:
     """Basic Mars position calculation tests."""
 
+    @staticmethod
+    def _verify_result_fields_present(result: dict):
+        """Verify all expected fields are present in result."""
+        required_fields = [
+            "altitude", "azimuth", "is_visible", "illumination",
+            "phase_angle", "phase_name", "retrograde_status",
+            "julian_date", "input_datetime", "location",
+            "ra_degrees", "dec_degrees"
+        ]
+        for field in required_fields:
+            assert field in result, f"Missing field: {field}"
+
+    @staticmethod
+    def _verify_result_types(result: dict):
+        """Verify all fields have correct types."""
+        type_checks = {
+            "altitude": float, "azimuth": float, "is_visible": bool,
+            "illumination": float, "phase_angle": float, "phase_name": str,
+            "retrograde_status": str, "julian_date": float,
+            "ra_degrees": float, "dec_degrees": float
+        }
+        for field, expected_type in type_checks.items():
+            assert isinstance(result[field], expected_type),\
+                f"{field} should be {expected_type.__name__}"
+
+    @staticmethod
+    def _verify_result_ranges(result: dict):
+        """Verify all numeric fields are within valid ranges."""
+        assert -90 <= result["altitude"] <= 90, "Altitude out of range"
+        assert 0 <= result["azimuth"] <= 360, "Azimuth out of range"
+        assert 0.5 <= result["illumination"] <= 1.0, "Illumination out of range"
+        assert 0.0 <= result["phase_angle"] < 360.0, "Phase angle out of range"
+
     def test_mars_position_basic(self):
         """Test basic Mars position calculation with valid inputs."""
         result = calculate_mars_position(
@@ -19,37 +52,9 @@ class TestMarsPositionBasic:
             LocationModel(latitude=40.7128, longitude=-74.0060, elevation=10.0)
         )
 
-        # Verify all expected fields are present
-        assert "altitude" in result
-        assert "azimuth" in result
-        assert "is_visible" in result
-        assert "illumination" in result
-        assert "phase_angle" in result
-        assert "phase_name" in result
-        assert "retrograde_status" in result
-        assert "julian_date" in result
-        assert "input_datetime" in result
-        assert "location" in result
-        assert "ra_degrees" in result
-        assert "dec_degrees" in result
-
-        # Verify all fields are correct types
-        assert isinstance(result["altitude"], float)
-        assert isinstance(result["azimuth"], float)
-        assert isinstance(result["is_visible"], bool)
-        assert isinstance(result["illumination"], float)
-        assert isinstance(result["phase_angle"], float)
-        assert isinstance(result["phase_name"], str)
-        assert isinstance(result["retrograde_status"], str)
-        assert isinstance(result["julian_date"], float)
-        assert isinstance(result["ra_degrees"], float)
-        assert isinstance(result["dec_degrees"], float)
-
-        # Check value ranges
-        assert -90 <= result["altitude"] <= 90
-        assert 0 <= result["azimuth"] <= 360
-        assert 0.5 <= result["illumination"] <= 1.0  # Mars never < 50% illuminated
-        assert 0.0 <= result["phase_angle"] < 360.0
+        self._verify_result_fields_present(result)
+        self._verify_result_types(result)
+        self._verify_result_ranges(result)
 
     def test_mars_position_at_equator(self):
         """Test Mars position at equator."""
