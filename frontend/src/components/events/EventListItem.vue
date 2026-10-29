@@ -127,6 +127,7 @@ button.event-summary:focus-visible {
 
 /* Static (non-expandable) rows */
 .event-summary-static {
+  box-sizing: border-box;
   cursor: default;
 }
 
