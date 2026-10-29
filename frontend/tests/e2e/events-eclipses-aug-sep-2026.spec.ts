@@ -67,6 +67,10 @@ testWithPersistentPage.describe('Eclipse Events - August/September 2026 (Serial)
     await page.goto('/en-UK/events');
 
     await expect(page.locator('.search-btn')).toBeVisible();
+    await expect(page.getByRole('main')).toHaveCount(1);
+    await expect(page.getByRole('banner')).toBeVisible();
+    await expect(page.getByRole('contentinfo')).toBeVisible();
+    await expect(page.getByRole('main').locator('header, footer')).toHaveCount(0);
 
     const startDateInput = page.locator('.date-range-picker input[type="date"]').first();
     const endDateInput = page.locator('.date-range-picker input[type="date"]').nth(1);
@@ -95,10 +99,16 @@ testWithPersistentPage.describe('Eclipse Events - August/September 2026 (Serial)
 
   testWithPersistentPage('2. Expand the Solar Total panel and verify greatest eclipse time and size ratio', async ({ page }) => {
     const solarItem = page.locator('.event-item').filter({ hasText: 'Solar Total' });
-    await solarItem.locator('.event-summary').click();
+    const summary = solarItem.getByRole('button');
+    await expect(summary).toHaveAttribute('aria-expanded', 'false');
+    await summary.focus();
+    await summary.press('Enter');
+    await expect(summary).toHaveAttribute('aria-expanded', 'true');
 
     const details = solarItem.locator('.event-details');
     await expect(details).toBeVisible();
+    await expect(details).toHaveAttribute('id', /^event-details-/);
+    expect(await summary.getAttribute('aria-controls')).toBe(await details.getAttribute('id'));
 
     const rows = details.locator('.detail-row');
     // 2026-08-12 17:45:49.662 UTC greatest eclipse, size_ratio 1.031566
@@ -141,11 +151,15 @@ testWithPersistentPage.describe('Eclipse Events - August/September 2026 (Serial)
     const newMoonSummary = page.locator('.event-item').filter({ hasText: 'New Moon' }).locator('.event-summary');
     const fullMoonSummary = page.locator('.event-item').filter({ hasText: 'Full Moon' }).locator('.event-summary');
 
-    await expect(newMoonSummary).toHaveClass(/event-summary-static/);
-    await expect(fullMoonSummary).toHaveClass(/event-summary-static/);
-
-    await newMoonSummary.click();
-    await fullMoonSummary.click();
+    for (const summary of [newMoonSummary, fullMoonSummary]) {
+      await expect(summary).toHaveClass(/event-summary-static/);
+      await expect(summary).not.toHaveRole('button');
+      await expect(summary).not.toHaveAttribute('tabindex');
+      await expect(summary).not.toHaveAttribute('aria-expanded');
+      await expect(summary).not.toHaveAttribute('aria-controls');
+      expect(await summary.evaluate((element) => element.tabIndex)).toBe(-1);
+      await summary.click();
+    }
 
     await expect(page.locator('.event-item').filter({ hasText: 'New Moon' }).locator('.event-details')).toHaveCount(0);
     await expect(page.locator('.event-item').filter({ hasText: 'Full Moon' }).locator('.event-details')).toHaveCount(0);
