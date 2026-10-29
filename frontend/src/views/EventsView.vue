@@ -1,12 +1,12 @@
 <template>
-  <main class="events-view">
+  <div class="events-view">
     <AppHeader
       :hasData="false"
       selectedBody=""
       currentMode="eclipses"
       @select-mode="onSelectMode"
     />
-    <section class="events-content">
+    <main class="events-content">
       <h1>{{ t('events.title') }}</h1>
       <p class="events-description">{{ t('events.description') }}</p>
 
@@ -134,18 +134,19 @@
           {{ t('buttons.next') }}
         </button>
       </div>
-    </section>
+    </main>
     <AppFooter />
-  </main>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, defineAsyncComponent, onUnmounted } from 'vue';
+import { ref, defineAsyncComponent, onUnmounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { useAstronomicalEvents } from '@/composables/useAstronomicalEvents';
 import { fetchContactTimesInQueue } from '@/composables/useContactTimesQueue';
 import { exportContactTimesToCSV, exportContactTimesToJSON, generateFilename } from '@/services/export';
+import { normalizeLocaleForIntl } from '@/utils/locale';
 import AppHeader from '@/components/Header.vue';
 import AppFooter from '@/components/Footer.vue';
 import EventListItem from '@/components/events/EventListItem.vue';
@@ -165,16 +166,37 @@ const contactTimesErrors = ref<Record<string, string>>({});
 const today = new Date();
 const oneYearFromToday = new Date(today);
 oneYearFromToday.setFullYear(today.getFullYear() + 1);
-const startDate = ref(toDateString(today));
-const endDate = ref(toDateString(oneYearFromToday));
+const startDate = ref(toLocalDateString(today));
+const endDate = ref(toLocalDateString(oneYearFromToday));
 const isPreparingExport = ref(false);
 const exportMessage = ref<string | null>(null);
 const exportStatus = ref<'success' | 'error' | 'warning' | null>(null);
 let exportAbortController: AbortController | null = null;
+let pendingLocaleRefresh = false;
 
 onUnmounted(() => {
+  pendingLocaleRefresh = false;
+  cancelSSE();
   exportAbortController?.abort();
 });
+
+watch(locale, () => {
+  if (loading.value || hasSearched.value) {
+    if (isPreparingExport.value) {
+      pendingLocaleRefresh = true;
+      return;
+    }
+    cancelSSE();
+    search();
+  }
+});
+
+function toLocalDateString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 function toDateString(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -183,7 +205,12 @@ function toDateString(date: Date): string {
 function formatDisplayDate(dateString: string): string {
   try {
     const date = new Date(dateString + 'T00:00:00Z');
-    return date.toLocaleDateString(locale.value, { year: 'numeric', month: 'short', day: 'numeric' });
+    return date.toLocaleDateString(normalizeLocaleForIntl(locale.value), {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'UTC',
+    });
   } catch {
     return dateString;
   }
@@ -338,6 +365,10 @@ function handleExport(format: 'csv' | 'json') {
         isPreparingExport.value = false;
         if (exportAbortController === controller) {
           exportAbortController = null;
+        }
+        if (pendingLocaleRefresh) {
+          pendingLocaleRefresh = false;
+          search();
         }
       });
   } else {

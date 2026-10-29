@@ -43,10 +43,10 @@ describe('EventListItem', () => {
       },
     });
 
-    const btn = wrapper.find('button.event-summary');
-    expect(btn.exists()).toBe(true);
-    expect(btn.classes()).toContain('event-summary-static');
-    expect(btn.attributes('aria-label')).toBe('21 Sept 2025, 19:54 - New Moon. No Eclipse');
+    const row = wrapper.find('.event-summary-static');
+    expect(row.element.tagName).toBe('DIV');
+    expect(row.attributes('aria-expanded')).toBeUndefined();
+    expect(row.attributes('aria-label')).toBeUndefined();
     expect(wrapper.text()).toContain('New Moon');
     // Check that a circle icon is rendered for non-eclipse items
     expect(wrapper.find('i.fa-circle').exists()).toBe(true);
@@ -65,6 +65,30 @@ describe('EventListItem', () => {
     const btn = wrapper.find('button.event-summary');
     expect(btn.exists()).toBe(true);
     expect(btn.attributes('aria-expanded')).toBe('false');
+  });
+
+  it('formats event times in the browser local timezone', () => {
+    const previousTimezone = process.env.TZ;
+    process.env.TZ = 'America/Los_Angeles';
+
+    try {
+      const wrapper = mount(EventListItem, {
+        props: {
+          date: '2025-09-21 19:54:00.000',
+          eventType: 'New Moon',
+          eclipseOccurs: false,
+          event: mockNonEclipseEvent,
+        },
+      });
+
+      expect(wrapper.find('.event-summary-static').text()).toContain('12:54');
+    } finally {
+      if (previousTimezone === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = previousTimezone;
+      }
+    }
   });
 
   it('expands to reveal slot content when clicked', async () => {
