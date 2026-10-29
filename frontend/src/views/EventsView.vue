@@ -172,14 +172,20 @@ const isPreparingExport = ref(false);
 const exportMessage = ref<string | null>(null);
 const exportStatus = ref<'success' | 'error' | 'warning' | null>(null);
 let exportAbortController: AbortController | null = null;
+let pendingLocaleRefresh = false;
 
 onUnmounted(() => {
+  pendingLocaleRefresh = false;
   cancelSSE();
   exportAbortController?.abort();
 });
 
 watch(locale, () => {
   if (loading.value || hasSearched.value) {
+    if (isPreparingExport.value) {
+      pendingLocaleRefresh = true;
+      return;
+    }
     cancelSSE();
     search();
   }
@@ -359,6 +365,10 @@ function handleExport(format: 'csv' | 'json') {
         isPreparingExport.value = false;
         if (exportAbortController === controller) {
           exportAbortController = null;
+        }
+        if (pendingLocaleRefresh) {
+          pendingLocaleRefresh = false;
+          search();
         }
       });
   } else {

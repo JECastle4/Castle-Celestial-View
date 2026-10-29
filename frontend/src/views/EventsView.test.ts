@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mount, flushPromises } from '@vue/test-utils';
+import { mount, flushPromises, enableAutoUnmount } from '@vue/test-utils';
 import EventsView from './EventsView.vue';
 import AppHeader from '@/components/Header.vue';
 import * as exportService from '@/services/export';
@@ -86,7 +86,134 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+enableAutoUnmount(afterEach);
+
 describe('EventsView', () => {
+  it.each([
+    { format: 'csv', outcome: 'success' },
+    { format: 'json', outcome: 'success' },
+    { format: 'csv', outcome: 'contact failure' },
+    { format: 'csv', outcome: 'download failure' },
+    { format: 'csv', outcome: 'unmount' },
+  ] as const)('defers locale refresh during $format export preparation ($outcome)', async ({ format, outcome }) => {
+    const previousLocale = getCurrentLocale();
+    const nextLocale = previousLocale === 'en-US' ? 'en-UK' : 'en-US';
+    const wrapper = mount(EventsView);
+    let resolveContact!: (response: Response) => void;
+    let rejectContact!: (reason: Error) => void;
+    const contactRequest = new Promise<Response>((resolve, reject) => {
+      resolveContact = resolve;
+      rejectContact = reject;
+    });
+    const contactTimes = { p1: '2025-09-07 15:29:50.911' };
+    const fetchMock = vi.fn(() => contactRequest);
+    const exportSpy = vi.spyOn(
+      exportService,
+      format === 'csv' ? 'exportContactTimesToCSV' : 'exportContactTimesToJSON',
+    ).mockImplementation(() => {
+      expect(instances).toHaveLength(1);
+      if (outcome === 'download failure') {
+        throw new Error('Download failed');
+      }
+    });
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    try {
+      await vi.dynamicImportSettled();
+      await flushPromises();
+      await wrapper.findComponent({ name: 'DateRangePicker' }).vm.$emit('update:dates', {
+        start: new Date('2025-09-01T00:00:00Z'),
+        end: new Date('2025-09-30T00:00:00Z'),
+      });
+      await wrapper.find('.search-btn').trigger('click');
+      instances[0].emit('page', { page: 1, events: [makeEvent()] });
+      instances[0].emit('metadata', { total_events: 1, total_pages: 1 });
+      await flushPromises();
+
+      vi.useFakeTimers();
+      vi.stubGlobal('fetch', fetchMock);
+      await wrapper.findAll('.export-btn')[format === 'csv' ? 0 : 1].trigger('click');
+      await flushPromises();
+      expect(fetchMock).toHaveBeenCalledOnce();
+      expect(wrapper.find('.search-btn').attributes('disabled')).toBeDefined();
+
+      for (const language of [nextLocale, previousLocale, nextLocale]) {
+        setCurrentLocale(language);
+        await flushPromises();
+      }
+      expect(instances).toHaveLength(1);
+      expect(exportSpy).not.toHaveBeenCalled();
+      expect(wrapper.findAll('.event-item')).toHaveLength(1);
+
+      if (outcome === 'unmount') {
+        wrapper.unmount();
+      }
+      if (outcome === 'contact failure') {
+        rejectContact(new Error('Contact times unavailable'));
+      } else {
+        resolveContact(new Response(JSON.stringify({ contact_times: contactTimes })));
+      }
+      await flushPromises();
+
+      if (outcome === 'unmount') {
+        expect(instances).toHaveLength(1);
+        expect(exportSpy).not.toHaveBeenCalled();
+      } else {
+        expect(exportSpy).toHaveBeenCalledExactlyOnceWith(
+          [expect.objectContaining({
+            event_type: 'Full Moon',
+            contact_times: outcome === 'contact failure' ? null : contactTimes,
+          })],
+          expect.stringContaining(`.${format}`),
+        );
+        expect(instances).toHaveLength(2);
+        const query = new URL(instances[1].url, 'http://localhost').searchParams;
+        expect(query.get('lang')).toBe(nextLocale);
+        expect(query.get('start_date')).toBe('2025-09-01');
+        expect(query.get('end_date')).toBe('2025-09-30');
+
+        instances[1].emit('page', {
+          page: 1,
+          events: [makeEvent({ event_type: 'Refreshed event' })],
+        });
+        instances[1].emit('metadata', { total_events: 1, total_pages: 1 });
+        await flushPromises();
+        expect(wrapper.find('.event-type').text()).toBe('Refreshed event');
+        expect(wrapper.find('.search-btn').attributes('disabled')).toBeUndefined();
+        if (outcome === 'download failure') {
+          expect(wrapper.find('.export-error').text()).toContain('Download failed');
+          expect(consoleSpy).toHaveBeenCalledWith('Export error:', 'Download failed');
+        } else if (outcome === 'contact failure') {
+          expect(wrapper.find('.export-warning').exists()).toBe(true);
+        } else {
+          expect(wrapper.find('.export-success').exists()).toBe(true);
+        }
+      }
+    } finally {
+      if (wrapper.exists()) {
+        wrapper.unmount();
+      }
+      setCurrentLocale(previousLocale);
+      exportSpy.mockRestore();
+      consoleSpy.mockRestore();
+      vi.clearAllTimers();
+    }
+  });
+
+  it('does not start a search on locale change before the first search', async () => {
+    const previousLocale = getCurrentLocale();
+    const wrapper = mount(EventsView);
+    try {
+      await flushPromises();
+      setCurrentLocale(previousLocale === 'en-US' ? 'en-UK' : 'en-US');
+      await flushPromises();
+      expect(instances).toHaveLength(0);
+    } finally {
+      wrapper.unmount();
+      setCurrentLocale(previousLocale);
+    }
+  });
+
   it('restarts an active search when the locale changes', async () => {
     const previousLocale = getCurrentLocale();
     const wrapper = mount(EventsView);
