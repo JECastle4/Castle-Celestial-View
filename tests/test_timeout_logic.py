@@ -8,9 +8,10 @@ import pytest
 import asyncio
 import time
 from unittest.mock import Mock, patch, AsyncMock
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from api.main import app
+from api.main import app, TimeoutMiddleware
 from api.timeout_logic import (
     PercentileTracker,
     calculate_adaptive_timeout,
@@ -257,21 +258,21 @@ class TestTimeoutMiddleware:
 
     def test_timeout_exceeded_returns_503(self):
         """Test that timeout exceeded returns 503 with proper payload."""
-        # Patch asyncio.wait_for to raise TimeoutError, simulating a timeout
-        with patch('asyncio.wait_for', side_effect=asyncio.TimeoutError()):
-            with patch('api.main.calculate_adaptive_timeout', return_value=0.001):
-                client = TestClient(app)
-                response = client.get('/health')
-                
-                # Should timeout and return 503
+        slow_app = FastAPI()
+
+        @slow_app.get("/slow")
+        def slow():
+            time.sleep(0.05)
+            return {"finished": True}
+
+        slow_app.add_middleware(TimeoutMiddleware)
+        with patch('api.main.calculate_adaptive_timeout', return_value=0.001):
+            with TestClient(slow_app) as client:
+                response = client.get('/slow')
                 assert response.status_code == 503
-                
-                # Verify timeout response payload
                 data = response.json()
-                assert 'error' in data
                 assert data['error'] == 'Request timeout'
                 assert 'message' in data
-                assert 'timeout_seconds' in data
                 assert data['timeout_seconds'] == 0.001
 
 

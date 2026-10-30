@@ -172,12 +172,15 @@ const isPreparingExport = ref(false);
 const exportMessage = ref<string | null>(null);
 const exportStatus = ref<'success' | 'error' | 'warning' | null>(null);
 let exportAbortController: AbortController | null = null;
+const detailsAbortController = new AbortController();
+let detailsGeneration = 0;
 let pendingLocaleRefresh = false;
 
 onUnmounted(() => {
   pendingLocaleRefresh = false;
   cancelSSE();
   exportAbortController?.abort();
+  detailsAbortController.abort();
 });
 
 watch(locale, () => {
@@ -239,6 +242,9 @@ function search() {
   if (isPreparingExport.value) {
     return;
   }
+  detailsGeneration++;
+  loadingEventDates.value = new Set();
+  contactTimesErrors.value = {};
   fetchEventsSSE({
     start_date: startDate.value,
     end_date: endDate.value,
@@ -256,6 +262,7 @@ async function loadContactTimesForEvent(event: any) {
   }
 
   const dateStr = event.date;
+  const generation = detailsGeneration;
   
   // Skip if already loading this date (prevents duplicate requests from rapid expand/collapse)
   if (loadingEventDates.value.has(dateStr)) {
@@ -265,15 +272,20 @@ async function loadContactTimesForEvent(event: any) {
   try {
     loadingEventDates.value = new Set(loadingEventDates.value).add(dateStr);
     
-    await fetchContactTimesForEvent(dateStr, event.is_lunar);
+    await fetchContactTimesForEvent(dateStr, event.is_lunar, detailsAbortController.signal);
+    if (generation !== detailsGeneration) return;
     delete contactTimesErrors.value[dateStr];
   } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') return;
+    if (generation !== detailsGeneration) return;
     const errorMsg = err instanceof Error ? err.message : t('errors.unknown');
     contactTimesErrors.value[dateStr] = errorMsg;
   } finally {
-    const newSet = new Set(loadingEventDates.value);
-    newSet.delete(dateStr);
-    loadingEventDates.value = newSet;
+    if (generation === detailsGeneration) {
+      const newSet = new Set(loadingEventDates.value);
+      newSet.delete(dateStr);
+      loadingEventDates.value = newSet;
+    }
   }
 }
 

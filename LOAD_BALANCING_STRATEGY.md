@@ -20,23 +20,189 @@ Phase 4 scales to multi-instance deployments with proper load management and wor
 - Phase 3 limits set conservatively (5-8 req/min) to stay below capacity
 
 **Timeout doesn't interrupt work:**
-- `asyncio.wait_for()` returns 503 to client but worker thread continues running
+- The deadline returns 503 before response headers, while the retained application task finishes
+- `asyncio.wait_for()` alone cannot enforce that deadline for shielded synchronous routes
 - CPU-bound Astropy calculations (40s each) complete in background
 - Under high-volume attack, rejected requests still consume full resources
 - This is acceptable for single-instance, but worsens exhaustion at scale
 
 **Fixed-window rate limiting doesn't space requests:**
 - "5 per minute" allows all 5 requests to arrive in the first second
-- No concurrency control → requests queue in background threads
+- No concurrency control: requests queue in worker threads
 - If 5 batch requests (40s CPU each) arrive together: 200s CPU work queued instantly
 - 4 CPU cores need 50s to complete (all cores saturated)
-- Requests that arrive when queue is full will timeout while work continues
-- Without admission control, queue grows instead of draining
+- Requests that arrive when the queue is full can time out while work continues
+- Without admission control, the queue can grow instead of draining
 
 **Why Phase 3 is still an improvement but incomplete:**
-- Rate limiting + adaptive timeout + conservative limits help but don't guarantee protection
-- Requires production monitoring to verify load stays below capacity
-- Works well for single-instance; insufficient for multi-instance where admission control is critical
+- Rate limiting and adaptive response deadlines help but don't guarantee capacity protection
+- Production monitoring is needed to verify load stays below capacity
+- Admission control remains necessary for stronger single- and multi-instance protection
+
+## Runtime Monitoring and Cancellation
+
+### Rate limiting is not admission control
+
+Default per-IP limits are 5/minute for batch observations, 8/minute for event
+searches, 5/minute for event streams, 30/minute for contact times, and 100/minute
+for cheap endpoints. Environment overrides remain supported in `api/rate_limiter.py`.
+The export queue paces requests 2.5 seconds apart (at most about 24/minute before
+request time), and retries a 429 once after its advertised delay.
+
+A fixed window permits a burst at the beginning of the window. It does not cap
+concurrent computations, provide admission control, or prevent duplicate
+calculations when several callers miss the cache. In particular, returning a
+timeout **does not free a worker thread** or reset the request's rate-limit cost.
+
+### Cancellation contract
+
+The export queue stops queued items and pacing/retry waits immediately when
+cancelled, returns completed results, and continues observing the in-flight
+promise so late rejection is handled. Details expansion and export share a
+contact-time request. Each subscriber can cancel independently; only cancellation
+of every subscriber aborts the HTTP request. A caller without a signal keeps its
+subscription until settlement. Leaving the view cancels both subscriptions;
+starting another search or changing locale does not.
+
+The backend enforces an absolute adaptive deadline even while a synchronous
+calculation or stream iterator is running in a thread. Before response headers
+it returns 503; after headers it closes the body (SSE receives a timeout error
+event). It cannot change a status already sent. Late application sends are
+suppressed and task exceptions are observed and logged.
+
+Already-running CPU-bound work continues after timeout or disconnect. A successful
+response-cache calculation still populates its cache (contact times use a
+600-second TTL). **This is intentional**: a retry before completion misses the
+cache and may recompute; a retry after completion can hit it. There is no backend
+in-flight deduplication, timeout `Retry-After`, or automatic frontend 503 retry.
+Existing per-IP limits still apply. Genuine interruption remains Phase 4.2.
+
+Tasks surviving the HTTP response are retained until settlement. On application
+shutdown they get up to five seconds to finish before cancellation is requested.
+Cancellation still cannot interrupt running worker threads; the process supervisor
+controls the ultimate shutdown bound. Process termination can lose both the
+result and its final metrics. Streaming generators normally stop between chunks
+on disconnect, but their current worker-thread step may still finish.
+
+### Emitted metrics
+
+Scrape `/api/metrics`. All caches and these metrics are process-local; this does
+not add gunicorn multiprocess Prometheus aggregation.
+
+| Metric | Runtime meaning |
+|--------|-----------------|
+| `http_requests_total`, `http_request_duration_seconds` | HTTP outcomes, including unhandled pre-response 500s; streams retain the status actually sent. |
+| `http_requests_in_progress` | HTTP requests still owned by middleware, not all backend CPU work. |
+| `cache_hits_total`, `cache_misses_total` | Response-cache lookup outcomes. |
+| `cache_memory_bytes`, `cache_entry_count` | Estimated retained response bytes and entries, updated on cache mutations. Not RSS or immediately purged live-only data. |
+| `cache_evictions_total` | LRU removals for memory/capacity limits, attributed to the removed entry's endpoint. |
+| `cache_expirations_total` | Expired entries discovered and removed on access, purge or statistics collection. Not requests expiring before processing. |
+| `errors_total` | One bounded failure classification per request; 404/405 and other unmapped 4xx remain visible in HTTP metrics only. |
+| `timeout_exceeded_total`, `rate_limit_exceeded_total` | Deadline enforcement and 429 responses respectively. |
+| `abandoned_work_total{endpoint,reason}` | Work completing after a deadline (`timeout`) or an observed vanished connection (`client_disconnect`). |
+| `abandoned_work_duration_seconds` | Total wall-clock runtime of completed abandoned work, not CPU time or time since disconnect. |
+| `abandoned_work_in_progress` | Non-streaming tasks still running after their response deadline, not all disconnected or queued work. |
+
+Error categories are `invalid_input` (400), `payload_too_large` (413),
+`request_validation` (422), `rate_limited` (429), `timeout` (explicit deadline),
+`server_error` (other 5xx), `unhandled_exception` (escaping before/non-streaming
+failure), and `stream_error` (escaping during a stream). Labels never include
+exception messages or raw unmatched paths. Cache labels use the bounded decorated
+function names; HTTP labels use matched route templates (including router
+prefixes such as `/api/v1`) or `unknown`. This keeps completed-request samples
+aligned with the pre-route labels used by adaptive timeout tracking.
+An ordinary streaming 503 is classified as `server_error`; only the explicit
+middleware deadline flag classifies it as `timeout`. Streaming 503s retain their
+existing exclusion from p95 samples through the adaptive tracker's `is_timeout`
+input. This tracker policy is separate from the emitted error category and is
+not changed here.
+
+Expiration is lazy: an idle cache can retain expired entries until a later
+operation removes them. Replacement and explicit clear are neither expiry nor
+eviction. Use expiration and miss rates to tune cache policy, not as evidence of
+requests lost in a queue.
+
+Disconnect detection is a non-blocking check before non-streaming response
+headers. It observes that the connection is gone **by completion**, not when or
+why it vanished. A reverse proxy may hide browser cancellation or cause the
+upstream disconnect itself. Own timeout responses are excluded to avoid counting
+the same operation twice. Streams and work that never settles are not included
+in disconnect-completion metrics.
+
+Response state is committed only after the underlying ASGI send succeeds.
+After a computation deadline, the entire timeout response (or stream closing
+chunk) has a separate one-second delivery budget. Persistent transport
+backpressure cancels that send, logs the failure and propagates an exception
+instead of reporting a completed response. No late application sends are allowed.
+This bounds middleware-owned delivery, not socket teardown: ASGI provides no
+portable connection-abort operation, and a server may attempt its own error
+response if no headers were delivered.
+
+### Deployment alignment
+
+Both supplied nginx API configurations set send/read inactivity timeouts to
+250 seconds, above the backend's 240-second maximum expensive-request budget.
+The contact-time browser timeout remains 240 seconds, so network overhead can
+still produce a client/server race at that boundary. Existing deployments need
+the manual nginx configuration update described in `DEPLOYMENT_GUIDE.md`.
+
+### Reproducing runtime checks
+
+Install `requirements-dev.txt`, then run:
+
+```bash
+python -m pytest tests/test_runtime_evidence.py tests/test_request_lifecycle.py \
+  tests/test_cache_lifecycle_metrics.py --no-cov
+```
+
+The live harness starts a fresh interpreter, preserving real rate limiting and
+metric emission instead of pytest's test-mode substitutes. It uses production
+routes/middleware with deterministic astronomy service fixtures; it verifies HTTP
+lifecycle behavior, not astronomical accuracy. Its control routes exist only in
+`tests/runtime_app.py` and must never be deployed.
+
+Optional Linux deployment and soak checks:
+
+```bash
+docker pull nginx:stable-alpine
+RUN_NGINX_TESTS=true RUN_LONG_NGINX_TESTS=true \
+  python -m pytest tests/test_runtime_proxy.py --no-cov
+RUN_RUNTIME_SOAK=true python -m pytest tests/test_runtime_soak.py --no-cov -s
+```
+
+The proxy checks require a running local Docker daemon and execute the supplied
+API location directives without production TLS/static-site paths. The long
+check sends a real 130-second request. The mixed-workload soak runs for ten
+minutes, checks exact metric deltas, and measures process RSS/thread stability.
+Gunicorn tests run on Unix only; Docker/long/soak checks are opt-in.
+On Windows, Uvicorn teardown accepts exit code 1 only when the harness itself
+called `terminate()` (Windows uses `TerminateProcess`, not a graceful SIGTERM).
+Unexpected exit code 1 and shutdowns requiring a forced kill still fail.
+Streaming disconnect checks synchronize on worker entry/completion and HTTP
+metrics, not garbage-collection-dependent generator finalization.
+Soak disconnects hold marked computations behind a test-only gate until the
+client socket closes, rather than assuming a short calculation will finish later.
+
+For browser cancellation and export/timeout recovery, with the backend Python
+environment on `PATH`:
+
+```bash
+cd frontend
+CI=true RATE_LIMIT_ENABLED=false \
+  npx playwright test tests/e2e/events-locale-timezone.spec.ts \
+  tests/e2e/events-eclipses-aug-sep-2026.spec.ts
+```
+
+Install the project's Playwright browsers first. These checks cover all four
+configured browsers, including a real browser abort observed by API metrics.
+They also verify a real SSE deadline and subsequent recovery, shared contact
+requests populating both details and CSV downloads, deferred locale refresh
+after JSON export, and 429 recovery/503 partial exports. Intercepted export
+fixtures use actual browser downloads; the astronomical suite compares rendered
+solar/lunar contact times with real API responses. The live-server helper
+uses bounded startup/shutdown, verifies backend health through the test and
+validates the platform-appropriate exit after intentional teardown; it attaches
+backend logs to Playwright results.
 
 ## Phase 4.1: Admission Control
 
@@ -79,7 +245,8 @@ else:
 ```
 
 **Dependencies:**
-- Metrics tracking of in-flight work (already have `record_request_start/end`)
+- Metrics tracking of in-flight work (HTTP `record_request_start/end` alone is
+  insufficient: it excludes detached tasks and is not an admission counter)
 - Thread-safe counter per endpoint (`threading.Lock` or `asyncio.Lock`)
 - P95 duration from Prometheus metrics (already calculated)
 
@@ -209,7 +376,7 @@ else:
 
 ## Related Documentation
 
-- `api/main.py`: `timeout_middleware()` docstring (lines ~661) - documents Phase 3 limitation
+- `api/main.py`: `TimeoutMiddleware` docstring - documents Phase 3 limitations
 - `api/timeout_logic.py`: Adaptive timeout calculation (p95-based load shedding)
 - `api/metrics.py`: In-flight request tracking via `record_request_start/end`
 - `api/rate_limiter.py`: Per-endpoint rate limits (LIMIT_EXPENSIVE_BATCH, LIMIT_EXPENSIVE_EVENTS)

@@ -8,6 +8,23 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versio
 
 ## [Unreleased]
 
+### Added
+- Runtime response-cache entry, estimated-memory, eviction and expiration metrics,
+  bounded HTTP error categories, and abandoned-work counters, duration and in-progress metrics.
+
+### Fixed
+- Enforce adaptive response deadlines while synchronous calculations continue in the
+  background; preserve cache population and observe late failures.
+- Cancel individual contact-time subscribers without disrupting other callers sharing
+  the request; abort HTTP only when no subscribers remain.
+- Align supplied nginx API inactivity timeouts with the backend's maximum adaptive budget.
+- Preserve included-router prefixes in HTTP metric labels so completion samples
+  feed the same endpoint's adaptive timeout tracker.
+
+### Changed
+- Document timeout/disconnect behaviour, duplicate-work risk on retries, and the
+  distinction between rate limiting, HTTP requests in progress and running background work.
+
 ## [1.1.1] - 2026-08-01
 
 ### Added

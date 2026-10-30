@@ -13,6 +13,7 @@ describe('AstronomyApiClient', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -229,6 +230,85 @@ describe('AstronomyApiClient', () => {
   });
 
   describe('getContactTimesForEvent', () => {
+    it('does not fetch for a pre-aborted external signal', async () => {
+      const controller = new AbortController();
+      controller.abort();
+      await expect(client.getContactTimesForEvent('2025-09-07', true, controller.signal))
+        .rejects.toMatchObject({ name: 'AbortError' });
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('combines external cancellation with its own controller and cleans up', async () => {
+      vi.useFakeTimers();
+      const controller = new AbortController();
+      const removeListener = vi.spyOn(controller.signal, 'removeEventListener');
+      let requestSignal!: AbortSignal;
+      fetchMock.mockImplementationOnce((_url, options) => {
+        requestSignal = options.signal;
+        return new Promise((_resolve, reject) => {
+          requestSignal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+        });
+      });
+      const request = client.getContactTimesForEvent('2025-09-07', true, controller.signal);
+      const assertion = expect(request).rejects.toMatchObject({ name: 'AbortError' });
+      expect(requestSignal).not.toBe(controller.signal);
+      controller.abort();
+      await assertion;
+      expect(requestSignal.aborted).toBe(true);
+      expect(removeListener).toHaveBeenCalledWith('abort', expect.any(Function));
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it.each(['json', 'text'] as const)('keeps the timeout active while reading %s', async (method) => {
+      vi.useFakeTimers();
+      const controller = new AbortController();
+      const removeListener = vi.spyOn(controller.signal, 'removeEventListener');
+      fetchMock.mockImplementationOnce((_url, options) => Promise.resolve({
+        ok: method === 'json',
+        [method]: () => new Promise((_resolve, reject) => {
+          options.signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+        }),
+      }));
+      const request = client.getContactTimesForEvent('2025-09-07', true, controller.signal);
+      const assertion = expect(request).rejects.toThrow('Request timeout');
+      await vi.advanceTimersByTimeAsync(240000);
+      await assertion;
+      expect(removeListener).toHaveBeenCalledWith('abort', expect.any(Function));
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it.each(['json', 'text'] as const)('supports external cancellation while reading %s', async (method) => {
+      const controller = new AbortController();
+      fetchMock.mockImplementationOnce((_url, options) => Promise.resolve({
+        ok: method === 'json',
+        [method]: () => new Promise((_resolve, reject) => {
+          options.signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+        }),
+      }));
+      const request = client.getContactTimesForEvent('2025-09-07', true, controller.signal);
+      const assertion = expect(request).rejects.toMatchObject({ name: 'AbortError' });
+      await Promise.resolve();
+      controller.abort();
+      await assertion;
+    });
+
+    it.each([true, false])('cleans up timers and external listeners on settlement (success: %s)', async (ok) => {
+      vi.useFakeTimers();
+      const controller = new AbortController();
+      const removeListener = vi.spyOn(controller.signal, 'removeEventListener');
+      fetchMock.mockResolvedValueOnce({
+        ok, status: 503, statusText: 'Unavailable',
+        json: async () => ({ contact_times: null }),
+        text: async () => 'Unavailable',
+      });
+      const request = client.getContactTimesForEvent('2025-09-07', true, controller.signal);
+      if (ok) await expect(request).resolves.toEqual({ contact_times: null });
+      else await expect(request).rejects.toMatchObject({ status: 503 });
+      expect(removeListener).toHaveBeenCalledWith('abort', expect.any(Function));
+      expect(vi.getTimerCount()).toBe(0);
+      controller.abort();
+    });
+
     it('should successfully fetch contact times for lunar eclipse', async () => {
       const mockResponse = {
         contact_times: {

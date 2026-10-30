@@ -19,12 +19,11 @@ function runWithAbort<T>(
     return task.then((value) => ({ aborted: false, value }));
   }
   if (signal.aborted) {
+    void task.catch(() => {});
     return Promise.resolve({ aborted: true });
   }
 
-  // Aborting stops this queue from waiting, but cannot cancel the underlying request.
-  // Keep observing its settlement so a late rejection is handled after the caller leaves.
-  // See #272 for the follow-up on defining cancellation across the client and backend.
+  // Keep observing settlement even when cancellation stops the queue from waiting.
   return new Promise((resolve, reject) => {
     const onAbort = () => {
       signal.removeEventListener('abort', onAbort);
@@ -61,14 +60,14 @@ function waitForDelay(delayMs: number, signal?: AbortSignal): Promise<boolean> {
 /**
  * Process eclipse contact time requests sequentially with rate limiting
  * @param eclipsesToFetch - Array of eclipses to fetch contact times for
- * @param fetchFn - Function to call for each eclipse (should accept date and is_lunar)
+ * @param fetchFn - Function to call for each eclipse (date, is_lunar, optional signal)
  * @param onProgress - Optional callback for progress updates (completed, total)
- * @param signal - Stops queued work and waits; an already-started request may continue
+ * @param signal - Cancels queued work and is forwarded to active requests
  * @returns Array of results with success/failure status
  */
 export async function fetchContactTimesInQueue(
   eclipsesToFetch: Array<{ date: string; is_lunar: boolean }>,
-  fetchFn: (date: string, is_lunar: boolean) => Promise<void>,
+  fetchFn: (date: string, is_lunar: boolean, signal?: AbortSignal) => Promise<void>,
   onProgress?: (completed: number, total: number) => void,
   signal?: AbortSignal
 ): Promise<QueueResult[]> {
@@ -82,8 +81,8 @@ export async function fetchContactTimesInQueue(
     }
 
     try {
-      const attempt = await runWithAbort(fetchFn(eclipse.date, eclipse.is_lunar), signal);
-      if (attempt.aborted) {
+      const attempt = await runWithAbort(fetchFn(eclipse.date, eclipse.is_lunar, signal), signal);
+      if (attempt.aborted || signal?.aborted) {
         break;
       }
       results.push({ success: true, date: eclipse.date });
@@ -112,8 +111,8 @@ export async function fetchContactTimesInQueue(
         
         try {
           // Retry once
-          const retry = await runWithAbort(fetchFn(eclipse.date, eclipse.is_lunar), signal);
-          if (retry.aborted) {
+          const retry = await runWithAbort(fetchFn(eclipse.date, eclipse.is_lunar, signal), signal);
+          if (retry.aborted || signal?.aborted) {
             break;
           }
           results.push({ success: true, date: eclipse.date });

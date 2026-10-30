@@ -89,6 +89,120 @@ afterEach(() => {
 enableAutoUnmount(afterEach);
 
 describe('EventsView', () => {
+  it.each(['details', 'export', 'both'] as const)('aborts active %s contact loads on unmount without recording intentional errors', async (mode) => {
+    const wrapper = mount(EventsView);
+    await wrapper.find('.search-btn').trigger('click');
+    await flushPromises();
+    const event = makeEvent();
+    instances[0].emit('page', { page: 1, events: [event] });
+    instances[0].emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+    await flushPromises();
+
+    let requestSignal!: AbortSignal;
+    const fetchMock = vi.fn((_url, options) => {
+      requestSignal = options.signal;
+      return new Promise((_resolve, reject) => {
+        requestSignal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const exportSpy = vi.spyOn(exportService, 'exportContactTimesToCSV').mockImplementation(() => {});
+    try {
+      if (mode !== 'export') {
+        await wrapper.find('.event-summary').trigger('click');
+        await flushPromises();
+      }
+      if (mode !== 'details') {
+        await wrapper.findAll('.export-btn')[0].trigger('click');
+        await flushPromises();
+      }
+      const component = wrapper.vm as any;
+      expect(fetchMock).toHaveBeenCalledOnce();
+      expect(requestSignal.aborted).toBe(false);
+      wrapper.unmount();
+      await flushPromises();
+      expect(requestSignal.aborted).toBe(true);
+      expect(component.contactTimesErrors).toEqual({});
+      expect(component.loadingEventDates.size).toBe(0);
+      expect(exportSpy).not.toHaveBeenCalled();
+    } finally {
+      exportSpy.mockRestore();
+    }
+  });
+
+  it.each(['search', 'locale'] as const)('does not abort details loads on %s refresh or put stale errors on new results', async (refresh) => {
+    const previousLocale = getCurrentLocale();
+    const wrapper = mount(EventsView);
+    try {
+      await wrapper.find('.search-btn').trigger('click');
+      await flushPromises();
+      const event = makeEvent();
+      instances[0].emit('page', { page: 1, events: [event] });
+      instances[0].emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+      await flushPromises();
+
+      let rejectRequest!: (error: Error) => void;
+      let requestSignal!: AbortSignal;
+      vi.stubGlobal('fetch', vi.fn((_url, options) => {
+        requestSignal = options.signal;
+        return new Promise((_resolve, reject) => { rejectRequest = reject; });
+      }));
+      await wrapper.find('.event-summary').trigger('click');
+      await flushPromises();
+      if (refresh === 'search') await wrapper.find('.search-btn').trigger('click');
+      else setCurrentLocale(previousLocale === 'en-US' ? 'en-UK' : 'en-US');
+      await flushPromises();
+      expect(requestSignal.aborted).toBe(false);
+      instances[1].emit('page', { page: 1, events: [makeEvent()] });
+      instances[1].emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+      await flushPromises();
+      rejectRequest(new Error('Failure from old results'));
+      await flushPromises();
+      const component = wrapper.vm as any;
+      expect(component.contactTimesErrors).toEqual({});
+      expect(component.events[0].contact_times).toBeNull();
+    } finally {
+      wrapper.unmount();
+      setCurrentLocale(previousLocale);
+    }
+  });
+
+  it('keeps new-locale details loading when an old-locale request settles', async () => {
+    const previousLocale = getCurrentLocale();
+    const wrapper = mount(EventsView);
+    const pending: Array<(response: Response) => void> = [];
+    vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>((resolve) => pending.push(resolve))));
+    try {
+      await wrapper.find('.search-btn').trigger('click');
+      await flushPromises();
+      instances[0].emit('page', { page: 1, events: [makeEvent()] });
+      instances[0].emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+      await flushPromises();
+      await wrapper.find('.event-summary').trigger('click');
+      await flushPromises();
+      setCurrentLocale(previousLocale === 'en-US' ? 'en-UK' : 'en-US');
+      await flushPromises();
+      instances[1].emit('page', { page: 1, events: [makeEvent()] });
+      instances[1].emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
+      await flushPromises();
+      const component = wrapper.vm as any;
+      const load = component.loadContactTimesForEvent(makeEvent());
+      await flushPromises();
+      expect(pending).toHaveLength(2);
+      pending[0]({ ok: true, json: async () => ({ contact_times: { p1: 'old' } }) } as Response);
+      await flushPromises();
+      expect(component.loadingEventDates.has(fullMoonEvent.date)).toBe(true);
+      expect(component.events[0].contact_times).toBeNull();
+      pending[1]({ ok: true, json: async () => ({ contact_times: { p1: 'new' } }) } as Response);
+      await load;
+      expect(component.loadingEventDates.size).toBe(0);
+      expect(component.events[0].contact_times).toEqual({ p1: 'new' });
+    } finally {
+      wrapper.unmount();
+      setCurrentLocale(previousLocale);
+    }
+  });
+
   it.each([
     { format: 'csv', outcome: 'success' },
     { format: 'json', outcome: 'success' },

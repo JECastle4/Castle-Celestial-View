@@ -189,8 +189,10 @@ describe('useAstronomicalEvents SSE', () => {
     const mock = installMockEventSource();
     const { error, loading, fetchEventsSSE, cancelSSE } = useAstronomicalEvents();
 
-    fetchEventsSSE({ start_date: '2025-01-01', end_date: '2025-12-31' });
+    const request = fetchEventsSSE({ start_date: '2025-01-01', end_date: '2025-12-31' });
+    const assertion = expect(request).rejects.toThrow('Cancelled by user');
     cancelSSE();
+    await assertion;
 
     expect(error.value).toBe('Loading cancelled by user.');
     expect(loading.value).toBe(false);
@@ -253,8 +255,8 @@ describe('useAstronomicalEvents - fetchContactTimesForEvent', () => {
 
     await Promise.resolve();
     expect(mockApi.getContactTimesForEvent).toHaveBeenCalledTimes(2);
-    expect(mockApi.getContactTimesForEvent).toHaveBeenNthCalledWith(1, '2025-09-07', true);
-    expect(mockApi.getContactTimesForEvent).toHaveBeenNthCalledWith(2, '2025-09-07', false);
+    expect(mockApi.getContactTimesForEvent).toHaveBeenNthCalledWith(1, '2025-09-07', true, expect.any(AbortSignal));
+    expect(mockApi.getContactTimesForEvent).toHaveBeenNthCalledWith(2, '2025-09-07', false, expect.any(AbortSignal));
 
     resolveRequests.forEach((resolve) => {
       resolve({ contact_times: { p1: '2025-09-07 15:29:50.911' } });
@@ -283,7 +285,7 @@ describe('useAstronomicalEvents - fetchContactTimesForEvent', () => {
       p1: '2025-09-07 15:29:50.911',
       u1: '2025-09-07 16:26:57.000',
     });
-    expect(mockApi.getContactTimesForEvent).toHaveBeenCalledWith('2025-09-07 18:11:42.600', true);
+    expect(mockApi.getContactTimesForEvent).toHaveBeenCalledWith('2025-09-07 18:11:42.600', true, expect.any(AbortSignal));
   });
 
   it('updates event in allSseEvents during SSE search', async () => {
@@ -418,7 +420,7 @@ describe('useAstronomicalEvents - fetchContactTimesForEvent', () => {
       c3: '2025-09-07 17:00:00.000',
       c4: '2025-09-07 18:30:00.000',
     });
-    expect(mockApi.getContactTimesForEvent).toHaveBeenCalledWith('2025-09-07 18:11:42.600', false);
+    expect(mockApi.getContactTimesForEvent).toHaveBeenCalledWith('2025-09-07 18:11:42.600', false, expect.any(AbortSignal));
   });
 
   it('updates solar event in allSseEvents during SSE search', async () => {

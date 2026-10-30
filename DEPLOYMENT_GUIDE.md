@@ -323,6 +323,32 @@ journalctl -u castle-celestial-frontend -n 50
 - **Frontend:** `http://your-domain` or `http://your-ip`
 - **API:** `http://your-domain/api` or `http://your-ip:8000`
 
+### API timeouts and runtime metrics
+
+The supplied nginx configurations use `proxy_read_timeout 250s` and
+`proxy_send_timeout 250s` for `/api/`, above the backend's maximum expensive-request
+budget of 240 seconds (120 seconds times the generous adaptive multiplier).
+These nginx settings limit inactivity, not total response duration. The
+contact-time frontend timeout is 240 seconds; a response at that exact boundary
+can still race with the client timeout and network overhead.
+
+Existing installations must **manually apply** the updated `/api/` settings to
+their active nginx configuration, then validate and reload:
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+Changing the repository file alone does not update the deployed configuration.
+Keep these budgets aligned if changing `api/timeout_config.py` or frontend
+timeouts.
+
+Prometheus exposition is available at `/api/metrics`. See
+[runtime monitoring and cancellation](LOAD_BALANCING_STRATEGY.md#runtime-monitoring-and-cancellation)
+for cache expiration versus eviction, error categories, background-work metrics,
+and their limitations. Counters and caches are process-local; this does not
+configure Prometheus multiprocess aggregation for gunicorn workers.
+
 ---
 
 ## Troubleshooting

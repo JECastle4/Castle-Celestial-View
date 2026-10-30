@@ -101,8 +101,12 @@ testWithPersistentPage.describe('Eclipse Events - August/September 2026 (Serial)
     const solarItem = page.locator('.event-item').filter({ hasText: 'Solar Total' });
     const summary = solarItem.getByRole('button');
     await expect(summary).toHaveAttribute('aria-expanded', 'false');
-    await summary.focus();
-    await summary.press('Enter');
+    const [response] = await Promise.all([
+      page.waitForResponse((response) =>
+        response.url().includes('/astronomical-events/contact-times') &&
+        response.request().postDataJSON().is_lunar === false, { timeout: 90000 }),
+      summary.focus().then(() => summary.press('Enter')),
+    ]);
     await expect(summary).toHaveAttribute('aria-expanded', 'true');
 
     const details = solarItem.locator('.event-details');
@@ -114,11 +118,24 @@ testWithPersistentPage.describe('Eclipse Events - August/September 2026 (Serial)
     // 2026-08-12 17:45:49.662 UTC greatest eclipse, size_ratio 1.031566
     await expect(rows.filter({ hasText: 'Greatest Eclipse' })).toContainText(timeVariants('17', '45', '49'));
     await expect(rows.filter({ hasText: 'Size Ratio' })).toContainText('1.0316');
+    await expect(details.locator('.loading-spinner')).toHaveCount(0, { timeout: 90000 });
+    await expect(details.locator('.error-message')).toHaveCount(0);
+    expect(response.ok()).toBe(true);
+    const contact = (await response.json()).contact_times.eclipse_begins;
+    expect(contact).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/);
+    const [hour, minute, second] = contact.slice(11, 19).split(':');
+    await expect(rows.filter({ hasText: 'Eclipse Begins' }).locator('dd'))
+      .toHaveText(timeVariants(hour, minute, second));
   });
 
   testWithPersistentPage('3. Expand the Lunar Partial panel and verify greatest eclipse time and magnitudes', async ({ page }) => {
     const lunarItem = page.locator('.event-item').filter({ hasText: 'Lunar Partial' });
-    await lunarItem.locator('.event-summary').click();
+    const [response] = await Promise.all([
+      page.waitForResponse((response) =>
+        response.url().includes('/astronomical-events/contact-times') &&
+        response.request().postDataJSON().is_lunar === true, { timeout: 90000 }),
+      lunarItem.locator('.event-summary').click(),
+    ]);
 
     const details = lunarItem.locator('.event-details');
     await expect(details).toBeVisible();
@@ -130,6 +147,14 @@ testWithPersistentPage.describe('Eclipse Events - August/September 2026 (Serial)
     await expect(rows.filter({ hasText: 'Greatest Eclipse' })).toContainText(timeVariants('04', '13', '04'));
     await expect(rows.filter({ hasText: /^Umbral Magnitude/ })).toContainText('0.9045');
     await expect(rows.filter({ hasText: /^Penumbral Magnitude/ })).toContainText('1.9387');
+    await expect(details.locator('.loading-spinner')).toHaveCount(0, { timeout: 90000 });
+    await expect(details.locator('.error-message')).toHaveCount(0);
+    expect(response.ok()).toBe(true);
+    const contact = (await response.json()).contact_times.p1;
+    expect(contact).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/);
+    const [hour, minute, second] = contact.slice(11, 19).split(':');
+    await expect(rows.filter({ hasText: 'P1 (Penumbral Eclipse Begins)' }).locator('dd'))
+      .toHaveText(timeVariants(hour, minute, second));
   });
 
   testWithPersistentPage('4. Capture a snapshot with both eclipse panels expanded', async ({ page }) => {
