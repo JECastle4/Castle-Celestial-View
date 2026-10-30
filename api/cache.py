@@ -9,6 +9,9 @@ identical requests.
 Memory-aware caching: Cache is bounded by both entry count and total memory usage.
 Responses exceeding max_entry_bytes are not cached. When total memory exceeds
 max_memory_bytes, least-recently-used entries are evicted to stay within limits.
+The response cache observes lifecycle changes per endpoint function name.
+Reported bytes estimate retained response sizes, not process RSS; expirations
+are counted when removed and are distinct from capacity-driven LRU evictions.
 
 Thread-safe implementation protects against concurrent access from
 synchronous routes running in the thread pool executor.
@@ -22,7 +25,9 @@ from typing import Any, Callable, Optional
 from collections import OrderedDict
 from collections.abc import Hashable
 from pydantic import BaseModel
-from api.metrics import record_cache_hit_safe, record_cache_miss_safe
+from api.metrics import (
+    record_cache_hit_safe, record_cache_miss_safe, record_cache_lifecycle_safe,
+)
 
 from api.i18n import get_i18n
 
@@ -49,11 +54,14 @@ class TTLCache:  # pylint: disable=too-many-instance-attributes
         default_ttl: Default time-to-live for entries in seconds (default: 300)
         max_memory_bytes: Maximum total memory for cache in bytes (default: 100MB)
         max_entry_bytes: Maximum size of individual response to cache in bytes (default: 10MB)
+        observer: Optional callback receiving (event, endpoint, estimated bytes, entries).
+            Called under the cache lock; endpoint labels must be supplied explicitly.
     """
 
     def __init__(self, max_size: int = 128, default_ttl: int = 300,
                  max_memory_bytes: int = 100 * 1024 * 1024,
-                 max_entry_bytes: int = 10 * 1024 * 1024):
+                 max_entry_bytes: int = 10 * 1024 * 1024,
+                 observer: Optional[Callable[[str, str, int, int], None]] = None):
         # Configuration limits
         self.max_size = max_size
         self.default_ttl = default_ttl
@@ -66,6 +74,9 @@ class TTLCache:  # pylint: disable=too-many-instance-attributes
         self.total_memory_used: int = 0  # Track total memory in cache
         # Thread safety
         self._lock = threading.RLock()  # Reentrant lock for nested lock acquisition
+        self._observer = observer
+        self._entry_endpoints: dict = {}
+        self._endpoint_usage: dict = {}
 
     def _estimate_size(self, obj: Any) -> int:
         """
@@ -123,7 +134,7 @@ class TTLCache:  # pylint: disable=too-many-instance-attributes
                 return None
 
             if self._is_expired(key):
-                self._delete(key)
+                self._delete(key, event="expiration")
                 return None
 
             # Move to end (most recently used)
@@ -146,10 +157,11 @@ class TTLCache:  # pylint: disable=too-many-instance-attributes
         with self._lock:
             expired_keys = [key for key in self.cache if self._is_expired(key)]
             for key in expired_keys:
-                self._delete(key)
+                self._delete(key, event="expiration")
             return len(expired_keys)
 
-    def set(self, key: Hashable, value: Any, ttl: Optional[int] = None) -> bool:
+    def set(self, key: Hashable, value: Any, ttl: Optional[int] = None,
+            *, endpoint: Optional[str] = None) -> bool:
         """
         Store a value in cache with TTL.
 
@@ -162,6 +174,8 @@ class TTLCache:  # pylint: disable=too-many-instance-attributes
             key: Cache key
             value: Value to cache
             ttl: Time-to-live in seconds (uses default_ttl if None)
+            endpoint: Trusted function-name label for the observer, never a request key.
+                Generic caches without an observer do not track endpoint metadata.
 
         Returns:
             True if value was cached, False if it exceeded max_entry_bytes
@@ -179,11 +193,7 @@ class TTLCache:  # pylint: disable=too-many-instance-attributes
 
             # Remove if already exists (will re-add as most recent)
             if key in self.cache:
-                old_size = self.entry_sizes.get(key, 0)
-                self.total_memory_used -= old_size
-                self.cache.pop(key)
-                self.expiry.pop(key, None)
-                self.entry_sizes.pop(key, None)
+                self._delete(key, event="replacement")
 
             # Purge expired entries first to avoid evicting live LRU entries
             self.purge_expired()
@@ -193,16 +203,28 @@ class TTLCache:  # pylint: disable=too-many-instance-attributes
             while ((self.total_memory_used + entry_size > self.max_memory_bytes or
                     len(self.cache) >= self.max_size) and len(self.cache) > 0):
                 lru_key = next(iter(self.cache))
-                self._delete(lru_key)
+                self._delete(lru_key, event="eviction")
 
             # Add new entry
             self.cache[key] = value
             self.expiry[key] = time.time() + ttl
             self.entry_sizes[key] = entry_size
             self.total_memory_used += entry_size
+            if self._observer is not None and endpoint is not None:
+                self._entry_endpoints[key] = endpoint
+                usage = self._endpoint_usage.setdefault(endpoint, [0, 0])
+                usage[0] += entry_size
+                usage[1] += 1
+                self._notify("set", endpoint)
             return True
 
-    def _delete(self, key: Hashable) -> None:
+    def _notify(self, event: str, endpoint: str) -> None:
+        """Publish retained response estimates while holding the cache lock."""
+        if self._observer is not None:
+            bytes_used, entry_count = self._endpoint_usage[endpoint]
+            self._observer(event, endpoint, bytes_used, entry_count)
+
+    def _delete(self, key: Hashable, event: str = "delete") -> None:
         """Remove an entry from cache and update memory tracking."""
         if key in self.cache:
             # Subtract from total memory used
@@ -210,6 +232,12 @@ class TTLCache:  # pylint: disable=too-many-instance-attributes
             self.total_memory_used -= entry_size
             self.entry_sizes.pop(key, None)
             self.cache.pop(key)
+            endpoint = self._entry_endpoints.pop(key, None)
+            if endpoint is not None:
+                usage = self._endpoint_usage[endpoint]
+                usage[0] -= entry_size
+                usage[1] -= 1
+                self._notify(event, endpoint)
         self.expiry.pop(key, None)
 
     def clear(self) -> None:
@@ -219,6 +247,10 @@ class TTLCache:  # pylint: disable=too-many-instance-attributes
             self.expiry.clear()
             self.entry_sizes.clear()
             self.total_memory_used = 0
+            self._entry_endpoints.clear()
+            for endpoint in self._endpoint_usage:
+                self._endpoint_usage[endpoint] = [0, 0]
+                self._notify("clear", endpoint)
 
     def __len__(self) -> int:
         """
@@ -232,7 +264,7 @@ class TTLCache:  # pylint: disable=too-many-instance-attributes
                 if not self._is_expired(key):
                     count += 1
                 else:
-                    self._delete(key)
+                    self._delete(key, event="expiration")
             return count
 
 
@@ -240,7 +272,8 @@ class TTLCache:  # pylint: disable=too-many-instance-attributes
 # max_memory_bytes=100MB, max_entry_bytes=10MB to prevent OOM from large batch responses
 _response_cache = TTLCache(max_size=256, default_ttl=300,
                            max_memory_bytes=100 * 1024 * 1024,
-                           max_entry_bytes=10 * 1024 * 1024)
+                           max_entry_bytes=10 * 1024 * 1024,
+                           observer=record_cache_lifecycle_safe)
 
 
 def cache_response(ttl: int = 300):
@@ -251,7 +284,7 @@ def cache_response(ttl: int = 300):
     Caches the complete response for identical requests within TTL window.
     Handles both synchronous and asynchronous endpoint functions.
 
-    Tracks cache hits/misses to Prometheus metrics (Phase 3.2).
+    Tracks hits/misses and retained response lifecycle metrics by function name.
 
     Usage:
         @cache_response(ttl=300)
@@ -317,7 +350,7 @@ def cache_response(ttl: int = 300):
 
                 # Execute function and cache result
                 result = await func(*args, **kwargs)
-                _response_cache.set(cache_key, result, ttl=ttl)
+                _response_cache.set(cache_key, result, ttl=ttl, endpoint=endpoint_name)
                 return result
 
             return async_wrapper
@@ -367,7 +400,7 @@ def cache_response(ttl: int = 300):
 
             # Execute function and cache result
             result = func(*args, **kwargs)
-            _response_cache.set(cache_key, result, ttl=ttl)
+            _response_cache.set(cache_key, result, ttl=ttl, endpoint=endpoint_name)
             return result
 
         return sync_wrapper

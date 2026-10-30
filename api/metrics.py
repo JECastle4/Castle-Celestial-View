@@ -3,12 +3,13 @@ Prometheus metrics collection for API monitoring.
 
 Provides MetricsCollector singleton that tracks:
 - HTTP request latency/throughput (via middleware)
-- Cache hit/miss counts (memory, entry, and eviction metrics are not yet wired)
+- Response cache hits/misses, retained size estimates, entries, evictions, and expirations
 - Rate limiting statistics
 - Astropy computation metrics
-- Error metric definitions (not yet emitted by runtime error handling)
+- Bounded error categories emitted by HTTP middleware
+- Work completing after a deadline or observed client disconnect
 
-Ultra-lightweight (~2-3 μs per request overhead).
+Metrics are process-local; duration measurements are wall-clock time, not CPU time.
 """
 
 from typing import Optional
@@ -68,9 +69,7 @@ class MetricsCollector:  # pylint: disable=too-many-instance-attributes
             labelnames=['endpoint'],
         )
 
-        # Cache hit/miss metrics are emitted by the response-cache decorator.
-        # The cache gauges and eviction counter are defined but not wired to cache
-        # lifecycle events yet; see #272.
+        # Response-cache metrics use endpoint function names, not request keys.
         self.cache_hits_total = Counter(
             'cache_hits_total',
             'Total cache hits',
@@ -85,7 +84,7 @@ class MetricsCollector:  # pylint: disable=too-many-instance-attributes
 
         self.cache_memory_bytes = Gauge(
             'cache_memory_bytes',
-            'Cache memory usage in bytes',
+            'Estimated retained response size in bytes (not process RSS)',
             labelnames=['endpoint'],
         )
 
@@ -98,6 +97,12 @@ class MetricsCollector:  # pylint: disable=too-many-instance-attributes
         self.cache_evictions_total = Counter(
             'cache_evictions_total',
             'Total cache evictions (LRU)',
+            labelnames=['endpoint'],
+        )
+
+        self.cache_expirations_total = Counter(
+            'cache_expirations_total',
+            'Total expired cache entries removed',
             labelnames=['endpoint'],
         )
 
@@ -122,8 +127,7 @@ class MetricsCollector:  # pylint: disable=too-many-instance-attributes
             labelnames=['endpoint', 'event_type'],
         )
 
-        # Defined for a future runtime integration; current error handlers do not
-        # record this counter yet. See #272.
+        # HTTP middleware owns classification and exactly-once error recording.
         self.errors_total = Counter(
             'errors_total',
             'Total errors by type',
@@ -134,6 +138,22 @@ class MetricsCollector:  # pylint: disable=too-many-instance-attributes
         self.timeout_exceeded_total = Counter(
             'timeout_exceeded_total',
             'Total requests that exceeded timeout due to load',
+            labelnames=['endpoint'],
+        )
+        self.abandoned_work_total = Counter(
+            'abandoned_work_total',
+            'Completed work after a timeout or observed client disconnect',
+            labelnames=['endpoint', 'reason'],
+        )
+        self.abandoned_work_duration = Histogram(
+            'abandoned_work_duration_seconds',
+            'Total wall-clock duration of completed abandoned work (not CPU time)',
+            labelnames=['endpoint'],
+            buckets=(0.1, 0.5, 1, 2, 5, 10, 30, 60, 120, 240, 300, 600),
+        )
+        self.abandoned_work_in_progress = Gauge(
+            'abandoned_work_in_progress',
+            'Non-streaming requests still running after their response deadline',
             labelnames=['endpoint'],
         )
 
@@ -172,13 +192,17 @@ class MetricsCollector:  # pylint: disable=too-many-instance-attributes
         self.cache_misses_total.labels(endpoint=endpoint).inc()
 
     def record_cache_memory(self, endpoint: str, bytes_used: int, entry_count: int) -> None:
-        """Update cache memory and entry count gauges."""
+        """Update retained response size estimates (not RSS) and entry count."""
         self.cache_memory_bytes.labels(endpoint=endpoint).set(bytes_used)
         self.cache_entry_count.labels(endpoint=endpoint).set(entry_count)
 
     def record_cache_eviction(self, endpoint: str) -> None:
         """Record cache eviction event."""
         self.cache_evictions_total.labels(endpoint=endpoint).inc()
+
+    def record_cache_expiration(self, endpoint: str) -> None:
+        """Record an expired entry when it is removed, not when its TTL elapses."""
+        self.cache_expirations_total.labels(endpoint=endpoint).inc()
 
     def record_rate_limit_exceeded(self, endpoint: str) -> None:
         """Record rate limit exceeded (429 response)."""
@@ -203,6 +227,11 @@ class MetricsCollector:  # pylint: disable=too-many-instance-attributes
         self.errors_total.labels(
             endpoint=endpoint, error_type=error_type, status=status
         ).inc()
+
+    def record_abandoned_work(self, endpoint: str, reason: str, duration: float) -> None:
+        """Record completed abandoned work; callers supply bounded endpoint/reason labels."""
+        self.abandoned_work_total.labels(endpoint=endpoint, reason=reason).inc()
+        self.abandoned_work_duration.labels(endpoint=endpoint).observe(duration)
 
     def record_timeout_exceeded(self, endpoint: str) -> None:
         """Record request timeout due to load (Phase 3.3 graceful degradation)."""
@@ -251,6 +280,23 @@ def record_cache_miss_safe(endpoint: str) -> None:
         return
     try:
         get_metrics().record_cache_miss(endpoint)
+    except ImportError:
+        pass
+
+
+def record_cache_lifecycle_safe(
+    event: str, endpoint: str, bytes_used: int, entry_count: int,
+) -> None:
+    """Safely publish response-cache state and capacity/expiration removals."""
+    if _is_test_mode():
+        return
+    try:
+        metrics = get_metrics()
+        metrics.record_cache_memory(endpoint, bytes_used, entry_count)
+        if event == 'eviction':
+            metrics.record_cache_eviction(endpoint)
+        elif event == 'expiration':
+            metrics.record_cache_expiration(endpoint)
     except ImportError:
         pass
 

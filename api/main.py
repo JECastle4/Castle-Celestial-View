@@ -10,10 +10,12 @@ from astropy.utils import iers
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi.errors import RateLimitExceeded
+from starlette.requests import ClientDisconnect
 
 from api.cache import get_cache_stats
 from api.i18n import SUPPORTED_LOCALES, set_request_locale
 from api.metrics import get_metrics
+from api.middleware.request_lifecycle import BackgroundRequests, disconnected_before_response
 from api.middleware.streaming_registry import StreamingMetadata
 from api.rate_limiter import limiter, rate_limit_exception_handler, get_rate_limit_stats
 from api.rate_limiter import MockLimiter
@@ -458,14 +460,24 @@ def _is_streaming_response_asgi(headers: list[tuple[bytes, bytes]]) -> bool:
     return not has_content_length
 
 
+def _error_category(status: int, timed_out: bool) -> str | None:
+    """Classify response failures without unbounded exception/message labels."""
+    if timed_out:
+        return "timeout"
+    if status >= 500:
+        return "server_error"
+    return {
+        400: "invalid_input", 413: "payload_too_large",
+        422: "request_validation", 429: "rate_limited",
+    }.get(status)
+
+
 class MetricsMiddleware:  # pylint: disable=too-few-public-methods
     """Pure ASGI middleware for recording HTTP request metrics (Phase 3.2).
 
     Tracks request duration, count, status, and in-progress requests per endpoint.
     Uses matched route template as label (not raw URL path) to prevent cardinality
     explosion from requests to unknown paths.
-    Ultra-lightweight: ~2-3 μs overhead per request.
-
     Ensures cleanup (record_request_end) is called even if outer middleware cancels
     the request (e.g., due to timeout), preventing leaked in-progress request counts.
 
@@ -495,6 +507,8 @@ class MetricsMiddleware:  # pylint: disable=too-few-public-methods
         metrics.record_request_start(pre_route_endpoint)
 
         status_code = 500
+        response_started = False
+        error_recorded = False
         is_streaming = False
         response_headers = []
         endpoint = None
@@ -505,22 +519,15 @@ class MetricsMiddleware:  # pylint: disable=too-few-public-methods
             """Wrap send to track status and detect streaming responses."""
             nonlocal status_code, is_streaming, response_headers, endpoint
             nonlocal request_state_metadata, streaming_finalized
+            nonlocal response_started, error_recorded
 
             if message["type"] == "http.response.start":
+                response_started = True
                 status_code = message.get("status", 500)
                 response_headers = message.get("headers", [])
                 is_streaming = _is_streaming_response_asgi(response_headers)
 
-                # Extract matched route label after response headers are available
-                # For most cases, request.scope["route"] should be set by now
-                try:
-                    route = scope.get("route")
-                    if route and hasattr(route, "path"):
-                        endpoint = route.path
-                    else:
-                        endpoint = "unknown"
-                except (AttributeError, KeyError, TypeError):
-                    endpoint = "unknown"
+                endpoint = _get_route_label(request_obj)
 
                 # For streaming responses, prepare deferred metrics recording
                 if is_streaming:
@@ -537,18 +544,33 @@ class MetricsMiddleware:  # pylint: disable=too-few-public-methods
                         scope["state"] = {}
                     scope["state"]["streaming_metadata"] = request_state_metadata
                 else:
+                    if (
+                        not scope.get("_timeout_middleware_generated", False)
+                        and await disconnected_before_response(receive)
+                    ):
+                        metrics.record_abandoned_work(
+                            endpoint, "client_disconnect", time.perf_counter() - start_time
+                        )
                     # Non-streaming: record metrics immediately
                     duration = time.perf_counter() - start_time
                     metrics.record_request(endpoint, method, status_code, duration)
                     # Check if this is a timeout-generated response to record with is_timeout=True
                     is_timeout_generated = scope.get("_timeout_middleware_generated", False)
                     record_request_completion(endpoint, duration, is_timeout=is_timeout_generated)
+                    category = _error_category(status_code, is_timeout_generated)
+                    if category:
+                        metrics.record_error(endpoint, category, status_code)
+                        error_recorded = True
 
                 # Track 429 rate limit responses
                 if status_code == 429:
                     metrics.record_rate_limit_exceeded(endpoint)
 
             elif message["type"] == "http.response.body":
+                await send(message)
+                if scope.get("_timeout_middleware_generated", False) and not error_recorded:
+                    metrics.record_error(endpoint, "timeout", status_code)
+                    error_recorded = True
                 # For streaming responses, finalize metrics when the final body chunk is sent
                 if is_streaming and not message.get("more_body", False):
                     # Last chunk of streaming response - finalize metrics
@@ -570,14 +592,33 @@ class MetricsMiddleware:  # pylint: disable=too-few-public-methods
                             duration,
                             is_timeout=is_timeout_generated
                         )
+                        category = _error_category(status_code, is_timeout_generated)
+                        if category and not error_recorded:
+                            metrics.record_error(endpoint, category, status_code)
+                            error_recorded = True
                         metrics.record_request_end(pre_route_endpoint)
                         streaming_finalized = True
+                return
 
             # Pass through to outer send
             await send(message)
 
         try:
             await self.asgi_app(scope, receive, send_with_metrics)
+        except ClientDisconnect:
+            raise
+        except Exception:
+            endpoint = _get_route_label(request_obj)
+            if not response_started:
+                duration = time.perf_counter() - start_time
+                if await disconnected_before_response(receive):
+                    metrics.record_abandoned_work(endpoint, "client_disconnect", duration)
+                metrics.record_request(endpoint, method, 500, duration)
+                record_request_completion(endpoint, duration)
+            if not error_recorded:
+                category = "stream_error" if is_streaming else "unhandled_exception"
+                metrics.record_error(endpoint, category, status_code)
+            raise
         finally:
             # For non-streaming: always record request completion
             # For streaming: metrics are finalized in send_with_metrics when final body chunk
@@ -649,17 +690,16 @@ class TimeoutMiddleware:  # pylint: disable=too-few-public-methods
     are reduced proportionally, allowing cheap requests to fail fast (DDoS protection)
     while preserving expensive requests when possible.
 
-    Times both response creation AND body iteration (for streaming responses), ensuring
-    proper load shedding even for long-running streams.
-
-    Implemented as pure ASGI middleware (not BaseHTTPMiddleware) to properly wrap
-    streaming response body iteration. Detects streaming from response headers
-    (absence of Content-Length) and wraps the send callable to enforce timeout on
-    each body chunk, not just response creation.
+    Enforces an absolute response deadline even while a synchronous handler or
+    streaming iterator is running in a worker thread. A 503 is sent before headers;
+    an already-started stream is closed without changing its HTTP status.
 
     LIMITATION (Phase 4 - Load Balancing):
-    The current asyncio.wait_for() timeout does not interrupt CPU-bound Astropy
-    calculations in worker threads. Additionally, fixed-window rate limiting
+    A deadline does not interrupt CPU-bound Astropy calculations in worker threads.
+    The application task is retained, its later response messages suppressed, and
+    successful results still populate the response cache. Retrying before that
+    work finishes may duplicate computation; 503 responses are not retried by the
+    frontend queue. Additionally, fixed-window rate limiting
     ("N per minute") does NOT space requests evenly—all N can arrive in a burst.
     
     Combined effect under attack:
@@ -668,7 +708,7 @@ class TimeoutMiddleware:  # pylint: disable=too-few-public-methods
     - Requests timeout after ~60s but work continues in background
     - Queue grows faster than it drains despite all requests timing out
     
-    Conservative Phase 3 limits (5-8 req/min, frontend queue at 120 req/min) help
+    Conservative Phase 3 limits and frontend queue pacing (24 req/min) help
     but do NOT guarantee protection. True load shedding requires:
     - Admission control: Reject requests when in-flight work >= capacity threshold
     - Cancellable work: ProcessPoolExecutor with SIGTERM for genuine interruption
@@ -684,6 +724,7 @@ class TimeoutMiddleware:  # pylint: disable=too-few-public-methods
 
     def __init__(self, asgi_app):
         self.asgi_app = asgi_app
+        self.background = BackgroundRequests()
 
     async def _handle_timeout_error(
         self, scope, send, endpoint, timeout_seconds, start_time, response_started
@@ -731,92 +772,97 @@ class TimeoutMiddleware:  # pylint: disable=too-few-public-methods
             )
             await send({
                 "type": "http.response.body",
-                "body": b"",
+                "body": (
+                    b'event: error\ndata: {"error": "timeout"}\n\n'
+                    if scope.get("_response_is_sse", False) else b""
+                ),
                 "more_body": False
             })
 
     async def __call__(self, scope, receive, send):
+        if scope["type"] == "lifespan":
+            async def receive_lifespan():
+                message = await receive()
+                if message["type"] == "lifespan.shutdown":
+                    await self.background.shutdown()
+                return message
+            await self.asgi_app(scope, receive_lifespan, send)
+            return
         if scope["type"] != "http":
             await self.asgi_app(scope, receive, send)
             return
 
         # Derive bounded label from raw path BEFORE route matching
-        request_obj = Request(scope)
-        endpoint = _get_pre_route_label(request_obj)
+        endpoint = _get_pre_route_label(Request(scope))
 
         # Calculate adaptive timeout based on system performance
         timeout_seconds = calculate_adaptive_timeout(endpoint)
 
         # Track start time for timeout enforcement
         start_time = time.perf_counter()
-        is_streaming = False
         response_started = False
-        timeout_occurred = False
-        middleware_sent_response = False
+        response_finished = False
+        detached = False
+        active_send = None
 
         async def send_with_timeout(message):
-            """Wrap send to enforce timeout on response and body chunks."""
-            nonlocal is_streaming, response_started, timeout_occurred, middleware_sent_response
+            """The foreground owns send; detached work cannot write a late response."""
+            nonlocal response_started, response_finished, active_send
+            if detached or response_finished:
+                return
 
             if message["type"] == "http.response.start":
-                # Reject app's response if middleware has already sent one (e.g., 503 on timeout)
-                # to prevent ASGI protocol violation (multiple http.response.start)
-                if middleware_sent_response:
-                    msg = "Rejected app response attempt after middleware sent timeout"
-                    logger.warning(msg)
-                    return
                 response_started = True
-                headers = message.get("headers", [])
-                is_streaming = _is_streaming_response_asgi(headers)
-                await send(message)
+                scope["_response_is_sse"] = any(
+                    name.lower() == b"content-type" and b"text/event-stream" in value.lower()
+                    for name, value in message.get("headers", [])
+                )
+            active_send = asyncio.create_task(send(message))
+            try:
+                await active_send
+            finally:
+                active_send = None
+            if message["type"] == "http.response.body" and not message.get("more_body", False):
+                response_finished = True
 
-            elif message["type"] == "http.response.body":
-                elapsed = time.perf_counter() - start_time
-                if elapsed > timeout_seconds:
-                    # Timeout exceeded during body transmission
-                    if not timeout_occurred:
-                        timeout_occurred = True
-                        # Mark timeout to prevent duration from polluting p95
-                        flag_key = "_timeout_middleware_generated"
-                        scope[flag_key] = True
-                        metrics = get_metrics()
-                        metrics.record_timeout_exceeded(endpoint)
-                        logger.warning(
-                            "Request timeout on %s after %.2fs (load-based degradation)",
-                            endpoint,
-                            elapsed
-                        )
-                        # Send error message if streaming, otherwise just close connection
-                        if is_streaming:
-                            await send({
-                                "type": "http.response.body",
-                                "body": b"event: error\ndata: {\"error\": \"timeout\"}\n\n",
-                                "more_body": False
-                            })
-                        else:
-                            # Non-streaming: just close without sending incomplete body
-                            await send({
-                                "type": "http.response.body",
-                                "body": b"",
-                                "more_body": False
-                            })
-                else:
-                    # Within timeout: send body chunk
-                    await send(message)
-            else:
-                await send(message)
+        async def receive_for_app():
+            if detached:
+                return {"type": "http.disconnect"}
+            return await receive()
 
+        task = asyncio.create_task(self.asgi_app(scope, receive_for_app, send_with_timeout))
         try:
-            # Wrap the app call with timeout for response creation
-            await asyncio.wait_for(
-                self.asgi_app(scope, receive, send_with_timeout),
-                timeout=timeout_seconds
+            done, _ = await asyncio.wait({task}, timeout=timeout_seconds)
+            if done:
+                task.result()
+                return
+            detached = True
+            if active_send is not None:
+                active_send.cancel()
+                await asyncio.gather(active_send, return_exceptions=True)
+            if response_finished:
+                # The response is complete, but teardown/dependencies are still running.
+                self.background.track(task, endpoint, start_time, reason=None)
+                return
+            self.background.track(
+                task, endpoint, start_time, reason=None if response_started else "timeout"
             )
-        except asyncio.TimeoutError:
-            # Delegate timeout error handling to helper method
             await self._handle_timeout_error(
                 scope, send, endpoint, timeout_seconds, start_time, response_started
             )
+        except asyncio.CancelledError:
+            detached = True
+            if not task.done():
+                task.cancel()
+                self.background.track(task, endpoint, start_time, reason=None)
+            else:
+                # Retrieve a failure racing with cancellation without replacing cancellation.
+                if not task.cancelled():
+                    exception = task.exception()
+                    if exception:
+                        logger.error("Request failed during cancellation on %s", endpoint,
+                                     exc_info=(type(exception), exception, exception.__traceback__))
+            raise
 
 
 # Register pure ASGI middleware for metrics and timeout (after class definitions)

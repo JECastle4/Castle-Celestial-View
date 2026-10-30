@@ -3,6 +3,9 @@ Rate limiting configuration for DDoS protection (Phase 3.1).
 
 Implements tiered, endpoint-specific rate limiting based on computational cost.
 Uses slowapi for per-IP request throttling with graceful 429 responses.
+Limits request starts, not concurrent CPU work. A timed-out request retains its
+rate-limit cost while its worker may continue and cache the result. A retry before
+completion can duplicate work; see LOAD_BALANCING_STRATEGY.md for the contract.
 
 In test mode (pytest), rate limiting is bypassed to avoid test flakiness.
 
@@ -55,7 +58,7 @@ Configuration (Environment Variables):
         Example: export LIMIT_EXPENSIVE_EVENTS=10/minute
     
     LIMIT_STREAM_EVENTS: astronomical-events-stream SSE endpoint (default: "5/minute")
-        Limits concurrent streaming connections per IP (same budget as batch).
+        Limits stream starts per IP, not concurrent connections (same budget as batch).
         Default: 5/min = same CPU budget as batch endpoint.
         Example: export LIMIT_STREAM_EVENTS=8/minute
     
@@ -205,7 +208,7 @@ LIMIT_EXPENSIVE_EVENTS = os.getenv(
 )
 LIMIT_STREAM_EVENTS = os.getenv(
     "LIMIT_STREAM_EVENTS",
-    "5/minute"  # astronomical-events-stream: limits concurrent SSE (same budget as batch)
+    "5/minute"  # astronomical-events-stream: limits stream starts, not concurrent SSE
 )
 LIMIT_CONTACT_TIMES = os.getenv(
     "LIMIT_CONTACT_TIMES",
