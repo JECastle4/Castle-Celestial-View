@@ -200,7 +200,9 @@ requests populating both details and CSV downloads, deferred locale refresh
 after JSON export, and 429 recovery/503 partial exports. Intercepted export
 fixtures use actual browser downloads; the astronomical suite compares rendered
 solar/lunar contact times with real API responses. The live-server helper
-uses bounded startup/shutdown and attaches backend logs to Playwright results.
+uses bounded startup/shutdown, verifies backend health through the test and
+validates the platform-appropriate exit after intentional teardown; it attaches
+backend logs to Playwright results.
 
 ## Phase 4.1: Admission Control
 

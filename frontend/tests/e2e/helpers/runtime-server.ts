@@ -4,6 +4,18 @@ import { createServer } from 'node:net';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+export function isExpectedRuntimeExit(
+  code: number | null,
+  signal: NodeJS.Signals | null,
+  platform: NodeJS.Platform,
+  terminationRequested: boolean,
+  forcedKill: boolean,
+) {
+  if (!terminationRequested || forcedKill) return false;
+  if (platform === 'win32') return signal === null && (code === 0 || code === 1);
+  return (code === 0 && signal === null) || (code === null && signal === 'SIGTERM');
+}
+
 export async function withRuntimeServer(
   request: APIRequestContext,
   testInfo: TestInfo,
@@ -40,20 +52,43 @@ export async function withRuntimeServer(
   let serverLog = '';
   let spawnError: Error | undefined;
   let closed = false;
+  let exited = false;
   let exitCode: number | null = null;
+  let exitSignal: NodeJS.Signals | null = null;
   child.stdout.on('data', (data) => { serverLog += data.toString(); });
   child.stderr.on('data', (data) => { serverLog += data.toString(); });
   child.once('error', (error) => { spawnError = error; });
+  child.once('exit', (code, signal) => {
+    exited = true;
+    exitCode = code;
+    exitSignal = signal;
+  });
   child.once('close', (code) => {
     closed = true;
-    exitCode = code;
+    if (!exited) exitCode = code;
   });
   const origin = `http://127.0.0.1:${port}`;
   let ready = false;
+  let terminationRequested = false;
+  let forcedKill = false;
+  const assertHealthy = async () => {
+    if (spawnError) throw spawnError;
+    if (exited) {
+      throw new Error(
+        `Runtime server exited unexpectedly (code ${exitCode}, signal ${exitSignal}):\n${serverLog}`,
+      );
+    }
+    const response = await request.get(`${origin}/health`, { timeout: 1000 });
+    expect(response.ok(), `Runtime server health check failed:\n${serverLog}`).toBe(true);
+  };
   try {
     await expect.poll(async () => {
       if (spawnError) throw spawnError;
-      if (closed) throw new Error(`Runtime server exited (${exitCode}):\n${serverLog}`);
+      if (exited || closed) {
+        throw new Error(
+          `Runtime server exited before readiness (code ${exitCode}, signal ${exitSignal}):\n${serverLog}`,
+        );
+      }
       try {
         ready = (await request.get(`${origin}/health`, { timeout: 1000 })).ok();
       } catch (error) {
@@ -62,27 +97,37 @@ export async function withRuntimeServer(
       return ready;
     }, { timeout: 15000, message: 'Runtime server must become responsive' }).toBe(true);
     await run(origin);
+    await assertHealthy();
   } finally {
     try {
-      if (ready && !closed) {
+      if (ready && !exited) {
         const released = await request.post(`${origin}/__test/release`, { timeout: 2000 });
         expect(released.ok()).toBe(true);
       }
     } finally {
       try {
-        if (!closed) child.kill('SIGTERM');
+        if (!exited) terminationRequested = child.kill('SIGTERM');
         try {
           await expect.poll(() => closed, { timeout: 8000 }).toBe(true);
         } finally {
           if (!closed) {
-            child.kill('SIGKILL');
+            forcedKill = child.kill('SIGKILL');
             await expect.poll(() => closed, { timeout: 3000 }).toBe(true);
           }
         }
       } finally {
-        await testInfo.attach('runtime-server.log', {
-          body: serverLog, contentType: 'text/plain',
-        });
+        try {
+          expect(
+            isExpectedRuntimeExit(
+              exitCode, exitSignal, process.platform, terminationRequested, forcedKill,
+            ),
+            `Runtime server exited unexpectedly (code ${exitCode}, signal ${exitSignal}):\n${serverLog}`,
+          ).toBe(true);
+        } finally {
+          await testInfo.attach('runtime-server.log', {
+            body: serverLog, contentType: 'text/plain',
+          });
+        }
       }
     }
   }
