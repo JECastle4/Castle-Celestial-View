@@ -27,6 +27,8 @@ from api.timeout_logic import calculate_adaptive_timeout, record_request_complet
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+TIMEOUT_RESPONSE_SEND_SECONDS = 1.0
+
 # Disable astropy's automatic IERS data download.  CI runners typically have
 # no outbound network access, causing every request to block for the full
 # timeout before falling back to the bundled IERS-A table anyway.  The bundled
@@ -527,10 +529,18 @@ class MetricsMiddleware:  # pylint: disable=too-few-public-methods
             nonlocal response_started, error_recorded
 
             if message["type"] == "http.response.start":
+                headers = message.get("headers", [])
+                streaming = _is_streaming_response_asgi(headers)
+                disconnected = (
+                    not streaming
+                    and not scope.get("_timeout_middleware_generated", False)
+                    and await disconnected_before_response(receive)
+                )
+                await send(message)
                 response_started = True
                 status_code = message.get("status", 500)
-                response_headers = message.get("headers", [])
-                is_streaming = _is_streaming_response_asgi(response_headers)
+                response_headers = headers
+                is_streaming = streaming
 
                 endpoint = _get_route_label(request_obj)
 
@@ -549,10 +559,7 @@ class MetricsMiddleware:  # pylint: disable=too-few-public-methods
                         scope["state"] = {}
                     scope["state"]["streaming_metadata"] = request_state_metadata
                 else:
-                    if (
-                        not scope.get("_timeout_middleware_generated", False)
-                        and await disconnected_before_response(receive)
-                    ):
+                    if disconnected:
                         metrics.record_abandoned_work(
                             endpoint, "client_disconnect", time.perf_counter() - start_time
                         )
@@ -570,8 +577,9 @@ class MetricsMiddleware:  # pylint: disable=too-few-public-methods
                 # Track 429 rate limit responses
                 if status_code == 429:
                     metrics.record_rate_limit_exceeded(endpoint)
+                return
 
-            elif message["type"] == "http.response.body":
+            if message["type"] == "http.response.body":
                 await send(message)
                 if scope.get("_timeout_middleware_generated", False) and not error_recorded:
                     metrics.record_error(endpoint, "timeout", status_code)
@@ -614,14 +622,19 @@ class MetricsMiddleware:  # pylint: disable=too-few-public-methods
             raise
         except Exception:
             endpoint = _get_route_label(request_obj)
-            if not response_started:
+            is_timeout = scope.get("_timeout_middleware_generated", False)
+            if not response_started or (is_streaming and not streaming_finalized):
                 duration = time.perf_counter() - start_time
-                if await disconnected_before_response(receive):
+                if not response_started and not is_timeout and await disconnected_before_response(
+                    receive
+                ):
                     metrics.record_abandoned_work(endpoint, "client_disconnect", duration)
-                metrics.record_request(endpoint, method, 500, duration)
-                record_request_completion(endpoint, duration)
+                metrics.record_request(endpoint, method, status_code, duration)
+                record_request_completion(endpoint, duration, is_timeout=is_timeout)
             if not error_recorded:
-                category = "stream_error" if is_streaming else "unhandled_exception"
+                category = "timeout" if is_timeout else (
+                    "stream_error" if is_streaming else "unhandled_exception"
+                )
                 metrics.record_error(endpoint, category, status_code)
             raise
         finally:
@@ -734,12 +747,11 @@ class TimeoutMiddleware:  # pylint: disable=too-few-public-methods
     async def _handle_timeout_error(
         self, scope, send, endpoint, timeout_seconds, start_time, response_started
     ):
-        """Handle asyncio.TimeoutError by sending 503 or closing connection."""
+        """Bound delivery of a 503 or stream termination independently of computation."""
+        scope["_timeout_middleware_generated"] = True
+        get_metrics().record_timeout_exceeded(endpoint)
         if not response_started:
             # Response hasn't started yet; send proper 503
-            scope["_timeout_middleware_generated"] = True
-            metrics = get_metrics()
-            metrics.record_timeout_exceeded(endpoint)
             logger.warning(
                 "Request timeout on %s after %.2fs (load-based degradation)",
                 endpoint,
@@ -751,38 +763,44 @@ class TimeoutMiddleware:  # pylint: disable=too-few-public-methods
                 f'system load","timeout_seconds":{timeout_seconds},'
                 f'"endpoint":"{endpoint}"}}'
             ).encode()
-            await send({
+            messages = [{
                 "type": "http.response.start",
                 "status": 503,
                 "headers": [
                     [b"content-type", b"application/json"],
                     [b"content-length", str(len(timeout_msg)).encode()],
                 ],
-            })
-            await send({
+            }, {
                 "type": "http.response.body",
                 "body": timeout_msg,
                 "more_body": False
-            })
+            }]
         else:
             # Response already started; close body only
-            scope["_timeout_middleware_generated"] = True
-            metrics = get_metrics()
-            metrics.record_timeout_exceeded(endpoint)
             elapsed = time.perf_counter() - start_time
             logger.warning(
                 "Request timeout on %s after %.2fs (response started, stream cut off)",
                 endpoint,
                 elapsed
             )
-            await send({
+            messages = [{
                 "type": "http.response.body",
                 "body": (
                     b'event: error\ndata: {"error": "timeout"}\n\n'
                     if scope.get("_response_is_sse", False) else b""
                 ),
                 "more_body": False
-            })
+            }]
+        try:
+            async with asyncio.timeout(TIMEOUT_RESPONSE_SEND_SECONDS):
+                for message in messages:
+                    await send(message)
+        except TimeoutError as exc:
+            logger.warning(
+                "Timeout response delivery failed on %s within %.2fs; failing response",
+                endpoint, TIMEOUT_RESPONSE_SEND_SECONDS,
+            )
+            raise TimeoutError("Timeout response delivery exceeded its budget") from exc
 
     async def __call__(self, scope, receive, send):
         if scope["type"] == "lifespan":
@@ -805,30 +823,35 @@ class TimeoutMiddleware:  # pylint: disable=too-few-public-methods
 
         # Track start time for timeout enforcement
         start_time = time.perf_counter()
-        response_started = False
-        response_finished = False
-        detached = False
+        response_started = response_finished = detached = False
         active_send = None
 
         async def send_with_timeout(message):
             """The foreground owns send; detached work cannot write a late response."""
-            nonlocal response_started, response_finished, active_send
+            nonlocal active_send
             if detached or response_finished:
                 return
 
-            if message["type"] == "http.response.start":
-                response_started = True
-                scope["_response_is_sse"] = any(
-                    name.lower() == b"content-type" and b"text/event-stream" in value.lower()
-                    for name, value in message.get("headers", [])
-                )
-            active_send = asyncio.create_task(send(message))
+            async def forward():
+                nonlocal response_started, response_finished
+                await send(message)
+                # Commit in the forwarding task, before the deadline waiter can resume.
+                if message["type"] == "http.response.start":
+                    response_started = True
+                    scope["_response_is_sse"] = any(
+                        name.lower() == b"content-type" and b"text/event-stream" in value.lower()
+                        for name, value in message.get("headers", [])
+                    )
+                elif message["type"] == "http.response.body" and not message.get(
+                    "more_body", False
+                ):
+                    response_finished = True
+
+            active_send = asyncio.create_task(forward())
             try:
                 await active_send
             finally:
                 active_send = None
-            if message["type"] == "http.response.body" and not message.get("more_body", False):
-                response_finished = True
 
         async def receive_for_app():
             if detached:

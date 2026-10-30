@@ -124,6 +124,15 @@ upstream disconnect itself. Own timeout responses are excluded to avoid counting
 the same operation twice. Streams and work that never settles are not included
 in disconnect-completion metrics.
 
+Response state is committed only after the underlying ASGI send succeeds.
+After a computation deadline, the entire timeout response (or stream closing
+chunk) has a separate one-second delivery budget. Persistent transport
+backpressure cancels that send, logs the failure and propagates an exception
+instead of reporting a completed response. No late application sends are allowed.
+This bounds middleware-owned delivery, not socket teardown: ASGI provides no
+portable connection-abort operation, and a server may attempt its own error
+response if no headers were delivered.
+
 ### Deployment alignment
 
 Both supplied nginx API configurations set send/read inactivity timeouts to
@@ -163,6 +172,8 @@ minutes, checks exact metric deltas, and measures process RSS/thread stability.
 Gunicorn tests run on Unix only; Docker/long/soak checks are opt-in.
 Streaming disconnect checks synchronize on worker entry/completion and HTTP
 metrics, not garbage-collection-dependent generator finalization.
+Soak disconnects hold marked computations behind a test-only gate until the
+client socket closes, rather than assuming a short calculation will finish later.
 
 For browser cancellation and export/timeout recovery, with the backend Python
 environment on `PATH`:

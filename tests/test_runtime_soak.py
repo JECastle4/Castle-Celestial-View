@@ -1,15 +1,13 @@
 """Opt-in ten-minute mixed workload: RUN_RUNTIME_SOAK=true python -m pytest ... ."""
 
 from collections import Counter
-import json
 import os
 from pathlib import Path
-import socket
 import time
 
 import pytest
 
-from runtime_support import MetricsSnapshot, eventually, runtime_server
+from runtime_support import MetricsSnapshot, disconnect_held_contact, eventually, runtime_server
 
 
 pytestmark = pytest.mark.skipif(
@@ -30,6 +28,7 @@ def test_mixed_load_metrics_and_resource_stability(tmp_path):
         tmp_path, LIMIT_CONTACT_TIMES="10000/minute",
         TEST_RUNTIME_BUDGET="0.5", TEST_RUNTIME_DELAY="0.05",
         TEST_RUNTIME_SLOW_DELAY="1.0",
+        TEST_RUNTIME_BLOCK_MARKED_CONTACT="true",
     ) as (client, process):
         before = MetricsSnapshot.scrape(client)
         expected = Counter()
@@ -47,19 +46,13 @@ def test_mixed_load_metrics_and_resource_stability(tmp_path):
                     assert response.status_code == 422
                     expected[422] += 1
                 elif index in (1, 2):
-                    body = json.dumps(payload).encode()
-                    state = client.get("/__test/state").json()["contact_started"]
-                    with socket.create_connection(
-                        ("127.0.0.1", client.base_url.port), timeout=3
-                    ) as connection:
-                        connection.sendall(
-                            f"POST {CONTACT} HTTP/1.1\r\nHost: localhost\r\n"
-                            f"Content-Type: application/json\r\nContent-Length: {len(body)}\r\n\r\n".encode()
-                            + body
-                        )
-                        # Unique event dates avoid cache hits for disconnect observations.
-                        eventually(lambda: client.get("/__test/state").json()["contact_started"] > state)
-                        connection.shutdown(socket.SHUT_RDWR)
+                    payload["event_date"] = (
+                        f"2026-08-{1 + rounds % 28:02d} 01:{index:02d}:58.000"
+                    )
+                    disconnect_held_contact(client, payload)
+                    eventually(lambda: MetricsSnapshot.scrape(client).value(
+                        "abandoned_work_total", endpoint=CONTACT, reason="client_disconnect"
+                    ) == rounds * 2 + index)
                     expected[200] += 1
                 else:
                     if index == 3:

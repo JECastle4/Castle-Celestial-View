@@ -42,7 +42,11 @@ def contact_times(**_kwargs):
     """Block inside the worker thread, not in an async imitation of a sync route."""
     with lock:
         state["contact_started"] += 1
-    if blocked and not gate.wait(15):
+    marked = (
+        os.environ.get("TEST_RUNTIME_BLOCK_MARKED_CONTACT") == "true"
+        and _kwargs.get("event_date_iso", "").endswith(":58.000")
+    )
+    if (blocked or marked) and not gate.wait(15):
         raise RuntimeError("Test did not release contact computation")
     delay = float(os.environ.get("TEST_RUNTIME_DELAY", "0"))
     if _kwargs.get("event_date_iso", "").endswith(":59.000"):
@@ -91,6 +95,12 @@ def snapshot():
 def release():
     gate.set()
     return {"released": True}
+
+
+@app.post("/__test/hold")
+def hold():
+    gate.clear()
+    return {"released": False}
 
 
 @app.post("/__test/clear")

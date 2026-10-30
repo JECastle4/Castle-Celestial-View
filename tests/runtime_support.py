@@ -1,6 +1,7 @@
 """Real-process HTTP harness and exact Prometheus sample comparisons."""
 
 from contextlib import contextmanager
+import json
 import os
 from pathlib import Path
 import signal
@@ -55,6 +56,24 @@ def eventually(predicate, timeout=5):
         value = predicate()
     assert value, f"Condition not met within {timeout}s (last value: {value!r})"
     return value
+
+
+def disconnect_held_contact(client, payload):
+    """Close the socket before releasing a marked computation; never race a sleep."""
+    client.post("/__test/hold").raise_for_status()
+    started = client.get("/__test/state").json()["contact_started"]
+    body = json.dumps(payload).encode()
+    try:
+        with socket.create_connection(("127.0.0.1", client.base_url.port), timeout=3) as connection:
+            connection.sendall(
+                b"POST /api/v1/astronomical-events/contact-times HTTP/1.1\r\n"
+                b"Host: localhost\r\nContent-Type: application/json\r\n"
+                + f"Content-Length: {len(body)}\r\n\r\n".encode() + body
+            )
+            eventually(lambda: client.get("/__test/state").json()["contact_started"] > started)
+            connection.shutdown(socket.SHUT_RDWR)
+    finally:
+        client.post("/__test/release").raise_for_status()
 
 
 @contextmanager

@@ -8,7 +8,7 @@ import time
 
 import pytest
 
-from runtime_support import MetricsSnapshot, eventually, runtime_server
+from runtime_support import MetricsSnapshot, disconnect_held_contact, eventually, runtime_server
 
 
 CONTACT = "/api/v1/astronomical-events/contact-times"
@@ -90,6 +90,27 @@ def test_limits_disabled_in_actual_process(tmp_path):
         assert after.delta(
             before, "errors_total", endpoint=CONTACT, error_type="rate_limited", status="429"
         ) == 0
+
+
+def test_held_disconnects_do_not_depend_on_computation_speed(tmp_path):
+    with runtime_server(
+        tmp_path, TEST_RUNTIME_BLOCK_MARKED_CONTACT="true", TEST_RUNTIME_DELAY="0"
+    ) as (client, _):
+        assert client.post(CONTACT, json=PAYLOAD).status_code == 200
+        before = scrape(client)
+        for index in range(10):
+            disconnect_held_contact(client, {
+                **PAYLOAD, "event_date": f"2026-08-12 03:{index:02d}:58.000",
+            })
+            eventually(lambda: scrape(client).delta(
+                before, "abandoned_work_total", endpoint=CONTACT, reason="client_disconnect"
+            ) == index + 1)
+        after = scrape(client)
+        assert after.delta(before, "timeout_exceeded_total", endpoint=CONTACT) == 0
+        assert after.delta(
+            before, "http_requests_total", endpoint=CONTACT, method="POST", status="200"
+        ) == 10
+        assert after.value("http_requests_in_progress", endpoint=CONTACT) == 0
 
 
 def test_real_fixed_window_resets(tmp_path):

@@ -318,6 +318,284 @@ async def test_deadline_during_final_send_cancels_send_and_closes_response(monke
     await asyncio.sleep(0)
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("content_type", [b"application/json", b"text/event-stream"])
+async def test_deadline_during_header_send_replaces_undelivered_response(
+    monkeypatch, metrics, content_type
+):
+    monkeypatch.setattr(main, "calculate_adaptive_timeout", lambda _: 0.02)
+    sent = []
+    cancelled = asyncio.Event()
+
+    async def application(scope, receive, send):
+        await send({"type": "http.response.start", "status": 200,
+                    "headers": [(b"content-type", content_type)]})
+        await send({"type": "http.response.body", "body": b"late"})
+
+    async def send(message):
+        if message.get("status") == 200:
+            try:
+                await asyncio.Event().wait()
+            finally:
+                cancelled.set()
+        sent.append(message)
+
+    async def receive():
+        await asyncio.Event().wait()
+
+    scope = {
+        "type": "http", "method": "GET", "path": "/header-send", "headers": [],
+        "route": SimpleNamespace(path="/header-send"),
+    }
+    middleware = main.TimeoutMiddleware(application)
+    await main.MetricsMiddleware(middleware)(scope, receive, send)
+    await asyncio.sleep(0)
+    assert cancelled.is_set()
+    assert [message["type"] for message in sent] == [
+        "http.response.start", "http.response.body"
+    ]
+    assert sent[0]["status"] == 503
+    assert json.loads(sent[1]["body"])["error"] == "Request timeout"
+    assert not scope.get("_response_is_sse", False)
+    metrics.record_request.assert_called_once()
+    assert metrics.record_request.call_args.args[2] == 503
+    metrics.record_error.assert_called_once_with("/header-send", "timeout", 503)
+    metrics.record_timeout_exceeded.assert_called_once()
+    metrics.record_request_end.assert_called_once()
+    assert main.record_request_completion.call_args.kwargs["is_timeout"]
+    assert not middleware.background.tasks
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("delivered", ["headers", "final_body"])
+async def test_deadline_observes_send_commit_before_application_resumes(
+    monkeypatch, metrics, delivered
+):
+    """Wake the deadline waiter before the application's awaiting task resumes."""
+    sent = []
+    delivery = asyncio.Event()
+    release = asyncio.Event()
+
+    async def application(scope, receive, send):
+        await send({"type": "http.response.start", "status": 200,
+                    "headers": [(b"content-type", b"text/event-stream")]})
+        if delivered == "headers":
+            await release.wait()
+        await send({"type": "http.response.body", "body": b"done", "more_body": False})
+        await release.wait()
+
+    async def send(message):
+        sent.append(message)
+        if (delivered == "headers" and message["type"] == "http.response.start") or (
+            delivered == "final_body" and message["type"] == "http.response.body"
+        ):
+            delivery.set()
+
+    async def receive():
+        await asyncio.Event().wait()
+
+    async def deadline(tasks, *, timeout):
+        del timeout
+        await delivery.wait()
+        return set(), set(tasks)
+
+    monkeypatch.setattr(main.asyncio, "wait", deadline)
+    scope = {
+        "type": "http", "method": "GET", "path": "/send-race", "headers": [],
+        "route": SimpleNamespace(path="/send-race"),
+    }
+    middleware = main.TimeoutMiddleware(application)
+    try:
+        await main.MetricsMiddleware(middleware)(scope, receive, send)
+        assert [message.get("status") for message in sent if "status" in message] == [200]
+        assert len(sent) == 2
+        assert all(
+            not task.cancelled() for task in middleware.background.tasks
+        )
+        if delivered == "headers":
+            assert b'"timeout"' in sent[-1]["body"]
+            metrics.record_timeout_exceeded.assert_called_once()
+            metrics.record_error.assert_called_once_with("/send-race", "timeout", 200)
+        else:
+            assert sent[-1]["body"] == b"done"
+            metrics.record_timeout_exceeded.assert_not_called()
+            metrics.record_error.assert_not_called()
+        metrics.record_request.assert_called_once()
+        metrics.record_request_end.assert_called_once()
+    finally:
+        release.set()
+        await asyncio.gather(*middleware.background.tasks)
+        await asyncio.sleep(0)
+    assert len(sent) == 2
+    assert not middleware.background.tasks
+    metrics.record_abandoned_work.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("blocked_stage", ["headers", "body", "sse_close", "plain_close"])
+async def test_timeout_delivery_backpressure_is_bounded(
+    monkeypatch, metrics, caplog, blocked_stage
+):
+    monkeypatch.setattr(main, "calculate_adaptive_timeout", lambda _: 0.02)
+    monkeypatch.setattr(main, "TIMEOUT_RESPONSE_SEND_SECONDS", 0.03)
+    sent = []
+    cancelled = asyncio.Event()
+    release = asyncio.Event()
+    started = blocked_stage.endswith("close")
+
+    async def application(scope, receive, send):
+        if started:
+            headers = [(b"content-type", b"text/event-stream")] if (
+                blocked_stage == "sse_close"
+            ) else [(b"content-type", b"application/octet-stream")]
+            await send({"type": "http.response.start", "status": 200, "headers": headers})
+        await release.wait()
+        await send({"type": "http.response.body", "body": b"late"})
+
+    async def send(message):
+        if (message["type"] == "http.response.start" and blocked_stage == "headers") or (
+            message["type"] == "http.response.body"
+        ):
+            try:
+                await asyncio.Event().wait()
+            finally:
+                cancelled.set()
+        sent.append(message)
+
+    async def receive():
+        await asyncio.Event().wait()
+
+    scope = {
+        "type": "http", "method": "GET", "path": "/backpressure", "headers": [],
+        "route": SimpleNamespace(path="/backpressure"),
+    }
+    middleware = main.TimeoutMiddleware(application)
+    try:
+        with pytest.raises(TimeoutError, match="Timeout response delivery"):
+            await asyncio.wait_for(
+                main.MetricsMiddleware(middleware)(scope, receive, send), timeout=0.5
+            )
+        assert cancelled.is_set()
+        assert "Timeout response delivery" in caplog.text
+        assert len(sent) == (0 if blocked_stage == "headers" else 1)
+        metrics.record_timeout_exceeded.assert_called_once()
+        metrics.record_error.assert_called_once_with(
+            "/backpressure", "timeout", 200 if started else (
+                500 if blocked_stage == "headers" else 503
+            )
+        )
+        metrics.record_request.assert_called_once()
+        metrics.record_request_end.assert_called_once()
+        assert main.record_request_completion.call_args.kwargs["is_timeout"]
+    finally:
+        release.set()
+        await asyncio.gather(*middleware.background.tasks)
+        await asyncio.sleep(0)
+    assert len(sent) == (0 if blocked_stage == "headers" else 1)
+    assert not middleware.background.tasks
+
+
+@pytest.mark.asyncio
+async def test_timeout_delivery_can_recover_within_its_budget(monkeypatch, metrics):
+    monkeypatch.setattr(main, "calculate_adaptive_timeout", lambda _: 0.01)
+    monkeypatch.setattr(main, "TIMEOUT_RESPONSE_SEND_SECONDS", 0.2)
+    sent = []
+    release = asyncio.Event()
+
+    async def application(scope, receive, send):
+        await release.wait()
+
+    async def send(message):
+        await asyncio.sleep(0.01)
+        sent.append(message)
+
+    async def receive():
+        await asyncio.Event().wait()
+
+    scope = {
+        "type": "http", "method": "GET", "path": "/recovered-send", "headers": [],
+        "route": SimpleNamespace(path="/recovered-send"),
+    }
+    middleware = main.TimeoutMiddleware(application)
+    try:
+        await main.MetricsMiddleware(middleware)(scope, receive, send)
+        assert len(sent) == 2
+        assert sent[0]["status"] == 503
+        metrics.record_error.assert_called_once_with("/recovered-send", "timeout", 503)
+        metrics.record_request_end.assert_called_once()
+    finally:
+        release.set()
+        await asyncio.gather(*middleware.background.tasks)
+
+
+@pytest.mark.asyncio
+async def test_timeout_delivery_shares_one_budget_across_headers_and_body(monkeypatch, metrics):
+    monkeypatch.setattr(main, "calculate_adaptive_timeout", lambda _: 0.01)
+    monkeypatch.setattr(main, "TIMEOUT_RESPONSE_SEND_SECONDS", 0.2)
+    sent = []
+    release = asyncio.Event()
+
+    async def application(scope, receive, send):
+        await release.wait()
+
+    async def send(message):
+        await asyncio.sleep(0.12)
+        sent.append(message)
+
+    async def receive():
+        await asyncio.Event().wait()
+
+    scope = {"type": "http", "method": "GET", "path": "/shared-budget", "headers": []}
+    middleware = main.TimeoutMiddleware(application)
+    try:
+        with pytest.raises(TimeoutError, match="Timeout response delivery"):
+            await asyncio.wait_for(middleware(scope, receive, send), timeout=0.8)
+        assert len(sent) == 1
+        assert sent[0]["status"] == 503
+        metrics.record_timeout_exceeded.assert_called_once()
+    finally:
+        release.set()
+        await asyncio.gather(*middleware.background.tasks)
+
+
+@pytest.mark.asyncio
+async def test_external_cancellation_during_timeout_delivery_cleans_up(monkeypatch, metrics):
+    monkeypatch.setattr(main, "calculate_adaptive_timeout", lambda _: 0.01)
+    sending = asyncio.Event()
+    cancelled = asyncio.Event()
+
+    async def application(scope, receive, send):
+        await asyncio.Event().wait()
+
+    async def send(message):
+        sending.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            cancelled.set()
+
+    async def receive():
+        await asyncio.Event().wait()
+
+    scope = {"type": "http", "method": "GET", "path": "/cancel-delivery", "headers": []}
+    middleware = main.TimeoutMiddleware(application)
+    foreground = asyncio.create_task(main.MetricsMiddleware(middleware)(scope, receive, send))
+    try:
+        await asyncio.wait_for(sending.wait(), timeout=0.5)
+        foreground.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await foreground
+        await asyncio.gather(*middleware.background.tasks, return_exceptions=True)
+        await asyncio.sleep(0)
+        assert cancelled.is_set()
+        assert not middleware.background.tasks
+        metrics.record_timeout_exceeded.assert_called_once()
+        metrics.record_request_end.assert_called_once()
+    finally:
+        foreground.cancel()
+        await asyncio.gather(foreground, return_exceptions=True)
+
+
 @contextmanager
 def serve(application, http):
     """Use a real TCP server: in-process ASGI transports synthesize disconnects."""
