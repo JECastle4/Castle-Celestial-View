@@ -1,9 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
-import { spawn } from 'node:child_process';
-import { once } from 'node:events';
-import { createServer } from 'node:net';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { readFile } from 'node:fs/promises';
+import { withRuntimeServer } from './helpers/runtime-server';
 import type { AstronomicalEvent } from '../../src/types/api.types';
 
 const streamPath = '**/api/v1/astronomical-events-stream?*';
@@ -39,6 +36,7 @@ async function selectRange(page: Page) {
 test.describe('Events browser regressions', () => {
   test.use({ locale: 'en-GB', timezoneId: 'America/Los_Angeles' });
   const browserErrors = new WeakMap<Page, string[]>();
+  const expectedHttpErrors = new WeakMap<Page, Set<number>>();
 
   test.beforeEach(async ({ page }) => {
     // Navigation reaches the map view; keep unrelated network failures out of console evidence.
@@ -51,9 +49,15 @@ test.describe('Events browser regressions', () => {
     }));
     const errors: string[] = [];
     browserErrors.set(page, errors);
+    expectedHttpErrors.set(page, new Set());
     page.on('pageerror', (error) => errors.push(error.message));
     page.on('console', (message) => {
-      if (message.type() === 'error') errors.push(message.text());
+      if (message.type() !== 'error') return;
+      const expectedStatus = [...(expectedHttpErrors.get(page) ?? [])].some((status) =>
+        message.text().startsWith('Failed to load resource:') &&
+        message.text().includes(`status of ${status}`) &&
+        message.location().url.includes('/api/v1/astronomical-events/contact-times'));
+      if (!expectedStatus) errors.push(message.text());
     });
   });
 
@@ -226,47 +230,10 @@ test.describe('Events browser regressions', () => {
     });
   }
 
-  test('browser cancellation reaches the API and records a disconnected calculation', async ({ page, request }) => {
-    const root = fileURLToPath(new URL('../../../', import.meta.url));
-    const listener = createServer();
-    listener.listen(0, '127.0.0.1');
-    await once(listener, 'listening');
-    const address = listener.address();
-    if (!address || typeof address === 'string') throw new Error('No runtime test port');
-    const port = address.port;
-    await new Promise<void>((resolve, reject) => {
-      listener.close((error) => error ? reject(error) : resolve());
-    });
-    const python = process.env.CI ? 'python' : process.platform === 'win32'
-      ? join(root, '.venv', 'Scripts', 'python.exe')
-      : join(root, '.venv', 'bin', 'python');
-    const child = spawn(python, [
-      '-m', 'uvicorn', 'runtime_app:app', '--app-dir', 'tests',
-      '--host', '127.0.0.1', '--port', String(port), '--no-proxy-headers',
-    ], {
-      cwd: root,
-      env: {
-        ...process.env, RATE_LIMIT_ENABLED: 'false',
-        TEST_RUNTIME_BLOCK_CONTACT: 'true', TEST_RUNTIME_BUDGET: '10',
-      },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    const exited = once(child, 'exit');
-    let serverLog = '';
-    child.stdout.on('data', (data) => { serverLog += data.toString(); });
-    child.stderr.on('data', (data) => { serverLog += data.toString(); });
-    const origin = `http://127.0.0.1:${port}`;
-    let ready = false;
-    try {
-      await expect.poll(async () => {
-        if (child.exitCode !== null) throw new Error(serverLog);
-        try {
-          ready = (await request.get(`${origin}/health`)).ok();
-        } catch (error) {
-          if (!(error instanceof Error) || !error.message.includes('ECONNREFUSED')) throw error;
-        }
-        return ready;
-      }, { timeout: 15000 }).toBe(true);
+  test('browser cancellation reaches the API and records a disconnected calculation', async ({ page, request }, testInfo) => {
+    await withRuntimeServer(request, testInfo, {
+      TEST_RUNTIME_BLOCK_CONTACT: 'true',
+    }, async (origin) => {
       await page.route(streamPath, (route) => route.fulfill({
         contentType: 'text/event-stream',
         body: streamResponse({ ...solarEvent, contact_times: null }),
@@ -297,13 +264,212 @@ test.describe('Events browser regressions', () => {
       const metrics = await (await request.get(`${origin}/api/metrics`)).text();
       expect(metrics).not.toContain('error_type="');
       expect(metrics).not.toContain('reason="timeout"');
+    });
+  });
+
+  test('completes one shared details/export request and downloads populated CSV', async ({ page }) => {
+    await page.route(streamPath, (route) => route.fulfill({
+      contentType: 'text/event-stream',
+      body: streamResponse({ ...solarEvent, contact_times: null }),
+    }));
+    let requests = 0;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    await page.route('**/api/v1/astronomical-events/contact-times?*', async (route) => {
+      requests++;
+      await gate;
+      await route.fulfill({ json: { contact_times: solarEvent.contact_times } });
+    });
+    try {
+      await page.goto('/en-UK/events');
+      await selectRange(page);
+      await page.getByRole('button', { name: 'Search', exact: true }).click();
+      await page.locator('.event-summary').click();
+      await expect.poll(() => requests).toBe(1);
+      await page.getByRole('button', { name: 'CSV (1)', exact: true }).click();
+      await expect(page.getByRole('button', { name: 'Search', exact: true })).toBeDisabled();
+      const downloaded = page.waitForEvent('download');
+      release();
+      const download = await downloaded;
+      const path = await download.path();
+      if (!path) throw new Error('CSV download has no local artifact');
+      const csv = await readFile(path, 'utf8');
+      expect(download.suggestedFilename()).toMatch(/\.csv$/);
+      expect(csv.split('\n')).toEqual([
+        'Date,Event Type,Is Lunar,Occurs,Contact Type,Time (UTC)',
+        `${solarEvent.date},${solarEvent.event_type},No,Yes,eclipse_begins,2026-08-12 01:15:00.000`,
+      ]);
+      await expect(page.locator('.event-details .detail-row').filter({ hasText: 'Eclipse Begins' }))
+        .toContainText(/18:15:00|6:15:00\s*PM/i);
+      await expect(page.locator('.loading-spinner')).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Search', exact: true })).toBeEnabled();
+      await expect(page.getByRole('button', { name: 'CSV (1)', exact: true })).toBeEnabled();
+      await expect(page.locator('.export-success')).toBeVisible();
+      expect(requests).toBe(1);
     } finally {
-      if (ready && child.exitCode === null) {
-        const released = await request.post(`${origin}/__test/release`);
-        expect(released.ok()).toBe(true);
-      }
-      if (child.exitCode === null) child.kill('SIGTERM');
-      await exited;
+      release();
     }
   });
+
+  test('downloads the original JSON snapshot before applying a deferred locale refresh', async ({ page }) => {
+    const searches: string[] = [];
+    await page.route(streamPath, (route) => {
+      const locale = new URL(route.request().url()).searchParams.get('lang')!;
+      searches.push(locale);
+      return route.fulfill({
+        contentType: 'text/event-stream',
+        body: streamResponse({
+          ...solarEvent, event_type: `Result for ${locale}`, contact_times: null,
+        }),
+      });
+    });
+    let contactRequests = 0;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    await page.route('**/api/v1/astronomical-events/contact-times?*', async (route) => {
+      contactRequests++;
+      expect(new URL(route.request().url()).searchParams.get('lang')).toBe('en-UK');
+      await gate;
+      await route.fulfill({ json: { contact_times: solarEvent.contact_times } });
+    });
+    try {
+      await page.goto('/en-UK/events');
+      await selectRange(page);
+      await page.getByRole('button', { name: 'Search', exact: true }).click();
+      await expect(page.locator('.event-type')).toHaveText('Result for en-UK');
+      await page.getByRole('button', { name: 'JSON (1)', exact: true }).click();
+      await expect.poll(() => contactRequests).toBe(1);
+      await page.getByRole('button', { name: 'Current language: English (UK)', exact: true }).click();
+      await page.getByRole('button', { name: 'English (US)', exact: true }).click();
+      await expect(page).toHaveURL(/\/en-US\/events$/);
+      await expect(page.getByRole('button', { name: 'Search', exact: true })).toBeDisabled();
+      await expect(page.locator('.event-type')).toHaveText('Result for en-UK');
+      expect(searches).toEqual(['en-UK']);
+      const downloaded = page.waitForEvent('download');
+      release();
+      const download = await downloaded;
+      const path = await download.path();
+      if (!path) throw new Error('JSON download has no local artifact');
+      const data = JSON.parse(await readFile(path, 'utf8'));
+      expect(data.count).toBe(1);
+      expect(data.events).toEqual([{
+        date: solarEvent.date, eventType: 'Result for en-UK',
+        isLunar: false, eclipseOccurs: true, contactTimes: solarEvent.contact_times,
+      }]);
+      await expect(page.locator('.event-type')).toHaveText('Result for en-US');
+      await expect(page.getByRole('button', { name: 'Search', exact: true })).toBeEnabled();
+      expect(searches).toEqual(['en-UK', 'en-US']);
+      expect(contactRequests).toBe(1);
+    } finally {
+      release();
+    }
+  });
+
+  test('ends a timed-out real SSE search without reconnecting and allows a fresh search', async ({ page, request }, testInfo) => {
+    await withRuntimeServer(request, testInfo, {
+      TEST_RUNTIME_BLOCK_STREAM: 'true', TEST_RUNTIME_BUDGET: '1',
+    }, async (origin) => {
+      let searches = 0;
+      // Observe actual EventSource.close(), not just absence of immediate reconnects.
+      await page.addInitScript(() => {
+        const NativeEventSource = window.EventSource;
+        const streams: EventSource[] = [];
+        Object.defineProperty(window, '__testEventSources', { value: streams });
+        window.EventSource = class extends NativeEventSource {
+          constructor(url: string | URL, options?: EventSourceInit) {
+            super(url, options);
+            streams.push(this);
+          }
+        };
+      });
+      await page.route(streamPath, (route) => {
+        searches++;
+        const url = new URL(route.request().url());
+        return route.continue({ url: `${origin}${url.pathname}${url.search}` });
+      });
+      await page.goto('/en-UK/events');
+      await selectRange(page);
+      const search = page.getByRole('button', { name: 'Search', exact: true });
+      await search.click();
+      await expect(page.locator('.loading')).toBeVisible();
+      await expect(page.locator('.error')).toHaveText(/connection/i, { timeout: 10000 });
+      await expect(page.locator('.loading')).toHaveCount(0);
+      await expect(search).toBeEnabled();
+      await expect.poll(() => page.evaluate(() => {
+        const streams: EventSource[] = Reflect.get(window, '__testEventSources');
+        return streams.map((stream) => stream.readyState);
+      })).toEqual([2]);
+      const metrics = await (await request.get(`${origin}/api/metrics`)).text();
+      expect(metrics).toContain(
+        'errors_total{endpoint="/api/v1/astronomical-events-stream",error_type="timeout",status="200"} 1.0',
+      );
+      expect(searches).toBe(1);
+      expect((await request.post(`${origin}/__test/release`)).ok()).toBe(true);
+      await search.click();
+      await expect(page.locator('.empty-state')).toBeVisible();
+      await expect(page.locator('.error')).toHaveCount(0);
+      await expect(search).toBeEnabled();
+      expect(searches).toBe(2);
+    });
+  });
+
+  for (const outcome of ['429 recovery', '503 partial export'] as const) {
+    test(`downloads contact times with ${outcome}`, async ({ page }) => {
+      const second = {
+        ...solarEvent, date: '2026-08-28 04:13:00.000', event_type: 'Second eclipse',
+        contact_times: null,
+      };
+      const events = outcome === '429 recovery'
+        ? [{ ...solarEvent, contact_times: null }]
+        : [{ ...solarEvent, contact_times: null }, second];
+      await page.route(streamPath, (route) => route.fulfill({
+        contentType: 'text/event-stream',
+        body: [
+          `event: page\ndata: ${JSON.stringify({ page: 1, events })}\n\n`,
+          `event: metadata\ndata: ${JSON.stringify({ total_events: events.length, total_pages: 1 })}\n\n`,
+        ].join(''),
+      }));
+      const attempts: string[] = [];
+      expectedHttpErrors.get(page)!.add(outcome === '429 recovery' ? 429 : 503);
+      await page.route('**/api/v1/astronomical-events/contact-times?*', (route) => {
+        const date = route.request().postDataJSON().event_date;
+        attempts.push(date);
+        if (outcome === '429 recovery' && attempts.length === 1) {
+          return route.fulfill({
+            status: 429, headers: { 'Retry-After': '1' },
+            json: { error: 'rate_limit_exceeded', retry_after: 1 },
+          });
+        }
+        if (date === second.date) {
+          return route.fulfill({ status: 503, json: { error: 'Request timeout' } });
+        }
+        return route.fulfill({ json: { contact_times: solarEvent.contact_times } });
+      });
+      await page.goto('/en-UK/events');
+      await selectRange(page);
+      const search = page.getByRole('button', { name: 'Search', exact: true });
+      await search.click();
+      const exportButton = page.getByRole('button', { name: `JSON (${events.length})`, exact: true });
+      const downloaded = page.waitForEvent('download');
+      await exportButton.click();
+      const download = await downloaded;
+      const path = await download.path();
+      if (!path) throw new Error('Export download has no local artifact');
+      const data = JSON.parse(await readFile(path, 'utf8'));
+      expect(data.count).toBe(events.length);
+      expect(data.events[0].contactTimes).toEqual(solarEvent.contact_times);
+      await expect(search).toBeEnabled();
+      await expect(exportButton).toBeEnabled();
+      if (outcome === '429 recovery') {
+        expect(attempts).toEqual([solarEvent.date, solarEvent.date]);
+        await expect(page.locator('.export-success')).toBeVisible();
+        await expect(page.locator('.export-warning')).toHaveCount(0);
+      } else {
+        expect(attempts).toEqual([solarEvent.date, second.date]);
+        expect(data.events[1]).toMatchObject({ date: second.date, contactTimes: null });
+        await expect(page.locator('.export-warning')).toBeVisible();
+        await expect(page.locator('.export-warning')).toContainText(/1.*2/);
+      }
+    });
+  }
 });

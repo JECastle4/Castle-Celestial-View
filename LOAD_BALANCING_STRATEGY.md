@@ -162,16 +162,24 @@ check sends a real 130-second request. The mixed-workload soak runs for ten
 minutes, checks exact metric deltas, and measures process RSS/thread stability.
 Gunicorn tests run on Unix only; Docker/long/soak checks are opt-in.
 
-For browser cancellation, with the backend Python environment on `PATH`:
+For browser cancellation and export/timeout recovery, with the backend Python
+environment on `PATH`:
 
 ```bash
 cd frontend
 CI=true RATE_LIMIT_ENABLED=false \
-  npx playwright test tests/e2e/events-locale-timezone.spec.ts
+  npx playwright test tests/e2e/events-locale-timezone.spec.ts \
+  tests/e2e/events-eclipses-aug-sep-2026.spec.ts
 ```
 
 Install the project's Playwright browsers first. These checks cover all four
 configured browsers, including a real browser abort observed by API metrics.
+They also verify a real SSE deadline and subsequent recovery, shared contact
+requests populating both details and CSV downloads, deferred locale refresh
+after JSON export, and 429 recovery/503 partial exports. Intercepted export
+fixtures use actual browser downloads; the astronomical suite compares rendered
+solar/lunar contact times with real API responses. The live-server helper
+uses bounded startup/shutdown and attaches backend logs to Playwright results.
 
 ## Phase 4.1: Admission Control
 
