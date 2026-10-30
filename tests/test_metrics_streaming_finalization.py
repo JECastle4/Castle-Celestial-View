@@ -11,8 +11,8 @@ Covers:
 import asyncio
 import time
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock, call
-from fastapi import FastAPI
+from unittest.mock import ANY, MagicMock, patch, AsyncMock, call
+from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 from fastapi.responses import StreamingResponse
 
@@ -164,67 +164,41 @@ class TestStreamingMetricsFinalization:
                 # when the final body chunk (more_body=False) is sent
 
 
-    @pytest.mark.asyncio
-    async def test_streaming_metrics_recorded_with_is_timeout_for_503_stream(self):
-        """Streaming 503 response should record with is_timeout=True.
-        
-        When a streaming response is generated due to timeout (scope flag set),
-        the final chunk finalization should call record_request_completion 
-        with is_timeout=True, preventing the duration from polluting normal p95 data.
-        """
-        test_app = FastAPI()
-
-        @test_app.get("/timeout-stream")
-        async def timeout_stream_endpoint():
-            """Endpoint that yields streaming response with 503 status."""
-            async def generate_error_stream():
-                # Simulate a streaming 503 response (timeout-generated)
-                yield b"event: error\ndata: timeout\n\n"
-            
-            return StreamingResponse(
-                generate_error_stream(),
-                status_code=503,
-                media_type="text/event-stream"
-            )
-
-        # Wrap with MetricsMiddleware
+    @pytest.mark.parametrize("deadline_enforced", [False, True])
+    def test_streaming_503_classification_preserves_tracker_policy(self, deadline_enforced):
+        """Only explicit deadlines classify errors as timeout; tracker policy is unchanged."""
         app_with_metrics = FastAPI()
         app_with_metrics.add_middleware(MetricsMiddleware)
 
         @app_with_metrics.get("/timeout-stream")
-        async def timeout_stream_with_metrics():
+        async def timeout_stream_with_metrics(request: Request):
+            if deadline_enforced:
+                request.scope["_timeout_middleware_generated"] = True
+
             async def generate_error_stream():
-                yield b"event: error\ndata: timeout\n\n"
+                yield b"event: error\ndata: unavailable\n\n"
             return StreamingResponse(
                 generate_error_stream(),
                 status_code=503,
                 media_type="text/event-stream"
             )
 
-        client = TestClient(app_with_metrics)
-
-        # Mock record_request_completion to verify is_timeout=True is passed
         with patch('api.main.record_request_completion') as mock_record:
             with patch('api.main.get_metrics') as mock_metrics_class:
                 mock_metrics = MagicMock()
                 mock_metrics_class.return_value = mock_metrics
-
-                response = client.get("/timeout-stream")
-                
-                # Verify 503 response was received
+                with TestClient(app_with_metrics) as client:
+                    response = client.get("/timeout-stream")
                 assert response.status_code == 503
-                
-                # Verify record_request_completion was called with is_timeout=True
-                # for the 503 streaming response
-                assert mock_record.called
-                
-                # Find the call with is_timeout=True
-                timeout_calls = [
-                    call_obj for call_obj in mock_record.call_args_list
-                    if call_obj.kwargs.get('is_timeout') is True
-                ]
-                # The streaming 503 should have been recorded with is_timeout=True
-                # (in practice, this happens when scope["_timeout_middleware_generated"] is set)
+                mock_record.assert_called_once_with("/timeout-stream", ANY, is_timeout=True)
+                mock_metrics.record_error.assert_called_once_with(
+                    "/timeout-stream", "timeout" if deadline_enforced else "server_error", 503
+                )
+                mock_metrics.record_request.assert_called_once_with(
+                    "/timeout-stream", "GET", 503, ANY
+                )
+                mock_metrics.record_request_end.assert_called_once()
+                mock_metrics.record_timeout_exceeded.assert_not_called()
 
 
 class TestIsStreamingResponseASGI:

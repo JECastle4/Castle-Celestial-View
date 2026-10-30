@@ -111,6 +111,11 @@ exception messages or raw unmatched paths. Cache labels use the bounded decorate
 function names; HTTP labels use matched route templates (including router
 prefixes such as `/api/v1`) or `unknown`. This keeps completed-request samples
 aligned with the pre-route labels used by adaptive timeout tracking.
+An ordinary streaming 503 is classified as `server_error`; only the explicit
+middleware deadline flag classifies it as `timeout`. Streaming 503s retain their
+existing exclusion from p95 samples through the adaptive tracker's `is_timeout`
+input. This tracker policy is separate from the emitted error category and is
+not changed here.
 
 Expiration is lazy: an idle cache can retain expired entries until a later
 operation removes them. Replacement and explicit clear are neither expiry nor
@@ -170,6 +175,9 @@ API location directives without production TLS/static-site paths. The long
 check sends a real 130-second request. The mixed-workload soak runs for ten
 minutes, checks exact metric deltas, and measures process RSS/thread stability.
 Gunicorn tests run on Unix only; Docker/long/soak checks are opt-in.
+On Windows, Uvicorn teardown accepts exit code 1 only when the harness itself
+called `terminate()` (Windows uses `TerminateProcess`, not a graceful SIGTERM).
+Unexpected exit code 1 and shutdowns requiring a forced kill still fail.
 Streaming disconnect checks synchronize on worker entry/completion and HTTP
 metrics, not garbage-collection-dependent generator finalization.
 Soak disconnects hold marked computations behind a test-only gate until the

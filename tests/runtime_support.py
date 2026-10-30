@@ -127,11 +127,13 @@ def runtime_server(tmp_path, *, server="uvicorn", **overrides):
                         break
                 yield client, process
             finally:
+                terminated_by_harness = False
                 if process.poll() is None:
                     try:
                         client.post("/__test/release").raise_for_status()
                     finally:
                         process.terminate()
+                        terminated_by_harness = True
                         try:
                             process.wait(timeout=15)
                         except subprocess.TimeoutExpired:
@@ -139,4 +141,7 @@ def runtime_server(tmp_path, *, server="uvicorn", **overrides):
                             process.wait(timeout=5)
                             raise AssertionError("Runtime server failed to shut down") from None
                 expected_exit = (0,) if server == "gunicorn" else (0, -signal.SIGTERM)
+                if server == "uvicorn" and sys.platform == "win32" and terminated_by_harness:
+                    # Windows terminate() uses TerminateProcess(..., 1), not SIGTERM.
+                    expected_exit = (0, 1)
                 assert process.returncode in expected_exit, log_path.read_text()
