@@ -334,7 +334,12 @@ def _get_route_label(request: Request) -> str:
     try:
         # After call_next, the matched route is stored in request.scope
         route = request.scope.get('route')
-        if route and hasattr(route, 'path'):
+        # Newer FastAPI keeps included-router prefixes in the effective context,
+        # while scope["route"] refers to the original unprefixed route.
+        effective = request.scope.get('fastapi', {}).get('effective_route_context')
+        if effective is not None:
+            route = effective
+        if route and isinstance(getattr(route, 'path', None), str):
             return route.path
     except (AttributeError, KeyError, TypeError):  # Best-effort route extraction
         # Ignore errors accessing request.scope or route attributes

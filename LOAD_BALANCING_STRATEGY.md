@@ -108,7 +108,9 @@ Error categories are `invalid_input` (400), `payload_too_large` (413),
 `server_error` (other 5xx), `unhandled_exception` (escaping before/non-streaming
 failure), and `stream_error` (escaping during a stream). Labels never include
 exception messages or raw unmatched paths. Cache labels use the bounded decorated
-function names; HTTP labels use matched route templates or `unknown`.
+function names; HTTP labels use matched route templates (including router
+prefixes such as `/api/v1`) or `unknown`. This keeps completed-request samples
+aligned with the pre-route labels used by adaptive timeout tracking.
 
 Expiration is lazy: an idle cache can retain expired entries until a later
 operation removes them. Replacement and explicit clear are neither expiry nor
@@ -129,6 +131,47 @@ Both supplied nginx API configurations set send/read inactivity timeouts to
 The contact-time browser timeout remains 240 seconds, so network overhead can
 still produce a client/server race at that boundary. Existing deployments need
 the manual nginx configuration update described in `DEPLOYMENT_GUIDE.md`.
+
+### Reproducing runtime checks
+
+Install `requirements-dev.txt`, then run:
+
+```bash
+python -m pytest tests/test_runtime_evidence.py tests/test_request_lifecycle.py \
+  tests/test_cache_lifecycle_metrics.py --no-cov
+```
+
+The live harness starts a fresh interpreter, preserving real rate limiting and
+metric emission instead of pytest's test-mode substitutes. It uses production
+routes/middleware with deterministic astronomy service fixtures; it verifies HTTP
+lifecycle behavior, not astronomical accuracy. Its control routes exist only in
+`tests/runtime_app.py` and must never be deployed.
+
+Optional Linux deployment and soak checks:
+
+```bash
+docker pull nginx:stable-alpine
+RUN_NGINX_TESTS=true RUN_LONG_NGINX_TESTS=true \
+  python -m pytest tests/test_runtime_proxy.py --no-cov
+RUN_RUNTIME_SOAK=true python -m pytest tests/test_runtime_soak.py --no-cov -s
+```
+
+The proxy checks require a running local Docker daemon and execute the supplied
+API location directives without production TLS/static-site paths. The long
+check sends a real 130-second request. The mixed-workload soak runs for ten
+minutes, checks exact metric deltas, and measures process RSS/thread stability.
+Gunicorn tests run on Unix only; Docker/long/soak checks are opt-in.
+
+For browser cancellation, with the backend Python environment on `PATH`:
+
+```bash
+cd frontend
+CI=true RATE_LIMIT_ENABLED=false \
+  npx playwright test tests/e2e/events-locale-timezone.spec.ts
+```
+
+Install the project's Playwright browsers first. These checks cover all four
+configured browsers, including a real browser abort observed by API metrics.
 
 ## Phase 4.1: Admission Control
 

@@ -11,6 +11,29 @@ import pytest
 from unittest.mock import MagicMock
 from fastapi import Request
 from api.main import _get_pre_route_label as extract_metric_label
+from api.main import _get_route_label
+
+
+def test_included_router_metric_labels_keep_prefix_and_template():
+    """Matched and pre-route labels must agree even with nested included routers."""
+    from fastapi import APIRouter, FastAPI
+    from fastapi.testclient import TestClient
+
+    application = FastAPI()
+    parent = APIRouter()
+    child = APIRouter()
+
+    @child.get("/items/{item_id}")
+    def item(request: Request, item_id: str):
+        return {"label": _get_route_label(request)}
+
+    parent.include_router(child, prefix="/nested")
+    application.include_router(parent, prefix="/api/v1")
+    with TestClient(application) as client:
+        for item_id in ("first", "private-value"):
+            assert client.get(f"/api/v1/nested/items/{item_id}").json() == {
+                "label": "/api/v1/nested/items/{item_id}"
+            }
 
 
 class TestMetricLabelExtraction:

@@ -18,6 +18,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versio
 - Cancel individual contact-time subscribers without disrupting other callers sharing
   the request; abort HTTP only when no subscribers remain.
 - Align supplied nginx API inactivity timeouts with the backend's maximum adaptive budget.
+- Preserve included-router prefixes in HTTP metric labels so completion samples
+  feed the same endpoint's adaptive timeout tracker.
 
 ### Changed
 - Document timeout/disconnect behaviour, duplicate-work risk on retries, and the
