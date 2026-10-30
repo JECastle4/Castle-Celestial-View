@@ -428,8 +428,8 @@ describe('useContactTimesQueue', () => {
       await vi.runAllTimersAsync();
       await resultsPromise;
 
-      expect(fetchFn).toHaveBeenCalledWith('2025-01-15', true);
-      expect(fetchFn).toHaveBeenCalledWith('2025-07-15', false);
+      expect(fetchFn).toHaveBeenCalledWith('2025-01-15', true, undefined);
+      expect(fetchFn).toHaveBeenCalledWith('2025-07-15', false, undefined);
     });
 
     it('should handle empty eclipses array', async () => {

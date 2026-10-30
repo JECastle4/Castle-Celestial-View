@@ -73,7 +73,8 @@ export class AstronomyApiClient {
    */
   async getContactTimesForEvent(
     eventDate: string,
-    isLunar: boolean
+    isLunar: boolean,
+    signal?: AbortSignal
   ): Promise<EclipseContactTimesResponse> {
     const url = `${this.baseUrl}${API_ENDPOINTS.contactTimes}?lang=${getCurrentLocale()}`;
     const body = {
@@ -81,13 +82,23 @@ export class AstronomyApiClient {
       is_lunar: isLunar,
     };
     // The backend can grant expensive endpoints a 2x timeout multiplier.
-    return this.postJson<EclipseContactTimesResponse>(url, body, 240000);
+    return this.postJson<EclipseContactTimesResponse>(url, body, 240000, signal);
   }
 
-  private async postJson<T>(url: string, body: unknown, timeoutMs?: number): Promise<T> {
+  private async postJson<T>(url: string, body: unknown, timeoutMs?: number, signal?: AbortSignal): Promise<T> {
+    if (signal?.aborted) {
+      throw new DOMException('The operation was aborted', 'AbortError');
+    }
     const controller = new AbortController();
     const timeout = timeoutMs ?? this.timeout;
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    let timedOut = false;
+    const timeoutId = setTimeout(() => {
+      if (controller.signal.aborted) return;
+      timedOut = true;
+      controller.abort();
+    }, timeout);
+    const onAbort = () => controller.abort();
+    signal?.addEventListener('abort', onAbort, { once: true });
 
     try {
       const response = await fetch(url, {
@@ -100,8 +111,6 @@ export class AstronomyApiClient {
         signal: controller.signal,
       });
 
-      clearTimeout(timeoutId);
-
       if (!response.ok) {
         const errorText = await response.text();
         throw new ApiError(
@@ -111,9 +120,16 @@ export class AstronomyApiClient {
         );
       }
 
-      return await response.json();
+      const result = await response.json();
+      if (controller.signal.aborted) {
+        throw new DOMException('The operation was aborted', 'AbortError');
+      }
+      return result;
     } catch (error) {
-      clearTimeout(timeoutId);
+      if (controller.signal.aborted) {
+        if (timedOut) throw new Error('Request timeout');
+        throw new DOMException('The operation was aborted', 'AbortError');
+      }
 
       if (error instanceof ApiError) {
         throw error;
@@ -127,6 +143,9 @@ export class AstronomyApiClient {
       }
 
       throw new Error('Unknown error occurred');
+    } finally {
+      clearTimeout(timeoutId);
+      signal?.removeEventListener('abort', onAbort);
     }
   }
 }
@@ -134,7 +153,7 @@ export class AstronomyApiClient {
 export interface AstronomyApi {
   getBatchEarthObservations(params: BatchObservationsParams): Promise<BatchEarthObservationsResponse>;
   getAstronomicalEvents(params: AstronomicalEventsParams): Promise<AstronomicalEventsResponse>;
-  getContactTimesForEvent(eventDate: string, isLunar: boolean): Promise<EclipseContactTimesResponse>;
+  getContactTimesForEvent(eventDate: string, isLunar: boolean, signal?: AbortSignal): Promise<EclipseContactTimesResponse>;
 }
 
 // Export singleton instance

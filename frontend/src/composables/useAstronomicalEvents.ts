@@ -3,7 +3,7 @@ import { i18n, getCurrentLocale } from '@/i18n';
 import { astronomyApi, ApiError } from '@/services/api';
 import type { AstronomyApi, AstronomicalEventsParams } from '@/services/api';
 import { API_CONFIG } from '@/services/config';
-import type { AstronomicalEvent, PaginationInfo } from '@/types/api.types';
+import type { AstronomicalEvent, EclipseContactTimesResponse, PaginationInfo } from '@/types/api.types';
 
 /**
  * Composable for fetching and managing paginated astronomical events (new/full
@@ -28,9 +28,17 @@ export function useAstronomicalEvents(api: AstronomyApi = astronomyApi) {
   // navigation after a search doesn't need another round trip.
   // Exposed as ref so export/preload operations can access all results.
   const allSseEvents = ref<AstronomicalEvent[]>([]);
-  const contactTimesRequests = new Map<string, Promise<void>>();
+  interface ContactTimesRequest {
+    controller: AbortController;
+    promise: Promise<EclipseContactTimesResponse>;
+    subscribers: number;
+    settled: boolean;
+  }
+  const contactTimesRequests = new Map<string, ContactTimesRequest>();
+  let searchGeneration = 0;
 
   async function fetchEvents(params: AstronomicalEventsParams) {
+    searchGeneration++;
     loading.value = true;
     error.value = null;
 
@@ -61,6 +69,7 @@ export function useAstronomicalEvents(api: AstronomyApi = astronomyApi) {
    * live progress instead of waiting for the whole date range to be searched.
    */
   async function fetchEventsSSE(params: Omit<AstronomicalEventsParams, 'page'>) {
+    searchGeneration++;
     loading.value = true;
     error.value = null;
     events.value = [];
@@ -144,43 +153,71 @@ export function useAstronomicalEvents(api: AstronomyApi = astronomyApi) {
    * Fetch contact times for a specific eclipse event.
    * Updates the event in-place with the fetched contact_times.
    */
-  function fetchContactTimesForEvent(eventDate: string, isLunar: boolean): Promise<void> {
-    const requestKey = JSON.stringify([eventDate, isLunar]);
-    const inFlightRequest = contactTimesRequests.get(requestKey);
-    if (inFlightRequest) {
-      return inFlightRequest;
+  function fetchContactTimesForEvent(eventDate: string, isLunar: boolean, signal?: AbortSignal): Promise<void> {
+    const abortError = () => new DOMException('The operation was aborted', 'AbortError');
+    if (signal?.aborted) return Promise.reject(abortError());
+
+    const locale = getCurrentLocale();
+    const generation = searchGeneration;
+    const requestKey = JSON.stringify([eventDate, isLunar, locale]);
+    let request = contactTimesRequests.get(requestKey);
+    if (!request) {
+      const controller = new AbortController();
+      const entry: ContactTimesRequest = {
+        controller,
+        subscribers: 0,
+        settled: false,
+        promise: (async () => api.getContactTimesForEvent(eventDate, isLunar, controller.signal))().finally(() => {
+          entry.settled = true;
+          if (contactTimesRequests.get(requestKey) === entry) {
+            contactTimesRequests.delete(requestKey);
+          }
+        }),
+      };
+      request = entry;
+      contactTimesRequests.set(requestKey, entry);
     }
 
-    const request = Promise.resolve()
-      .then(() => api.getContactTimesForEvent(eventDate, isLunar))
-      .then((response) => {
-        // Find and update the event in the current events list
-        const event = events.value.find((ev) => ev.date === eventDate);
-        if (event) {
-          event.contact_times = response.contact_times || null;
+    const entry = request;
+    entry.subscribers++;
+    return new Promise<void>((resolve, reject) => {
+      let active = true;
+      const release = () => {
+        active = false;
+        signal?.removeEventListener('abort', onAbort);
+        entry.subscribers--;
+        if (!entry.settled && entry.subscribers === 0) {
+          if (contactTimesRequests.get(requestKey) === entry) {
+            contactTimesRequests.delete(requestKey);
+          }
+          entry.controller.abort();
         }
-
-        // Also update in allSseEvents if available
-        const sseEvent = allSseEvents.value.find((ev) => ev.date === eventDate);
-        if (sseEvent) {
-          sseEvent.contact_times = response.contact_times || null;
+      };
+      const onAbort = () => {
+        if (!active) return;
+        release();
+        reject(abortError());
+      };
+      signal?.addEventListener('abort', onAbort, { once: true });
+      if (signal?.aborted) onAbort();
+      // Both handlers remain attached after cancellation, observing even late failures.
+      void entry.promise.then((response) => {
+        if (!active) return;
+        release();
+        // Locale refresh can be deferred during export; retain that search's snapshot.
+        if (!entry.controller.signal.aborted && generation === searchGeneration) {
+          for (const list of [events.value, allSseEvents.value]) {
+            const event = list.find((ev) => ev.date === eventDate && ev.is_lunar === isLunar);
+            if (event) event.contact_times = response.contact_times || null;
+          }
         }
-      })
-      .catch((err) => {
-        if (err instanceof ApiError) {
-          throw err;
-        } else if (err instanceof Error) {
-          throw err;
-        } else {
-          // c8 ignore next 1 - defensive: JavaScript always throws Error-like objects
-          throw new Error(t('errors.unknown'));
-        }
-      })
-      .finally(() => {
-        contactTimesRequests.delete(requestKey);
+        resolve();
+      }, (err) => {
+        if (!active) return;
+        release();
+        reject(err instanceof Error ? err : new Error(t('errors.unknown')));
       });
-    contactTimesRequests.set(requestKey, request);
-    return request;
+    });
   }
 
   return {

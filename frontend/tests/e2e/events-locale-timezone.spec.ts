@@ -97,4 +97,41 @@ test.describe('Events browser regressions', () => {
     await expect(details.locator('.detail-row').filter({ hasText: 'Eclipse Begins' }).locator('dd'))
       .toHaveText(/18:15:00|6:15:00\s*PM/i);
   });
+
+  test('shares contact-time loads with export and aborts them when leaving the view', async ({ page }) => {
+    await page.route(streamPath, (route) => route.fulfill({
+      contentType: 'text/event-stream',
+      body: streamResponse({ ...solarEvent, contact_times: null }),
+    }));
+    let contactRequests = 0;
+    let releaseResponse!: () => void;
+    const responseGate = new Promise<void>((resolve) => { releaseResponse = resolve; });
+    await page.route('**/api/v1/astronomical-events/contact-times?*', async (route) => {
+      contactRequests++;
+      await responseGate;
+      await route.fulfill({ json: { contact_times: solarEvent.contact_times } });
+    });
+
+    await page.goto('/en-UK/events');
+    await selectRange(page);
+    await page.getByRole('button', { name: 'Search', exact: true }).click();
+    await page.locator('.event-summary').click();
+    await expect.poll(() => contactRequests).toBe(1);
+    await page.getByRole('button', { name: 'CSV (1)', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Search', exact: true })).toBeDisabled();
+    expect(contactRequests).toBe(1);
+
+    const aborted = page.waitForEvent('requestfailed', {
+      predicate: (request) => request.url().includes('/astronomical-events/contact-times'),
+    });
+    try {
+      await page.getByRole('button', { name: 'Solar System', exact: true }).click();
+      await expect(page).toHaveURL(/\/en-UK\/$/);
+      const request = await aborted;
+      expect(request.failure()?.errorText).toMatch(/abort|cancel/i);
+      expect(contactRequests).toBe(1);
+    } finally {
+      releaseResponse();
+    }
+  });
 });
