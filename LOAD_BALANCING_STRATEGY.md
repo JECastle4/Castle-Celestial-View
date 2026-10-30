@@ -161,6 +161,8 @@ API location directives without production TLS/static-site paths. The long
 check sends a real 130-second request. The mixed-workload soak runs for ten
 minutes, checks exact metric deltas, and measures process RSS/thread stability.
 Gunicorn tests run on Unix only; Docker/long/soak checks are opt-in.
+Streaming disconnect checks synchronize on worker entry/completion and HTTP
+metrics, not garbage-collection-dependent generator finalization.
 
 For browser cancellation and export/timeout recovery, with the backend Python
 environment on `PATH`:

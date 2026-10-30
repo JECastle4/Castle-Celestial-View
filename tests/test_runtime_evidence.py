@@ -180,14 +180,17 @@ def test_stream_disconnect_and_start_limit(tmp_path):
         with client.stream("GET", STREAM_URL) as first:
             assert first.status_code == 200
             assert next(first.iter_lines()) == "event: page"
+            eventually(lambda: client.get("/__test/state").json()["stream_waiting"] == 1)
             with client.stream("GET", STREAM_URL) as second:
                 assert second.status_code == 200
                 assert next(second.iter_lines()) == "event: page"
+                eventually(lambda: client.get("/__test/state").json()["stream_waiting"] == 2)
                 assert client.get(STREAM_URL).status_code == 429
         # Closing active streams does not refund fixed-window start tokens.
         assert client.get(STREAM_URL).status_code == 429
         client.post("/__test/release").raise_for_status()
         eventually(lambda: client.get("/__test/state").json()["stream_finished"] == 2)
+        eventually(lambda: scrape(client).value("http_requests_in_progress", endpoint=STREAM) == 0)
         after = scrape(client)
         assert after.delta(
             before, "errors_total", endpoint=STREAM, error_type="stream_error", status="200"

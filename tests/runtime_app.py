@@ -19,7 +19,10 @@ from api.metrics import record_cache_lifecycle_safe
 app = main.app
 gate = threading.Event()
 lock = threading.Lock()
-state = {"contact_started": 0, "contact_finished": 0, "stream_finished": 0}
+state = {
+    "contact_started": 0, "contact_finished": 0,
+    "stream_waiting": 0, "stream_finished": 0,
+}
 blocked = os.environ.get("TEST_RUNTIME_BLOCK_CONTACT") == "true"
 budget = float(os.environ.get("TEST_RUNTIME_BUDGET", "10"))
 cache_module._response_cache = cache_module.TTLCache(  # pylint: disable=protected-access
@@ -60,14 +63,16 @@ def event_results(**_kwargs):
 
 def event_stream(**_kwargs):
     """Exercise the real sync streaming route, including cancellation shielding."""
-    try:
-        yield {"page": 1, "events": []}
-        if os.environ.get("TEST_RUNTIME_BLOCK_STREAM") == "true" and not gate.wait(15):
-            raise RuntimeError("Test did not release stream computation")
-        yield {"total_events": 0, "total_pages": 0}
-    finally:
+    yield {"page": 1, "events": []}
+    if os.environ.get("TEST_RUNTIME_BLOCK_STREAM") == "true":
         with lock:
-            state["stream_finished"] += 1
+            state["stream_waiting"] += 1
+        if not gate.wait(15):
+            raise RuntimeError("Test did not release stream computation")
+    # A disconnected consumer may never resume the generator after its last yield.
+    with lock:
+        state["stream_finished"] += 1
+    yield {"total_events": 0, "total_pages": 0}
 
 
 events.get_contact_times_for_event = contact_times
