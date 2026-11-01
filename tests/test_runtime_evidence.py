@@ -6,6 +6,7 @@ import re
 import sys
 import time
 
+import httpx
 import pytest
 
 from runtime_support import MetricsSnapshot, disconnect_held_contact, eventually, runtime_server
@@ -191,6 +192,37 @@ def test_stream_deadline_and_disconnect_are_distinct(tmp_path):
         ) == 1
         assert after.value("abandoned_work_in_progress", endpoint=STREAM) == 0
         assert after.value("abandoned_work_total", endpoint=STREAM, reason="timeout") == 0
+
+
+@pytest.mark.parametrize("failure", ["calculation", "unexpected"])
+def test_stream_calculation_failures_are_counted_once(tmp_path, failure):
+    """Handled and unhandled failures after HTTP 200 share one bounded error label."""
+    with runtime_server(tmp_path, TEST_RUNTIME_STREAM_FAILURE=failure) as (client, _):
+        before = scrape(client)
+        body = []
+        # An aborted stream closes its connection; keep it out of the scrape pool.
+        with httpx.Client(base_url=client.base_url, timeout=5, trust_env=False) as stream_client:
+            try:
+                with stream_client.stream("GET", STREAM_URL) as response:
+                    assert response.status_code == 200
+                    for line in response.iter_lines():
+                        body.append(line)
+            except httpx.RemoteProtocolError:
+                assert failure == "unexpected"
+        text = "\n".join(body)
+        assert "event: metadata" not in text
+        assert "private" not in text
+        assert ("event: calculation-error" in text) == (failure == "calculation")
+        eventually(lambda: scrape(client).value("http_requests_in_progress", endpoint=STREAM) == 0)
+        after = scrape(client)
+        assert after.delta(
+            before, "errors_total", endpoint=STREAM, error_type="stream_error", status="200"
+        ) == 1
+        assert after.delta(
+            before, "http_requests_total", endpoint=STREAM, method="GET", status="200"
+        ) == 1
+        assert after.value("abandoned_work_total", endpoint=STREAM, reason="client_disconnect") == 0
+        assert after.value("abandoned_work_in_progress", endpoint=STREAM) == 0
 
 
 def test_stream_disconnect_and_start_limit(tmp_path):

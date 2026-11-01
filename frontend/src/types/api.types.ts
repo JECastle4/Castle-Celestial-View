@@ -88,6 +88,8 @@ export interface BatchEarthObservationsResponse {
 // event_type and eclipse_type are translated strings returned by the API
 export type AstronomicalEventType = string;
 export type EclipseType = string;
+export type GlobalEclipseType = 'NONE' | 'PARTIAL' | 'ANNULAR' | 'TOTAL' | 'HYBRID' | 'PENUMBRAL';
+export type MaximumEclipsePhase = Exclude<GlobalEclipseType, 'HYBRID'>;
 
 // Lunar keys: p1/u1/u2/u3/u4/p4. Solar keys: eclipse_begins/central_phase_begins/
 // central_phase_ends/eclipse_ends. Values are ISO time strings, or null when that
@@ -104,6 +106,10 @@ export interface AstronomicalEvent {
   moon_ecl_lat_deg: number;
   eclipse_occurs: boolean;
   eclipse_type: EclipseType;
+  global_eclipse_type?: GlobalEclipseType;
+  maximum_eclipse_phase?: MaximumEclipsePhase;
+  classification_revision?: string;
+  classification_warning?: string | null;
   greatest_eclipse_time: string | null;
   umbral_magnitude: number | null;
   penumbral_magnitude: number | null;

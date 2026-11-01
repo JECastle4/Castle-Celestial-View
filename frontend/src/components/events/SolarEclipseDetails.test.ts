@@ -28,12 +28,20 @@ describe('SolarEclipseDetails', () => {
     const wrapper = mount(SolarEclipseDetails, { props: { event: baseEvent } });
 
     expect(wrapper.text()).toContain('0.9612');
+    expect(wrapper.text()).toContain('Geocentric Size Ratio');
 
     const labels = wrapper.findAll('.detail-row dt').map((r) => r.text());
     const beginsIndex = labels.findIndex((l) => l === 'Eclipse Begins');
     const endsIndex = labels.findIndex((l) => l === 'Eclipse Ends');
     expect(beginsIndex).toBeGreaterThan(-1);
     expect(endsIndex).toBeGreaterThan(beginsIndex);
+  });
+
+  it('shows an accuracy caveat for out-of-range ephemeris dates', () => {
+    const wrapper = mount(SolarEclipseDetails, {
+      props: { event: { ...baseEvent, classification_warning: 'Outside supported ephemeris range' } },
+    });
+    expect(wrapper.find('[role="status"]').text()).toContain('outside the solar ephemeris');
   });
 
   it('handles null size ratio and contact times gracefully', () => {

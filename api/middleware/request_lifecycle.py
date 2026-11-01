@@ -10,6 +10,23 @@ from api.metrics import get_metrics
 
 logger = logging.getLogger(__name__)
 
+_STREAM_FAILURE_STATE_KEY = "stream_failure_handled"
+
+
+def mark_stream_failure(scope) -> None:
+    """Record a handled terminal stream failure for metrics finalization.
+
+    Streaming routes commit HTTP 200 before generating content. A route that
+    converts a domain failure into a terminal SSE event must still count as a
+    bounded ``stream_error`` instead of a successful response.
+    """
+    scope.setdefault("state", {})[_STREAM_FAILURE_STATE_KEY] = True
+
+
+def stream_failure_handled(scope) -> bool:
+    """Return whether the route reported a handled terminal stream failure."""
+    return bool(scope.get("state", {}).get(_STREAM_FAILURE_STATE_KEY, False))
+
 
 async def disconnected_before_response(receive) -> bool:
     """Peek without waiting, before response completion can synthesize a disconnect.

@@ -38,6 +38,9 @@
     "full": "lluF"
   },
   "events": {
+    "solar": {
+      "accuracyWarning": ".detadilav ton era secnatsmucric laciremun ;egnar ycarucca 0012-0091 detats sti edistuo si siremehpe raloS"
+    },
     "eventTypes": {
       "newMoon": "nooM weN",
       "fullMoon": "nooM lluF",

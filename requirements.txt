@@ -1,5 +1,6 @@
 astropy
 numpy
+scipy
 matplotlib
 PyOpenGL
 PyOpenGL-accelerate

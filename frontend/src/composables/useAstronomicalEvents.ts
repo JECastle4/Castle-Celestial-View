@@ -117,6 +117,18 @@ export function useAstronomicalEvents(api: AstronomyApi = astronomyApi) {
         resolve();
       });
 
+      eventSource.addEventListener('calculation-error', () => {
+        error.value = t('events.calculationFailed');
+        loading.value = false;
+        hasSearched.value = true;
+        allSseEvents.value = [];
+        sseEventCount.value = 0;
+        eventSource.close();
+        currentEventSource = null;
+        currentSseReject = null;
+        reject(new Error('Eclipse calculation failed'));
+      });
+
       eventSource.onerror = () => {
         error.value = t('errors.sseConnectionError');
         loading.value = false;

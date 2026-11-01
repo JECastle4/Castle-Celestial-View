@@ -15,7 +15,11 @@ from starlette.requests import ClientDisconnect
 from api.cache import get_cache_stats
 from api.i18n import SUPPORTED_LOCALES, set_request_locale
 from api.metrics import get_metrics
-from api.middleware.request_lifecycle import BackgroundRequests, disconnected_before_response
+from api.middleware.request_lifecycle import (
+    BackgroundRequests,
+    disconnected_before_response,
+    stream_failure_handled,
+)
 from api.middleware.streaming_registry import StreamingMetadata
 from api.rate_limiter import limiter, rate_limit_exception_handler, get_rate_limit_stats
 from api.rate_limiter import MockLimiter
@@ -602,7 +606,9 @@ class MetricsMiddleware:  # pylint: disable=too-few-public-methods
                             # Preserve the existing exclusion of streaming 503s from p95.
                             is_timeout=is_timeout_generated or status_code == 503
                         )
-                        category = _error_category(status_code, is_timeout_generated)
+                        category = _error_category(status_code, is_timeout_generated) or (
+                            "stream_error" if stream_failure_handled(scope) else None
+                        )
                         if category and not error_recorded:
                             metrics.record_error(endpoint, category, status_code)
                             error_recorded = True
@@ -633,8 +639,14 @@ class MetricsMiddleware:  # pylint: disable=too-few-public-methods
                     "stream_error" if is_streaming else "unhandled_exception"
                 )
                 metrics.record_error(endpoint, category, status_code)
+                error_recorded = True
             raise
         finally:
+            if is_streaming and not error_recorded and stream_failure_handled(scope):
+                category = "timeout" if scope.get("_timeout_middleware_generated", False) else (
+                    "stream_error"
+                )
+                metrics.record_error(endpoint, category, status_code)
             # For non-streaming: always record request completion
             # For streaming: metrics are finalized in send_with_metrics when final body chunk
             # (more_body=False) is sent. However, if client disconnects or generator raises

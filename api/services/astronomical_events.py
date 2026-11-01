@@ -5,7 +5,7 @@ Finds new and full moons within a date range, classifies each as an eclipse
 (TOTAL/PARTIAL/ANNULAR/PENUMBRAL/NONE) using api.services.eclipse_detection, and
 optionally computes contact times using api.services.eclipse_contact_times.
 
-Geocentric-only. This is the data source behind the /astronomical-events API route.
+Global (not observer-specific). This is the data source behind the /astronomical-events API route.
 Supports pagination since a date range can span many lunations.
 """
 
@@ -23,13 +23,17 @@ from api.services.eclipse_detection import (
     node_distance_deg,
     find_greatest_eclipse_time,
     classify_lunar_eclipse_type,
-    classify_solar_eclipse_type,
     LUNAR_ECLIPSE_NODE_LIMIT_DEG,
+    LUNAR_MODEL_REVISION,
     SOLAR_ECLIPSE_NODE_LIMIT_DEG,
+)
+from api.services.eclipse_classification import (
+    SOLAR_MODEL_REVISION,
+    calculate_global_solar_contacts,
+    classify_solar_eclipse,
 )
 from api.services.eclipse_contact_times import (
     calculate_lunar_contact_times,
-    calculate_solar_contact_times,
 )
 
 # Coarse sampling interval (hours) used to bracket new/full moon crossings. The
@@ -146,6 +150,10 @@ def _build_lunar_eclipse_event(time_obj, moon_lat, moon_lon, greatest_time,
         'moon_ecl_lat_deg': round(float(moon_lat), 4),
         'eclipse_occurs': False,
         'eclipse_type': _t('events.eclipseTypes.NONE'),
+        'global_eclipse_type': 'NONE',
+        'maximum_eclipse_phase': 'NONE',
+        'classification_revision': LUNAR_MODEL_REVISION,
+        'classification_warning': None,
         'greatest_eclipse_time': greatest_time.iso,
         'umbral_magnitude': None,
         'penumbral_magnitude': None,
@@ -155,6 +163,8 @@ def _build_lunar_eclipse_event(time_obj, moon_lat, moon_lon, greatest_time,
 
     type_info = classify_lunar_eclipse_type(greatest_time)
     eclipse_type_code = type_info['eclipse_type']
+    result['global_eclipse_type'] = eclipse_type_code
+    result['maximum_eclipse_phase'] = eclipse_type_code
     result['eclipse_type'] = _t(f'events.eclipseTypes.{eclipse_type_code}')
     result['umbral_magnitude'] = type_info['umbral_magnitude']
     result['penumbral_magnitude'] = type_info['penumbral_magnitude']
@@ -169,10 +179,11 @@ def _build_lunar_eclipse_event(time_obj, moon_lat, moon_lon, greatest_time,
     return result
 
 
-def _build_solar_eclipse_event(time_obj, moon_lat, greatest_time, include_contact_times, locale):
+def _build_solar_eclipse_event(time_obj, moon_lat, include_contact_times, locale):
     """Build event dict for a solar eclipse or new moon."""
     _t = get_i18n(locale).get
 
+    analysis = classify_solar_eclipse(time_obj)
     result = {
         'event_type': _t('events.eventTypes.newMoon'),
         'is_lunar': False,
@@ -181,24 +192,30 @@ def _build_solar_eclipse_event(time_obj, moon_lat, greatest_time, include_contac
         'moon_ecl_lat_deg': round(float(moon_lat), 4),
         'eclipse_occurs': False,
         'eclipse_type': _t('events.eclipseTypes.NONE'),
-        'greatest_eclipse_time': greatest_time.iso,
+        'global_eclipse_type': analysis.global_type,
+        'maximum_eclipse_phase': analysis.maximum_phase,
+        'classification_revision': analysis.model_revision,
+        'classification_warning': (
+            _t("events.solar.accuracyWarning")
+            if not 1900 <= time_obj.utc.datetime.year <= 2100 else None
+        ),
+        'greatest_eclipse_time': analysis.greatest_eclipse_time.iso,
         'umbral_magnitude': None,
         'penumbral_magnitude': None,
         'size_ratio': None,
         'contact_times': None,
     }
 
-    type_info = classify_solar_eclipse_type(greatest_time)
-    eclipse_type_code = type_info['eclipse_type']
+    eclipse_type_code = analysis.maximum_phase
     result['eclipse_type'] = _t(f'events.eclipseTypes.{eclipse_type_code}')
-    result['size_ratio'] = type_info['size_ratio']
-    result['eclipse_occurs'] = type_info['eclipse_type'] != 'NONE'
+    result['size_ratio'] = analysis.size_ratio
+    result['eclipse_occurs'] = analysis.global_type != 'NONE'
 
     if result['eclipse_occurs']:
         eclipse_type_name = eclipse_type_code[0].upper() + eclipse_type_code[1:].lower()
         result['event_type'] = _t(f'events.eventTypes.solar{eclipse_type_name}')
         if include_contact_times:
-            result['contact_times'] = calculate_solar_contact_times(greatest_time)
+            result['contact_times'] = calculate_global_solar_contacts(analysis)
 
     return result
 
@@ -233,6 +250,10 @@ def build_astronomical_event(event, include_contact_times=True, locale=None):
         'moon_ecl_lat_deg': round(float(moon_lat), 4),
         'eclipse_occurs': False,
         'eclipse_type': _t('events.eclipseTypes.NONE'),
+        'global_eclipse_type': 'NONE',
+        'maximum_eclipse_phase': 'NONE',
+        'classification_revision': LUNAR_MODEL_REVISION if is_lunar else SOLAR_MODEL_REVISION,
+        'classification_warning': None,
         'greatest_eclipse_time': None,
         'umbral_magnitude': None,
         'penumbral_magnitude': None,
@@ -253,14 +274,12 @@ def build_astronomical_event(event, include_contact_times=True, locale=None):
         return result
 
     # Proceed with eclipse classification
-    greatest_time = find_greatest_eclipse_time(time_obj, is_lunar=is_lunar)
-
     if is_lunar:
+        greatest_time = find_greatest_eclipse_time(time_obj, is_lunar=True)
         result = _build_lunar_eclipse_event(time_obj, moon_lat, moon_lon, greatest_time,
                                            include_contact_times, locale)
     else:
-        result = _build_solar_eclipse_event(time_obj, moon_lat, greatest_time,
-                                           include_contact_times, locale)
+        result = _build_solar_eclipse_event(time_obj, moon_lat, include_contact_times, locale)
 
     return result
 
@@ -428,8 +447,7 @@ def get_contact_times_for_event(event_date_iso, is_lunar, _locale=None):
         locale: BCP 47 locale tag for translating any error messages
 
     Returns:
-        dict: contact_times dict with eclipse contact times, or empty dict if
-        event_date_iso doesn't represent a valid eclipse or calculation fails.
+        dict: contact_times dict for a confirmed eclipse.
         Format: Lunar: {p1, u1, u2, u3, u4, p4} or Solar: {eclipse_begins,
         central_phase_begins, central_phase_ends, eclipse_ends}
 
@@ -443,16 +461,16 @@ def get_contact_times_for_event(event_date_iso, is_lunar, _locale=None):
         raise ValueError(f"Invalid event_date '{event_date_iso}': {str(e)}") from e
 
     try:
-        # Find the greatest eclipse time (refined instant)
-        greatest_time = find_greatest_eclipse_time(time_obj, is_lunar=is_lunar)
-
         # Validate that the event is actually an eclipse (not an ordinary new/full moon)
         if is_lunar:
+            greatest_time = find_greatest_eclipse_time(time_obj, is_lunar=True)
             type_info = classify_lunar_eclipse_type(greatest_time)
+            eclipse_type = type_info['eclipse_type']
         else:
-            type_info = classify_solar_eclipse_type(greatest_time)
+            analysis = classify_solar_eclipse(time_obj)
+            eclipse_type = analysis.global_type
 
-        if type_info['eclipse_type'] == 'NONE':
+        if eclipse_type == 'NONE':
             raise ValueError(
                 f"Event at {event_date_iso} is not an eclipse; "
                 f"no contact times available for ordinary {'full moon' if is_lunar else 'new moon'}"
@@ -462,9 +480,9 @@ def get_contact_times_for_event(event_date_iso, is_lunar, _locale=None):
         if is_lunar:
             contact_times = calculate_lunar_contact_times(greatest_time)
         else:
-            contact_times = calculate_solar_contact_times(greatest_time)
+            contact_times = calculate_global_solar_contacts(analysis)
 
-        return contact_times if contact_times else {}
+        return contact_times
     except ValueError:
         # Re-raise validation errors (invalid event, not an eclipse, etc.)
         raise

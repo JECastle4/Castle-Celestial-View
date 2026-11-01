@@ -256,9 +256,9 @@ def get_metrics() -> MetricsCollector:
 
 # Helper for test mode detection (consistent with rate_limiter.py)
 def _is_test_mode() -> bool:
-    """Check if running in test mode."""
+    """Detect pytest without treating dependency imports as test execution."""
     import sys  # pylint: disable=import-outside-toplevel
-    return 'pytest' in sys.modules or 'unittest' in sys.modules
+    return 'pytest' in sys.modules
 
 
 # Shared metric recording helpers to avoid code duplication

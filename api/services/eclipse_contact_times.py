@@ -5,22 +5,19 @@ Computes the contact times (penumbral/umbral boundary crossings for lunar eclips
 global penumbral/central shadow boundary crossings for solar eclipses) around an
 already-known instant of greatest eclipse.
 
-All searches are anchored at `greatest_eclipse_time` (see
-api.services.eclipse_detection.find_greatest_eclipse_time), since the raw new/full
-moon instant can differ from the true greatest-eclipse instant by hours.
+All searches are anchored at `greatest_eclipse_time`; shared ephemeris timing
+helpers refine syzygy seeds, while `eclipse_detection` retains its compatibility API.
 
-Geocentric-only (not observer-specific), consistent with the rest of this API.
+Global, not observer-specific. Solar footprints use the canonical WGS84 model.
 """
 
-import numpy as np
 import astropy.units as u
 
 from api.services.eclipse_detection import (
-    R_EARTH_KM,
     get_sun_moon_parameters,
     calculate_earth_shadow_cone,
-    calculate_moon_shadow_cone,
 )
+from api.services import eclipse_classification
 
 
 def _bisect_crossing(margin_fn, t_low, t_high, iterations=50):
@@ -127,7 +124,7 @@ def calculate_solar_contact_times(greatest_eclipse_time, search_window_hours=3):
     """
     Compute global contact times for a solar eclipse: the instants when the
     penumbral/central (umbral or antumbral) shadow first/last touches Earth's
-    surface ANYWHERE. This is geocentric-only (not observer-specific) -
+    surface ANYWHERE. This is global (not observer-specific) -
     consistent with the rest of this API. It answers "when does the eclipse
     begin/end as seen from somewhere on Earth", not "when does it begin/end at
     a specific location".
@@ -142,33 +139,6 @@ def calculate_solar_contact_times(greatest_eclipse_time, search_window_hours=3):
         central_phase_ends, eclipse_ends (central_phase_* are None unless the
         eclipse is TOTAL or ANNULAR somewhere)
     """
-    def offset_and_thresholds(t):
-        params = get_sun_moon_parameters(t)
-        shadow = calculate_moon_shadow_cone(t, params)
-        offset_km = params['moon_dist_km'] * np.radians(params['sun_moon_separation_deg'])
-        penumbral_threshold_km = shadow['penumbral_radius_km'] + R_EARTH_KM
-        central_threshold_km = abs(shadow['umbral_radius_km']) + R_EARTH_KM
-        return offset_km, penumbral_threshold_km, central_threshold_km
-
-    def penumbral_margin(t):
-        offset_km, penumbral_thr, _central_thr = offset_and_thresholds(t)
-        return penumbral_thr - offset_km
-
-    def central_margin(t):
-        offset_km, _penumbral_thr, central_thr = offset_and_thresholds(t)
-        return central_thr - offset_km
-
-    t0 = greatest_eclipse_time
-    window = search_window_hours * u.hour
-
-    eclipse_begins = _find_crossing_before(penumbral_margin, t0, window)
-    eclipse_ends = _find_crossing_after(penumbral_margin, t0, window)
-    central_begins = _find_crossing_before(central_margin, t0, window)
-    central_ends = _find_crossing_after(central_margin, t0, window)
-
-    return {
-        'eclipse_begins': eclipse_begins.iso if eclipse_begins is not None else None,
-        'central_phase_begins': central_begins.iso if central_begins is not None else None,
-        'central_phase_ends': central_ends.iso if central_ends is not None else None,
-        'eclipse_ends': eclipse_ends.iso if eclipse_ends is not None else None,
-    }
+    return eclipse_classification.calculate_global_solar_contacts(
+        greatest_eclipse_time, search_window_hours=search_window_hours
+    )

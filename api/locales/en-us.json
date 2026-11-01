@@ -38,6 +38,9 @@
 		"full": "Full"
 	},
 	"events": {
+	  "solar": {
+	    "accuracyWarning": "Solar ephemeris is outside its stated 1900-2100 accuracy range; numerical circumstances are not validated."
+	  },
 		"eventTypes": {
 			"newMoon": "New Moon",
 			"fullMoon": "Full Moon",

@@ -12,7 +12,10 @@
       @click="eclipseOccurs && (expanded = !expanded)"
     >
       <span class="event-date">{{ formattedDate }}</span>
-      <span class="event-type">{{ eventType }}</span>
+      <span class="event-phase-summary">
+        <span v-if="eclipseOccurs" class="maximum-phase-label">{{ t('events.maximumPhaseAnywhere') }}</span>
+        <span class="event-type">{{ eventType }}</span>
+      </span>
       <span v-if="!eclipseOccurs" class="event-type-suffix">{{ t('events.noEclipse') }}</span>
       <i
         class="fa"
@@ -83,7 +86,7 @@ const formattedDate = computed(() => {
 });
 
 const ariaLabel = computed(() => {
-  const label = `${formattedDate.value} - ${props.eventType}`;
+  const label = `${formattedDate.value} - ${props.eclipseOccurs ? `${t('events.maximumPhaseAnywhere')}: ` : ''}${props.eventType}`;
   return props.eclipseOccurs ? label : `${label}. ${t('events.noEclipse')}`;
 });
 </script>
@@ -150,11 +153,16 @@ button.event-summary:focus-visible {
   font-weight: normal;
 }
 
-.event-type {
+.event-phase-summary {
   flex: 0 0 auto;
   text-align: right;
   min-width: 120px;
   color: #aaa;
+}
+
+.maximum-phase-label {
+  display: block;
+  font-size: 0.75em;
 }
 
 .no-eclipse-indicator {

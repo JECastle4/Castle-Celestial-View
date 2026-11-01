@@ -16,6 +16,16 @@ from api.main import app
 from api.metrics import get_metrics, MetricsCollector
 
 
+def test_unittest_import_does_not_disable_runtime_metrics(monkeypatch):
+    import sys
+    import unittest
+    from api.metrics import _is_test_mode
+
+    monkeypatch.delitem(sys.modules, "pytest")
+    assert sys.modules["unittest"] is unittest
+    assert not _is_test_mode()
+
+
 class TestMetricsCollector:
     """Test MetricsCollector singleton and metric recording."""
 

@@ -11,8 +11,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versio
 ### Added
 - Runtime response-cache entry, estimated-memory, eviction and expiration metrics,
   bounded HTTP error categories, and abandoned-work counters, duration and in-progress metrics.
+- Eclipse events report `global_eclipse_type`, `maximum_eclipse_phase` and
+  `classification_revision`; hybrid eclipses retain `HYBRID` in API data (#275).
 
 ### Fixed
+- Classify solar eclipses by the strongest phase anywhere on Earth, so the calendar
+  shows Total/Annular for hybrid and non-central events instead of the geocentric
+  phase; solar contact times are global shadow-footprint crossings (#275).
+- Streaming eclipse calculation failures end with a safe `calculation-error` event
+  and are counted once as `stream_error`; unexpected errors are not masked.
 - Enforce adaptive response deadlines while synchronous calculations continue in the
   background; preserve cache population and observe late failures.
 - Cancel individual contact-time subscribers without disrupting other callers sharing

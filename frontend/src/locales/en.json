@@ -213,6 +213,12 @@
     "eventsReceived": "Events received: {count}",
     "searchParameters": "Search Parameters",
     "resultsFound": "Results Found",
+    "maximumPhaseAnywhere": "Maximum phase anywhere",
+    "calculationFailed": "Eclipse calculation failed. Please try again later.",
+    "solar": {
+      "sizeRatio": "Geocentric Size Ratio",
+      "accuracyWarning": "This date is outside the solar ephemeris's stated accuracy range. Numerical circumstances are not validated."
+    },
     "noResults": "No events found in the selected date range.",
     "noDataToExport": "No events to export. Please search first.",
     "loadingContactTimesForExport": "Loading contact times for export...",

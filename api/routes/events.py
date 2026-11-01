@@ -2,12 +2,14 @@
 API routes for eclipse and astronomical event predictions.
 """
 import json
+import logging
 from typing import Optional
 
 from fastapi import APIRouter, Body, Query, Request
 from fastapi.responses import StreamingResponse
 
 from api.cache import cache_response
+from api.middleware.request_lifecycle import mark_stream_failure
 from api.models import (
     AstronomicalEventsRequest,
     AstronomicalEventsResponse,
@@ -26,11 +28,13 @@ from api.services.astronomical_events import (
     stream_astronomical_events,
     validate_date_range,
 )
+from api.services.eclipse_errors import EclipseCalculationError
 
 from .helpers import handle_route_errors, validate_request_model
 
 
 router = APIRouter(tags=["astronomical-events"])
+logger = logging.getLogger(__name__)
 
 
 @router.post(
@@ -40,11 +44,12 @@ router = APIRouter(tags=["astronomical-events"])
     description="""
     Finds all new and full moons within a date range and classifies each as an
     eclipse (TOTAL, PARTIAL, ANNULAR, or PENUMBRAL) where applicable, using the
-    Moon's ecliptic latitude at conjunction/opposition as a fast pre-filter and
-    precise shadow-cone geometry (refined to the instant of greatest eclipse) for
-    classification.
+    lunar-node proximity as a fast pre-filter and finite-distance shadow cones
+    over the daylight WGS84 surface for solar whole-event classification.
+    The calendar label describes the maximum phase anywhere; hybrids retain
+    their machine-readable HYBRID classification and display Total.
 
-    Geocentric-only (not observer-specific). Eclipse contact times, when computed,
+    Global (not observer-specific). Eclipse contact times, when computed,
     describe when the eclipse begins/ends as seen from somewhere on Earth (solar)
     or the penumbral/umbral shadow boundary crossings (lunar) - not times for a
     specific observer location.
@@ -99,7 +104,7 @@ def get_astronomical_events_route(
 @limiter.limit(LIMIT_STREAM_EVENTS)  # DDoS protection: 10 req/min per IP
 @handle_route_errors("streaming astronomical events")
 def stream_astronomical_events_route(
-    request: Request,  # pylint: disable=unused-argument
+    request: Request,
     start_date: str = Query(...),
     end_date: str = Query(...),
     page_size: int = Query(10, ge=1, le=100),
@@ -140,11 +145,19 @@ def stream_astronomical_events_route(
             event_types=event_types,
             locale=normalized_locale,
         )
-        for item in gen:
-            if 'events' in item:
-                yield f"event: page\ndata: {json.dumps(item)}\n\n"
-            else:
-                yield f"event: metadata\ndata: {json.dumps(item)}\n\n"
+        try:
+            for item in gen:
+                if 'events' in item:
+                    yield f"event: page\ndata: {json.dumps(item)}\n\n"
+                else:
+                    yield f"event: metadata\ndata: {json.dumps(item)}\n\n"
+        except EclipseCalculationError:
+            # HTTP 200 is already committed: send a safe terminal event and let
+            # metrics count the stream as failed. Other errors and cancellation
+            # propagate to the middleware boundary unchanged.
+            logger.exception("Calculation failed while streaming astronomical events")
+            mark_stream_failure(request.scope)
+            yield 'event: calculation-error\ndata: {"detail": "Eclipse calculation failed"}\n\n'
 
     return StreamingResponse(
         event_generator(),
