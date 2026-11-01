@@ -513,8 +513,8 @@ def classify_solar_eclipse(time_obj):
     """Classify the global eclipse seeded by a scalar new-moon/syzygy time."""
     if not isinstance(time_obj, Time) or not time_obj.isscalar or not np.isfinite(time_obj.jd):
         raise ValueError("A finite scalar astropy Time is required")
-    time_obj = time_obj.utc
     key = _cache_key(time_obj)
+    time_obj = Time(key[0], format="iso", scale="utc")
     with _CLASSIFICATION_LOCKS[hash(key) % len(_CLASSIFICATION_LOCKS)]:
         cached = _CLASSIFICATION_CACHE.get(key)
         if cached is not None:
