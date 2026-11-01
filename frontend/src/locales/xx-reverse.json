@@ -228,6 +228,8 @@
     "resultsFound": "dnuoF stluseR",
     "noEclipse": "espilcE oN",
     "eclipseDetails": "sliateD espilcE",
+    "maximumPhaseAnywhere": "erehwyna esahp mumixaM",
+    "calculationFailed": ".retal niaga yrt esaelP .deliaf noitaluclac espilcE",
     "eclipseTypes": {
       "NONE": "espilcE oN",
       "PARTIAL": "laitraP",
@@ -249,7 +251,8 @@
     },
     "solar": {
       "greatestEclipse": "espilcE tsetaerG",
-      "sizeRatio": "oitaR eziS",
+      "sizeRatio": "oitaR eziS cirtnecoeG",
+      "accuracyWarning": ".detadilav ton era secnatsmucric laciremuN .egnar ycarucca detats s'siremehpe ralos eht edistuo si etad sihT",
       "contactTimes": "semiT tcatnoC",
       "eclipseBegins": "snigeB espilcE",
       "centralPhaseBegins": "snigeB esahP lartneC",
