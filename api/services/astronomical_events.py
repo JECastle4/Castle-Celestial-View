@@ -196,7 +196,8 @@ def _build_solar_eclipse_event(time_obj, moon_lat, include_contact_times, locale
         'maximum_eclipse_phase': analysis.maximum_phase,
         'classification_revision': analysis.model_revision,
         'classification_warning': (
-            "Solar ephemeris is outside its stated 1900-2100 accuracy range; numerical circumstances are not validated."
+            "Solar ephemeris is outside its stated 1900-2100 accuracy range; "
+            "numerical circumstances are not validated."
             if not 1900 <= time_obj.utc.datetime.year <= 2100 else None
         ),
         'greatest_eclipse_time': analysis.greatest_eclipse_time.iso,

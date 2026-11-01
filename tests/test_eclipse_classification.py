@@ -17,6 +17,67 @@ from api.services import eclipse_classification as solar
 FIXTURE = Path(__file__).parent / "fixtures" / "eclipse_reference_cases.json"
 
 
+@pytest.mark.parametrize(
+    ("phases", "expected"),
+    [
+        ((), "NONE"),
+        (("PARTIAL",), "PARTIAL"),
+        (("ANNULAR", "PARTIAL"), "ANNULAR"),
+        (("TOTAL", "PARTIAL"), "TOTAL"),
+        (("TOTAL", "ANNULAR", "PARTIAL"), "HYBRID"),
+    ],
+)
+def test_global_phase_resolution(phases, expected):
+    assert solar._global_type(dict.fromkeys(phases), None) == expected
+
+
+def test_axis_transition_requires_both_strong_witnesses():
+    with pytest.raises(RuntimeError, match="axis transition lacks both phase witnesses"):
+        solar._global_type({"TOTAL": object()}, "A-T")
+
+
+@pytest.mark.parametrize(
+    ("values", "expected"),
+    [([-1., -0.1, -1.], False), ([-1., 1., -1.], True)],
+)
+def test_contact_interval_resolution(values, expected):
+    assert solar._has_contact_interval(values) is expected
+
+
+@pytest.mark.parametrize(
+    ("values", "message"),
+    [
+        ([0., 1., -1.], "outside the search window"),
+        ([-1., 1., 0.], "outside the search window"),
+        ([-1., 0., -1.], "Indeterminate global solar contact"),
+    ],
+)
+def test_contact_interval_rejects_ambiguity_or_open_window(values, message):
+    with pytest.raises(RuntimeError, match=message):
+        solar._has_contact_interval(values)
+
+
+@pytest.mark.parametrize(
+    ("clearance", "point", "message"),
+    [
+        (np.nan, None, "Non-finite TOTAL surface clearance"),
+        (1., None, "Missing TOTAL surface witness"),
+    ],
+)
+def test_witness_clearance_rejects_invalid_evidence(clearance, point, message):
+    with pytest.raises(RuntimeError, match=message):
+        solar._validate_witness_clearance("TOTAL", clearance, point)
+
+
+def test_contact_crossings_keep_first_and_last_of_disjoint_intervals(monkeypatch):
+    monkeypatch.setattr(
+        solar, "_combined_margin", lambda _context, seconds, _phases: np.cos(np.pi * seconds)
+    )
+    times = np.array([-1., 0., 1., 2., 3.])
+    crossings = solar._contact_crossings(None, ("TOTAL", "ANNULAR"), times, [-1, 1, -1, 1, -1])
+    assert crossings == pytest.approx([-0.5, 0.5, 1.5, 2.5], abs=0.001)
+
+
 def _solar_cases():
     cases = json.loads(FIXTURE.read_text(encoding="utf-8"))["cases"]
     return [case for case in cases if case["body"] == "solar"]
@@ -149,7 +210,7 @@ def test_surface_optimizer_failure_is_explicit():
     )
     optimizer = type("Optimizer", (), {"success": False, "x": np.array([0.0, 0.0]),
                                        "fun": np.nan})()
-    with patch.object(solar, "minimize", return_value=optimizer):
+    with patch("api.services.eclipse_geometry.minimize", return_value=optimizer):
         with pytest.raises(RuntimeError, match="Surface optimizer did not converge"):
             geometry.best_surface_clearance("TOTAL")
 

@@ -38,6 +38,15 @@ contacts and events integration tests cover 94% of classifier statements.
 Thirteen published contact comparisons use explicit 90--120 second tolerances:
 these validate minute-scale global timing, not certified subsecond predictions.
 
+Numerical responsibilities are separated into `eclipse_geometry.py` (cones and
+daylight surface optimization), `eclipse_ephemeris.py` (shared phase/timing
+calculations), and `eclipse_classification.py` (search orchestration and results).
+Classification and contacts share a per-search geometry/surface cache. The legacy
+detection entry points delegate downward without a circular service dependency.
+Closest-approach, witness validation, central-path transitions, phase searches
+and contact crossings are independently testable helpers; the refactor preserves
+the sampling order and numerical tolerances of the validated model.
+
 ## Run
 
 The PEP 723 headers declare the research runner's dependencies. Production uses

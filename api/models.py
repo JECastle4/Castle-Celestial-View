@@ -1150,7 +1150,9 @@ class AstronomicalEvent(BaseModel):
     )
     global_eclipse_type: Literal[
         "NONE", "PARTIAL", "ANNULAR", "TOTAL", "HYBRID", "PENUMBRAL"
-    ] = Field(..., description="Locale-independent whole-event classification; hybrids retain HYBRID.")
+    ] = Field(
+        ..., description="Locale-independent whole-event classification; hybrids retain HYBRID."
+    )
     maximum_eclipse_phase: Literal[
         "NONE", "PARTIAL", "ANNULAR", "TOTAL", "PENUMBRAL"
     ] = Field(..., description="Strongest phase anywhere; HYBRID events have maximum phase TOTAL.")
@@ -1158,7 +1160,8 @@ class AstronomicalEvent(BaseModel):
         ..., description="Version of the numerical/model convention used for classification."
     )
     classification_warning: Optional[str] = Field(
-        None, description="Accuracy caveat, such as solar ephemeris outside its stated 1900-2100 range."
+        None, description="Accuracy caveat, such as solar ephemeris outside its "
+                          "stated 1900-2100 range."
     )
     greatest_eclipse_time: Optional[str] = Field(
         None,
@@ -1173,13 +1176,15 @@ class AstronomicalEvent(BaseModel):
         None, description="Lunar eclipse penumbral magnitude"
     )
     size_ratio: Optional[float] = Field(
-        None, description="Geocentric Moon/Sun angular size ratio at the legacy greatest-eclipse instant; not the global maximum."
+        None, description="Geocentric Moon/Sun angular size ratio at the legacy "
+                          "greatest-eclipse instant; not the global maximum."
     )
     contact_times: Optional[dict] = Field(
         None,
         description="Eclipse contact times when eclipse_occurs=true and calculation succeeds. "
                      "Lunar: p1/u1/u2/u3/u4/p4. "
-                     "Solar (global daylight WGS84 footprints, not observer-specific): eclipse_begins/"
+                     "Solar (global daylight WGS84 footprints, not observer-specific): "
+                     "eclipse_begins/"
                      "central_phase_begins/central_phase_ends/eclipse_ends. "
                      "Omitted (None) when eclipse_occurs=false or contact times not computed. "
                      "Errors (invalid date, calculation failure) return 400/500 HTTP responses."
@@ -1187,6 +1192,7 @@ class AstronomicalEvent(BaseModel):
 
     @model_validator(mode='after')
     def validate_classification_summary(self):
+        """Reject body, maximum-phase and occurrence contradictions."""
         if (self.is_lunar and self.global_eclipse_type in ("HYBRID", "ANNULAR")
                 or not self.is_lunar and self.global_eclipse_type == "PENUMBRAL"):
             raise ValueError("Eclipse classification does not match the event body")
@@ -1244,7 +1250,8 @@ class EclipseContactTimesResponse(BaseModel):
         None,
         description="Eclipse contact times for a successful (200) response. "
                      "Lunar: p1/u1/u2/u3/u4/p4. "
-                     "Solar (global daylight WGS84 footprints, not observer-specific): eclipse_begins/"
+                     "Solar (global daylight WGS84 footprints, not observer-specific): "
+                     "eclipse_begins/"
                      "central_phase_begins/central_phase_ends/eclipse_ends. "
                      "Omitted (None) if contact times cannot be computed. "
                      "Errors (invalid event_date format, non-eclipse date, calculation failure) "

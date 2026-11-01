@@ -13,6 +13,11 @@ from astropy.coordinates import get_body, get_sun, EarthLocation, SkyCoord
 from astropy.coordinates import GeocentricMeanEcliptic
 import astropy.units as u
 import astropy.constants as const
+from api.services.eclipse_ephemeris import (
+    GREATEST_ECLIPSE_CACHE as _GREATEST_ECLIPSE_CACHE,
+    find_greatest_eclipse_time as _find_greatest_eclipse_time,
+)
+from api.services import eclipse_classification
 
 
 # Physical constants (IAU standard)
@@ -48,10 +53,6 @@ LUNAR_ECLIPSE_NODE_LIMIT_DEG = 12.25     # 12°15' major limit - lunar eclipse i
 # Precise enough to bracket eclipse seasons for this fast pre-filter.
 MEAN_NODE_LON_J2000_DEG = 125.04452
 MEAN_NODE_REGRESSION_DEG_PER_DAY = -0.0529538083
-
-# Golden ratio conjugate, used by the golden-section minimum-separation search below.
-_INV_PHI = (np.sqrt(5) - 1) / 2
-
 
 class _BoundedLRUCache:
     """
@@ -101,7 +102,6 @@ class _BoundedLRUCache:
 # Max 1024 entries per cache (bounded memory). Evicts least-recently-used entries
 # when full, preventing unbounded growth from arbitrary timestamps via API.
 # Thread-safe: internal locks protect against concurrent access from request handlers.
-_GREATEST_ECLIPSE_CACHE = _BoundedLRUCache(max_size=1024)
 _ECLIPSE_TYPE_CACHE_LUNAR = _BoundedLRUCache(max_size=1024)
 
 
@@ -261,54 +261,20 @@ def find_greatest_eclipse_time(approx_time, is_lunar, search_window_hours=24, it
     Returns:
         astropy Time object at the (refined) instant of greatest eclipse
     """
-    # Cache key: includes all parameters that affect the result
-    # Different search windows or iteration counts may produce different results
-    cache_key = (approx_time.iso, is_lunar, search_window_hours, iterations)
+    return _find_greatest_eclipse_time(
+        approx_time,
+        is_lunar,
+        search_window_hours,
+        iterations,
+        lunar_separation=get_antisolar_separation_deg,
+        solar_separation=_solar_separation_deg,
+    )
 
-    # Check cache first (Phase 2.2 optimization)
-    cached_result = _GREATEST_ECLIPSE_CACHE.get(cache_key)
-    if cached_result is not None:
-        return cached_result
-
-    # Compute if not cached
-    if is_lunar:
-        separation_fn = get_antisolar_separation_deg
-    else:
-        def separation_fn(t):
-            sun = get_sun(t)
-            moon = get_body('moon', t, location=GEOCENTRIC)
-            return sun.separation(moon).degree
-
-    a = approx_time - search_window_hours * u.hour
-    b = approx_time + search_window_hours * u.hour
-    span = b - a
-    c = b - span * _INV_PHI
-    d = a + span * _INV_PHI
-    fc = separation_fn(c)
-    fd = separation_fn(d)
-
-    for _ in range(iterations):
-        if fc < fd:
-            b = d
-            d = c
-            fd = fc
-            span = b - a
-            c = b - span * _INV_PHI
-            fc = separation_fn(c)
-        else:
-            a = c
-            c = d
-            fc = fd
-            span = b - a
-            d = a + span * _INV_PHI
-            fd = separation_fn(d)
-
-    result = a + (b - a) / 2
-
-    # Cache the result (Phase 2.2 optimization)
-    _GREATEST_ECLIPSE_CACHE.set(cache_key, result)
-
-    return result
+def _solar_separation_deg(time_obj):
+    """Keep legacy detection ephemeris patch points active for timing callers."""
+    sun = get_sun(time_obj)
+    moon = get_body('moon', time_obj, location=GEOCENTRIC)
+    return sun.separation(moon).degree
 
 
 def get_sun_moon_parameters(time_obj):
@@ -513,9 +479,7 @@ def classify_solar_eclipse_type(time_obj):
     eclipse_type is the calendar maximum; global_eclipse_type retains HYBRID.
     Legacy geocentric diagnostic fields are not classification decisions.
     """
-    from api.services.eclipse_classification import classify_solar_eclipse
-
-    analysis = classify_solar_eclipse(time_obj)
+    analysis = eclipse_classification.classify_solar_eclipse(time_obj)
     params = get_sun_moon_parameters(analysis.greatest_eclipse_time)
     shadow = calculate_moon_shadow_cone(analysis.greatest_eclipse_time, params)
     return {
@@ -560,9 +524,7 @@ def _check_lunar_eclipse_at_time(time_obj, moon_lat, moon_lon):
 
 def _check_solar_eclipse_at_time(time_obj, moon_lat):
     """Check for solar eclipse at given time (assumes syzygy/node pre-filter passed)."""
-    from api.services.eclipse_classification import classify_solar_eclipse
-
-    analysis = classify_solar_eclipse(time_obj)
+    analysis = eclipse_classification.classify_solar_eclipse(time_obj)
     greatest_time = analysis.greatest_eclipse_time
     type_info = classify_solar_eclipse_type(time_obj)
     eclipse_type = type_info['eclipse_type']
@@ -601,8 +563,6 @@ def _get_eclipse_pre_filter_result(time_obj, moon_lat, is_lunar):
             'umbral_magnitude': None,
             'penumbral_magnitude': None,
         }
-    from api.services.eclipse_classification import SOLAR_MODEL_REVISION
-
     return {
         'time': time_obj.iso,
         'greatest_eclipse_time': time_obj.iso,
@@ -610,7 +570,7 @@ def _get_eclipse_pre_filter_result(time_obj, moon_lat, is_lunar):
         'eclipse_type': "NONE",
         'global_eclipse_type': "NONE",
         'maximum_eclipse_phase': "NONE",
-        'classification_revision': SOLAR_MODEL_REVISION,
+        'classification_revision': eclipse_classification.SOLAR_MODEL_REVISION,
         'phase': 'new',
         'moon_ecl_lat_deg': round(moon_lat, 4),
         'within_threshold': False,
@@ -628,9 +588,7 @@ def clear_eclipse_caches():
     """
     _GREATEST_ECLIPSE_CACHE.clear()
     _ECLIPSE_TYPE_CACHE_LUNAR.clear()
-    from api.services.eclipse_classification import clear_classification_cache
-
-    clear_classification_cache()
+    eclipse_classification.clear_classification_cache()
 
 
 def check_eclipse_at_time(time_obj, is_lunar=True):

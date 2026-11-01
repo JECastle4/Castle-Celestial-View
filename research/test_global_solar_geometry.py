@@ -128,7 +128,7 @@ class GlobalSolarGeometryTests(unittest.TestCase):
                                       RADIUS_MODELS["nasa"])
 
     def test_surface_optimizer_failure_is_explicit(self):
-        with patch("api.services.eclipse_classification.minimize") as optimizer:
+        with patch("api.services.eclipse_geometry.minimize") as optimizer:
             optimizer.return_value.success = False
             with self.assertRaisesRegex(RuntimeError, "did not converge"):
                 self.geometry(360000).best_surface_clearance("TOTAL")
@@ -215,7 +215,7 @@ class GlobalSolarGeometryTests(unittest.TestCase):
                     refine_maxima([0, 1, 2], [0, 1, 0], lambda s: s, .001)
 
     def test_nonfinite_surface_optimizer_success_is_rejected(self):
-        with patch("api.services.eclipse_classification.minimize") as optimizer:
+        with patch("api.services.eclipse_geometry.minimize") as optimizer:
             optimizer.return_value.success = True
             optimizer.return_value.x = np.array([np.nan, 0.])
             with self.assertRaisesRegex(RuntimeError, "did not converge"):

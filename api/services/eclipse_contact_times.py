@@ -5,9 +5,8 @@ Computes the contact times (penumbral/umbral boundary crossings for lunar eclips
 global penumbral/central shadow boundary crossings for solar eclipses) around an
 already-known instant of greatest eclipse.
 
-All searches are anchored at `greatest_eclipse_time` (see
-api.services.eclipse_detection.find_greatest_eclipse_time), since the raw new/full
-moon instant can differ from the true greatest-eclipse instant by hours.
+All searches are anchored at `greatest_eclipse_time`; shared ephemeris timing
+helpers refine syzygy seeds, while `eclipse_detection` retains its compatibility API.
 
 Global, not observer-specific. Solar footprints use the canonical WGS84 model.
 """
@@ -18,6 +17,7 @@ from api.services.eclipse_detection import (
     get_sun_moon_parameters,
     calculate_earth_shadow_cone,
 )
+from api.services import eclipse_classification
 
 
 def _bisect_crossing(margin_fn, t_low, t_high, iterations=50):
@@ -139,8 +139,6 @@ def calculate_solar_contact_times(greatest_eclipse_time, search_window_hours=3):
         central_phase_ends, eclipse_ends (central_phase_* are None unless the
         eclipse is TOTAL or ANNULAR somewhere)
     """
-    from api.services.eclipse_classification import calculate_global_solar_contacts
-
-    return calculate_global_solar_contacts(
+    return eclipse_classification.calculate_global_solar_contacts(
         greatest_eclipse_time, search_window_hours=search_window_hours
     )
