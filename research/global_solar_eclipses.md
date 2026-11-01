@@ -16,6 +16,10 @@ Response codes are independent of translated labels:
 - `classification_revision`: identifies the numerical/radius convention.
 - `classification_warning`: makes out-of-range solar ephemeris circumstances
   explicit instead of claiming verified timing accuracy for the 2185 reference.
+  The API resolves the warning from its language resources using the requested
+  locale. Downloads preserve that localized text as `classificationWarning` in JSON (null
+  when absent) and `Classification Warning` on every CSV row (empty when absent),
+  including rows whose contact times could not be loaded.
 
 Calendar labels describe **Maximum phase anywhere**, not the observer's local
 phase. `date` remains the new/full-moon timestamp and `greatest_eclipse_time`

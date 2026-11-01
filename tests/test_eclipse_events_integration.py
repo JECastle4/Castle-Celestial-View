@@ -1,15 +1,21 @@
 """Canonical classification parity across calendar transports and contacts."""
 import json
 from unittest.mock import patch
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
+from astropy.time import Time
 
 from api.cache import clear_response_cache
 from api.i18n import get_i18n
 from api.main import app
 from api.models import AstronomicalEvent
-from api.services.astronomical_events import get_astronomical_events, get_contact_times_for_event
+from api.services.astronomical_events import (
+    _build_solar_eclipse_event,
+    get_astronomical_events,
+    get_contact_times_for_event,
+)
 from api.services.eclipse_classification import clear_classification_cache
 from api.services.eclipse_errors import EclipseCalculationError
 
@@ -128,6 +134,43 @@ def test_out_of_range_solar_circumstances_are_explicit():
     )["events"][0]
     assert event["global_eclipse_type"] == "TOTAL"
     assert "1900-2100" in event["classification_warning"]
+
+
+@pytest.mark.parametrize("locale", ["en", "en-us", "en-uk", "xx-reverse"])
+def test_warning_is_localized_in_post_stream_and_warm_cache(locale):
+    clear_response_cache()
+    payload = {
+        "start_date": "2185-07-26", "end_date": "2185-07-26",
+        "include_contact_times": False,
+    }
+    response = client.post("/api/v1/astronomical-events", params={"lang": locale}, json=payload)
+    assert response.status_code == 200
+    expected = get_i18n(locale).get("events.solar.accuracyWarning")
+    assert expected != "events.solar.accuracyWarning"
+    assert response.json()["events"][0]["classification_warning"] == expected
+    warm = client.post("/api/v1/astronomical-events", params={"lang": locale}, json=payload)
+    assert warm.json() == response.json()
+    stream = client.get("/api/v1/astronomical-events-stream", params={**payload, "lang": locale})
+    assert streamed_events(stream) == response.json()["events"]
+    other_locale = "en" if locale == "xx-reverse" else "xx-reverse"
+    other = client.post(
+        "/api/v1/astronomical-events", params={"lang": other_locale}, json=payload,
+    )
+    assert other.status_code == 200
+    assert other.json()["events"][0]["classification_warning"] != expected
+
+
+@pytest.mark.parametrize("year,warned", [(1899, True), (1900, False), (2100, False), (2101, True)])
+def test_solar_warning_range_boundaries(year, warned):
+    time_obj = Time(f"{year}-04-20", scale="utc")
+    analysis = SimpleNamespace(
+        global_type="TOTAL", maximum_phase="TOTAL", model_revision="test",
+        greatest_eclipse_time=time_obj, size_ratio=1.01,
+    )
+    with patch("api.services.astronomical_events.classify_solar_eclipse", return_value=analysis):
+        event = _build_solar_eclipse_event(time_obj, 0., False, "xx-reverse")
+    expected = get_i18n("xx-reverse").get("events.solar.accuracyWarning") if warned else None
+    assert event["classification_warning"] == expected
 
 
 @pytest.mark.parametrize("changes", [

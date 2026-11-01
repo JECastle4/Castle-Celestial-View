@@ -9,6 +9,7 @@ import {
   generateFilename,
 } from '@/services/export';
 import type { AstronomicalEvent } from '@/types/api.types';
+import reverseLocale from '../../dev-locales/xx-reverse.json';
 
 describe('Export Service', () => {
   // Mock document and URL for download tests
@@ -64,6 +65,41 @@ describe('Export Service', () => {
   });
 
   describe('CSV Export', () => {
+    it.each([
+      { eclipse_begins: '2185-04-20 01:00:00', eclipse_ends: '2185-04-20 06:00:00' },
+      {},
+      null,
+    ])('preserves and escapes classification warnings on every row with contacts %j', async (contactTimes) => {
+      const warning = 'Outside accuracy range, "unvalidated"';
+      const event = {
+        date: '2185-04-20',
+        event_type: 'Solar Total',
+        is_lunar: false,
+        eclipse_occurs: true,
+        classification_warning: warning,
+        contact_times: contactTimes,
+      } as AstronomicalEvent;
+      exportContactTimesToCSV([event]);
+      const blob = vi.mocked(global.URL.createObjectURL).mock.calls[0]?.[0];
+      if (!(blob instanceof Blob)) throw new Error('Export did not create a Blob');
+      const rows = (await blob.text()).split('\n');
+      expect(rows[0]?.endsWith('Classification Warning')).toBe(true);
+      expect(rows).toHaveLength(contactTimes && Object.keys(contactTimes).length > 0 ? 3 : 2);
+      rows.slice(1).forEach((row) => {
+        expect(row.endsWith('"Outside accuracy range, ""unvalidated"""')).toBe(true);
+      });
+    });
+
+    it.each([null, undefined])('exports an empty warning cell for %s', async (warning) => {
+      exportContactTimesToCSV([{
+        date: '2023-04-20', eclipse_occurs: true,
+        classification_warning: warning, contact_times: null,
+      } as AstronomicalEvent]);
+      const blob = vi.mocked(global.URL.createObjectURL).mock.calls[0]?.[0];
+      if (!(blob instanceof Blob)) throw new Error('Export did not create a Blob');
+      expect((await blob.text()).split('\n')[1]?.endsWith(',')).toBe(true);
+    });
+
     it('should export events with contact times to CSV', () => {
       const events: AstronomicalEvent[] = [
         {
@@ -89,6 +125,20 @@ describe('Export Service', () => {
       expect(global.URL.createObjectURL).toHaveBeenCalled();
       expect(global.URL.revokeObjectURL).toHaveBeenCalled();
     });
+
+    it.each(['Outside supported accuracy range', reverseLocale.events.solar.accuracyWarning, null, undefined])(
+      'preserves classification warning %s in JSON',
+      async (warning) => {
+        exportContactTimesToJSON([{
+          date: '2185-04-20',
+          classification_warning: warning,
+          contact_times: null,
+        } as AstronomicalEvent]);
+        const blob = vi.mocked(global.URL.createObjectURL).mock.calls[0]?.[0];
+        if (!(blob instanceof Blob)) throw new Error('Export did not create a Blob');
+        expect(JSON.parse(await blob.text()).events[0].classificationWarning).toBe(warning ?? null);
+      }
+    );
 
     it('should handle events without contact times', () => {
       const events: AstronomicalEvent[] = [

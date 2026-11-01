@@ -26,6 +26,7 @@ export function exportContactTimesToCSV(
     'Global Eclipse Type',
     'Maximum Phase Anywhere',
     'Classification Revision',
+    'Classification Warning',
   ].map(escapeCSVField).join(','));
 
   // CSV rows - one per contact time
@@ -43,6 +44,7 @@ export function exportContactTimesToCSV(
             event.global_eclipse_type || '',
             event.maximum_eclipse_phase || '',
             event.classification_revision || '',
+            event.classification_warning ?? '',
           ]
             .map(escapeCSVField)
             .join(',')
@@ -61,6 +63,7 @@ export function exportContactTimesToCSV(
           event.global_eclipse_type || '',
           event.maximum_eclipse_phase || '',
           event.classification_revision || '',
+          event.classification_warning ?? '',
         ]
           .map(escapeCSVField)
           .join(',')
@@ -90,6 +93,7 @@ export function exportContactTimesToJSON(
       globalEclipseType: event.global_eclipse_type,
       maximumEclipsePhase: event.maximum_eclipse_phase,
       classificationRevision: event.classification_revision,
+      classificationWarning: event.classification_warning ?? null,
       contactTimes: event.contact_times || null,
     })),
   };
