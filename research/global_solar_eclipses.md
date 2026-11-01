@@ -46,6 +46,8 @@ detection entry points delegate downward without a circular service dependency.
 Closest-approach, witness validation, central-path transitions, phase searches
 and contact crossings are independently testable helpers; the refactor preserves
 the sampling order and numerical tolerances of the validated model.
+The service result groups immutable axis diagnostics in `central_path`
+(`SolarCentralPath`); HTTP responses and research JSON retain their existing shapes.
 
 ## Run
 

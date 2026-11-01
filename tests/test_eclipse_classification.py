@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from dataclasses import replace
+from dataclasses import FrozenInstanceError, replace
 from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
 
@@ -96,8 +96,17 @@ def test_full_21_case_solar_catalog():
             result = solar.classify_solar_eclipse(Time(seed, scale="utc"))
             assert result.global_type == case["global_type"], case["id"]
             assert result.maximum_phase == case["calendar_type"], case["id"]
-            assert result.central == (case["arrangement"] in (
+            assert result.central_path.central == (case["arrangement"] in (
                 "central_two_limits", "central_one_limit")), case["id"]
+            assert result.central_path.hybrid_sequence == case["hybrid_sequence"], case["id"]
+            if result.central_path.central:
+                assert result.central_path.central_interval_utc is not None
+            else:
+                assert result.central_path.central_interval_utc is None
+            assert len(result.central_path.axis_phase_transitions_utc) == (
+                len(case["hybrid_sequence"].split("-")) - 1
+                if case["hybrid_sequence"] else 0
+            ), case["id"]
             assert result.model_revision == solar.SOLAR_MODEL_REVISION
             assert result.greatest_eclipse_time.isscalar
             assert result.size_ratio > 0
@@ -165,10 +174,17 @@ def test_partial_and_none_contact_shapes():
 def test_noncentral_annular_contacts_are_found_without_axis_roots():
     result = solar.classify_solar_eclipse(Time("2014-04-29 06:04", scale="utc"))
     assert result.global_type == "ANNULAR"
-    assert not result.central
+    assert not result.central_path.central
     contacts = solar.calculate_global_solar_contacts(result)
     assert contacts["central_phase_begins"] is not None
     assert contacts["central_phase_ends"] is not None
+
+
+def test_central_path_diagnostics_are_immutable():
+    path = solar.SolarCentralPath(False, None, None, ())
+    with pytest.raises(FrozenInstanceError):
+        path.central = True
+    assert replace(path, central=True).central
 
 
 def test_cache_is_bounded_reusable_and_clearable():

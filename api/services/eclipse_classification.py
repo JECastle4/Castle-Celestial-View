@@ -37,6 +37,7 @@ __all__ = [
     "SEARCH_HALF_WIDTH_HOURS",
     "SEARCH_STEP_SECONDS",
     "SolarEclipseClassification",
+    "SolarCentralPath",
     "SolarFootprintPhase",
     "SolarGlobalType",
     "SolarMaximumPhase",
@@ -83,19 +84,26 @@ class SolarSurfaceWitness:
 
 
 @dataclass(frozen=True)
+class SolarCentralPath:
+    """Shadow-axis diagnostics, distinct from global footprint contacts."""
+
+    central: bool
+    central_interval_utc: tuple[str, str] | None
+    hybrid_sequence: str | None
+    axis_phase_transitions_utc: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class SolarEclipseClassification:
     """Whole-event classification, witnesses and central-path diagnostics."""
 
     global_type: SolarGlobalType
     maximum_phase: SolarMaximumPhase
     model_revision: str
-    central: bool
     greatest_eclipse_time: Time
     size_ratio: float
     witnesses: tuple[SolarSurfaceWitness, ...]
-    central_interval_utc: tuple[str, str] | None
-    hybrid_sequence: str | None
-    axis_phase_transitions_utc: tuple[str, ...]
+    central_path: SolarCentralPath
 
 
 class _ClassificationCache:
@@ -528,13 +536,15 @@ def classify_solar_eclipse(time_obj):
             global_type=raw["global_type"],
             maximum_phase=raw["maximum_phase"],
             model_revision=MODEL_REVISION,
-            central=raw["central"],
             greatest_eclipse_time=raw["greatest_eclipse_time"],
             size_ratio=raw["size_ratio"],
             witnesses=witnesses,
-            central_interval_utc=raw["central_interval_utc"],
-            hybrid_sequence=raw["hybrid_sequence"],
-            axis_phase_transitions_utc=raw["axis_phase_transitions_utc"],
+            central_path=SolarCentralPath(
+                central=raw["central"],
+                central_interval_utc=raw["central_interval_utc"],
+                hybrid_sequence=raw["hybrid_sequence"],
+                axis_phase_transitions_utc=raw["axis_phase_transitions_utc"],
+            ),
         )
         _CLASSIFICATION_CACHE.set(key, result)
         return result
