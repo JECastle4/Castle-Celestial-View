@@ -2,6 +2,7 @@
 API routes for eclipse and astronomical event predictions.
 """
 import json
+import logging
 from typing import Optional
 
 from fastapi import APIRouter, Body, Query, Request
@@ -31,6 +32,7 @@ from .helpers import handle_route_errors, validate_request_model
 
 
 router = APIRouter(tags=["astronomical-events"])
+logger = logging.getLogger(__name__)
 
 
 @router.post(
@@ -40,11 +42,12 @@ router = APIRouter(tags=["astronomical-events"])
     description="""
     Finds all new and full moons within a date range and classifies each as an
     eclipse (TOTAL, PARTIAL, ANNULAR, or PENUMBRAL) where applicable, using the
-    Moon's ecliptic latitude at conjunction/opposition as a fast pre-filter and
-    precise shadow-cone geometry (refined to the instant of greatest eclipse) for
-    classification.
+    lunar-node proximity as a fast pre-filter and finite-distance shadow cones
+    over the daylight WGS84 surface for solar whole-event classification.
+    The calendar label describes the maximum phase anywhere; hybrids retain
+    their machine-readable HYBRID classification and display Total.
 
-    Geocentric-only (not observer-specific). Eclipse contact times, when computed,
+    Global (not observer-specific). Eclipse contact times, when computed,
     describe when the eclipse begins/ends as seen from somewhere on Earth (solar)
     or the penumbral/umbral shadow boundary crossings (lunar) - not times for a
     specific observer location.
@@ -140,11 +143,15 @@ def stream_astronomical_events_route(
             event_types=event_types,
             locale=normalized_locale,
         )
-        for item in gen:
-            if 'events' in item:
-                yield f"event: page\ndata: {json.dumps(item)}\n\n"
-            else:
-                yield f"event: metadata\ndata: {json.dumps(item)}\n\n"
+        try:
+            for item in gen:
+                if 'events' in item:
+                    yield f"event: page\ndata: {json.dumps(item)}\n\n"
+                else:
+                    yield f"event: metadata\ndata: {json.dumps(item)}\n\n"
+        except Exception:
+            logger.exception("Calculation failed while streaming astronomical events")
+            yield 'event: calculation-error\ndata: {"detail": "Eclipse calculation failed"}\n\n'
 
     return StreamingResponse(
         event_generator(),

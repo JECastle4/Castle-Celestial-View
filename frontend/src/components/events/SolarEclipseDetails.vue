@@ -1,4 +1,7 @@
 <template>
+  <p v-if="event.classification_warning" class="error-message" role="status">
+    {{ t('events.solar.accuracyWarning') }}
+  </p>
   <dl class="eclipse-details">
     <div v-if="event.greatest_eclipse_time" class="detail-row">
       <dt>{{ t('events.solar.greatestEclipse') }}</dt>

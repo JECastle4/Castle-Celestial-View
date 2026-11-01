@@ -65,6 +65,8 @@ describe('EventListItem', () => {
     const btn = wrapper.find('button.event-summary');
     expect(btn.exists()).toBe(true);
     expect(btn.attributes('aria-expanded')).toBe('false');
+    expect(wrapper.text()).toContain('Maximum phase anywhere');
+    expect(btn.attributes('aria-label')).toContain('Maximum phase anywhere');
   });
 
   it('formats event times in the browser local timezone', () => {

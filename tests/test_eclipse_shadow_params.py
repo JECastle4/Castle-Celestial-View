@@ -51,26 +51,17 @@ def test_lunar_contact_search_passes_parameters_to_shadow_calculator(monkeypatch
     assert all(received is params for received in received_params)
 
 
-def test_solar_contact_search_passes_parameters_to_shadow_calculator(monkeypatch):
-    params = {'moon_dist_km': 384_000, 'sun_moon_separation_deg': 0.0}
-    received_params = []
-    parameter_queries = []
+def test_solar_contact_search_delegates_to_canonical_geometry(monkeypatch):
+    from api.services import eclipse_classification
 
-    def get_params(time):
-        parameter_queries.append(time)
-        return params
+    received = []
+    expected = {"eclipse_begins": "2026-08-12 15:34:00.000"}
 
-    def calculate_shadow(_time, supplied_params):
-        received_params.append(supplied_params)
-        return {'penumbral_radius_km': 100_000, 'umbral_radius_km': 50_000}
+    def calculate_contacts(time, search_window_hours):
+        received.append((time, search_window_hours))
+        return expected
 
-    monkeypatch.setattr(contact_times, 'get_sun_moon_parameters', get_params)
-    monkeypatch.setattr(contact_times, 'calculate_moon_shadow_cone', calculate_shadow)
-
-    contact_times.calculate_solar_contact_times(
-        Time('2026-08-12 18:11:00', scale='utc'),
-        search_window_hours=1,
-    )
-
-    assert len(parameter_queries) == len(received_params)
-    assert all(received is params for received in received_params)
+    monkeypatch.setattr(eclipse_classification, 'calculate_global_solar_contacts', calculate_contacts)
+    time = Time('2026-08-12 18:11:00', scale='utc')
+    assert contact_times.calculate_solar_contact_times(time, search_window_hours=1) == expected
+    assert received == [(time, 1)]

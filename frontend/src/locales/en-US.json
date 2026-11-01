@@ -230,6 +230,8 @@
 		"partialExportWarning": "Export completed successfully, but {failed} of {total} contact times could not be loaded",
 		"noEclipse": "No Eclipse",
 		"eclipseDetails": "Eclipse Details",
+		"maximumPhaseAnywhere": "Maximum phase anywhere",
+		"calculationFailed": "Eclipse calculation failed. Please try again later.",
 		"eclipseTypes": {
 			"NONE": "No Eclipse",
 			"PARTIAL": "Partial",
@@ -251,7 +253,8 @@
 		},
 		"solar": {
 			"greatestEclipse": "Greatest Eclipse",
-			"sizeRatio": "Size Ratio",
+			"sizeRatio": "Geocentric Size Ratio",
+			"accuracyWarning": "This date is outside the solar ephemeris's stated accuracy range. Numerical circumstances are not validated.",
 			"contactTimes": "Contact Times",
 			"eclipseBegins": "Eclipse Begins",
 			"centralPhaseBegins": "Central Phase Begins",

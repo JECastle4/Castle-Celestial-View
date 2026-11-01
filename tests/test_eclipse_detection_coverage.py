@@ -32,25 +32,24 @@ class TestSolarEclipseDetection:
 
     def test_solar_eclipse_august_2026(self):
         """Test detection of total solar eclipse on 2026-08-12."""
-        # Total Solar Eclipse, greatest eclipse at 2026-08-12 18:11 UTC
+        # A seed near, but not exactly at, the greatest-eclipse instant.
         time = Time('2026-08-12 18:11:00', scale='utc')
         result = check_eclipse_at_time(time, is_lunar=False)
 
         assert result['is_eclipse'] is True
-        assert result['eclipse_type'] in ['TOTAL', 'ANNULAR', 'PARTIAL']
+        assert result['eclipse_type'] == 'TOTAL'
         assert result['phase'] == 'new'
         assert 'greatest_eclipse_time' in result
         assert result['size_ratio'] is not None
 
     def test_solar_eclipse_february_2026(self):
         """Test detection of annular solar eclipse on 2026-02-17."""
-        # Annular Solar Eclipse, greatest eclipse at 2026-02-17 14:29 UTC
+        # A deliberately late seed; whole-event classification must not truncate the path.
         time = Time('2026-02-17 14:29:00', scale='utc')
         result = check_eclipse_at_time(time, is_lunar=False)
 
         assert result['is_eclipse'] is True
-        # Could be ANNULAR or TOTAL depending on location - we test for either
-        assert result['eclipse_type'] in ['TOTAL', 'ANNULAR', 'PARTIAL']
+        assert result['eclipse_type'] == 'ANNULAR'
         assert result['size_ratio'] is not None
         assert 'umbral_exists' in result
 
@@ -219,22 +218,11 @@ class TestSolarContactTimes:
         if result['eclipse_ends'] is not None:
             assert isinstance(result['eclipse_ends'], str)
 
-    def test_solar_contact_times_edge_case_none_returns(self):
-        """Test that missing contact times return None (edge case coverage).
-        
-        Tests the code paths where _find_crossing_before/_find_crossing_after
-        return None (lines 54, 57, 64, 67 in eclipse_contact_times.py).
-        """
-        # Use a time that's clearly not an eclipse
-        # This should result in some None returns
+    def test_solar_contact_times_rejects_non_new_moon_seed(self):
+        """Invalid solar seeds raise rather than presenting a successful empty result."""
         non_eclipse_time = Time('2026-08-20 12:00:00', scale='utc')
-        
-        result = calculate_solar_contact_times(non_eclipse_time, search_window_hours=1)
-        
-        # Result should still be valid dict, but might have None values
-        assert isinstance(result, dict)
-        # A non-eclipse time must have at least one missing contact.
-        assert result['eclipse_begins'] is None or result['eclipse_ends'] is None
+        with pytest.raises(ValueError):
+            calculate_solar_contact_times(non_eclipse_time, search_window_hours=1)
 
 
 class TestLunarContactTimes:

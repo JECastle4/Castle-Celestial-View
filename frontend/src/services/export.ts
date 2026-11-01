@@ -23,6 +23,9 @@ export function exportContactTimesToCSV(
     'Occurs',
     'Contact Type',
     'Time (UTC)',
+    'Global Eclipse Type',
+    'Maximum Phase Anywhere',
+    'Classification Revision',
   ].map(escapeCSVField).join(','));
 
   // CSV rows - one per contact time
@@ -37,6 +40,9 @@ export function exportContactTimesToCSV(
             event.eclipse_occurs ? 'Yes' : 'No',
             contactType,
             timeStr || '',
+            event.global_eclipse_type || '',
+            event.maximum_eclipse_phase || '',
+            event.classification_revision || '',
           ]
             .map(escapeCSVField)
             .join(',')
@@ -52,6 +58,9 @@ export function exportContactTimesToCSV(
           event.eclipse_occurs ? 'Yes' : 'No',
           'N/A',
           'Not available',
+          event.global_eclipse_type || '',
+          event.maximum_eclipse_phase || '',
+          event.classification_revision || '',
         ]
           .map(escapeCSVField)
           .join(',')
@@ -78,6 +87,9 @@ export function exportContactTimesToJSON(
       eventType: event.event_type,
       isLunar: event.is_lunar,
       eclipseOccurs: event.eclipse_occurs,
+      globalEclipseType: event.global_eclipse_type,
+      maximumEclipsePhase: event.maximum_eclipse_phase,
+      classificationRevision: event.classification_revision,
       contactTimes: event.contact_times || null,
     })),
   };

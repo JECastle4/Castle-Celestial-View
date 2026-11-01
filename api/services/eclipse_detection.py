@@ -1,7 +1,7 @@
 """
 Eclipse Detection Service - Issue 141
-Provides eclipse detection and classification using ecliptic latitude thresholds
-and shadow cone geometry for precise type determination.
+Provides node-distance prefilters, lunar shadow classification, and compatibility
+adapters to the canonical global solar classifier.
 
 Key Reference: research/verify_eclipse_approach.py (validated implementation)
 """
@@ -19,6 +19,7 @@ import astropy.constants as const
 R_SUN_KM = const.R_sun.to(u.km).value        # ~695,700 km
 R_MOON_KM = 1737.4                            # km
 R_EARTH_KM = 6371.0                           # km
+LUNAR_MODEL_REVISION = "lunar-shadow-v1"
 
 # True geocentric location (Earth's center, radius 0). get_body() applies topocentric
 # parallax correction (up to ~1° for the Moon) when given a surface-based location such
@@ -102,7 +103,6 @@ class _BoundedLRUCache:
 # Thread-safe: internal locks protect against concurrent access from request handlers.
 _GREATEST_ECLIPSE_CACHE = _BoundedLRUCache(max_size=1024)
 _ECLIPSE_TYPE_CACHE_LUNAR = _BoundedLRUCache(max_size=1024)
-_ECLIPSE_TYPE_CACHE_SOLAR = _BoundedLRUCache(max_size=1024)
 
 
 def get_moon_ecliptic_coords(time_obj):
@@ -508,91 +508,29 @@ def classify_lunar_eclipse_type(time_obj):
 
 
 def classify_solar_eclipse_type(time_obj):
+    """Compatibility adapter for the canonical whole-event solar classifier.
+
+    eclipse_type is the calendar maximum; global_eclipse_type retains HYBRID.
+    Legacy geocentric diagnostic fields are not classification decisions.
     """
-    Classify solar eclipse type.
+    from api.services.eclipse_classification import classify_solar_eclipse
 
-    Unlike lunar eclipses (a purely geocentric phenomenon: whether the Moon passes
-    through Earth's real, physically-sized shadow cone), solar eclipse visibility is
-    inherently topocentric. An observer on Earth's surface sees the Moon shifted by up
-    to ~1° of parallax relative to a hypothetical observer at Earth's center. Comparing
-    simple Sun-Moon angular separation (as seen from Earth's center) against the sum of
-    their angular radii would incorrectly rule out eclipses that are geocentrically "not
-    overlapping" but are still visible from specific points on Earth's surface once
-    parallax is taken into account.
-
-    Correct approach: work in the shadow's fundamental plane (perpendicular to the
-    Sun-Moon axis, at the Moon's distance). The perpendicular offset of Earth's center
-    from that axis is approximately:
-        offset_km = moon_dist_km * radians(sun_moon_separation_deg)
-    An eclipse is visible from somewhere on Earth if this offset is less than the
-    shadow radius (penumbral, for any eclipse; umbral/antumbral, for a central eclipse)
-    plus Earth's own radius (a point on Earth's curved surface can be up to R_EARTH_KM
-    closer to the shadow axis than Earth's center).
-
-    Note: genuine hybrid eclipses (annular along part of the path, total along the rest,
-    due to Earth's curvature) are rare (~3% of solar eclipses) and require full path
-    analysis across Earth's curved surface, not just a single geocentric evaluation.
-    They are not distinguished by this simplified model; they classify as TOTAL or
-    ANNULAR depending on the sign of the geocentric umbral radius at greatest eclipse.
-
-    Best accuracy requires time_obj to be the instant of greatest eclipse (see
-    find_greatest_eclipse_time), not just any new moon instant.
-
-    Phase 2.2 Optimization: Results are cached to avoid redundant parameter calculations
-    and shadow-cone computations when the same solar eclipse is analyzed multiple times.
-
-    Args:
-        time_obj: astropy Time object
-
-    Returns:
-        dict with eclipse type and size characteristics
-    """
-    # Cache key for solar eclipse classification (Phase 2.2 optimization)
-    cache_key = time_obj.iso
-
-    # Check cache first
-    cached_result = _ECLIPSE_TYPE_CACHE_SOLAR.get(cache_key)
-    if cached_result is not None:
-        return cached_result
-
-    params = get_sun_moon_parameters(time_obj)
-    shadow = calculate_moon_shadow_cone(time_obj)
-
-    moon_dist_km = params['moon_dist_km']
-    separation_deg = params['sun_moon_separation_deg']
-    sun_ang_radius = params['sun_ang_radius_deg']
-    moon_ang_radius = params['moon_ang_radius_deg']
-    size_ratio = moon_ang_radius / sun_ang_radius
-
-    umbral_radius_km = shadow['umbral_radius_km']
-    penumbral_radius_km = shadow['penumbral_radius_km']
-    umbral_exists = shadow['umbral_exists']
-
-    offset_km = moon_dist_km * np.radians(separation_deg)
-    penumbral_threshold_km = penumbral_radius_km + R_EARTH_KM
-    central_threshold_km = abs(umbral_radius_km) + R_EARTH_KM
-
-    if offset_km >= penumbral_threshold_km:
-        eclipse_type = "NONE"
-    elif offset_km < central_threshold_km:
-        eclipse_type = "TOTAL" if umbral_exists else "ANNULAR"
-    else:
-        eclipse_type = "PARTIAL"
-
-    result = {
-        'eclipse_type': eclipse_type,
-        'size_ratio': round(size_ratio, 6),
-        'moon_ang_diam_deg': round(moon_ang_radius * 2, 6),
-        'sun_ang_diam_deg': round(sun_ang_radius * 2, 6),
-        'umbral_exists': umbral_exists,
-        'offset_km': round(offset_km, 1),
-        'angular_separation_deg': round(separation_deg, 4),
+    analysis = classify_solar_eclipse(time_obj)
+    params = get_sun_moon_parameters(analysis.greatest_eclipse_time)
+    shadow = calculate_moon_shadow_cone(analysis.greatest_eclipse_time, params)
+    return {
+        'eclipse_type': analysis.maximum_phase,
+        'global_eclipse_type': analysis.global_type,
+        'maximum_eclipse_phase': analysis.maximum_phase,
+        'classification_revision': analysis.model_revision,
+        'size_ratio': analysis.size_ratio,
+        'moon_ang_diam_deg': round(params['moon_ang_diam_deg'], 6),
+        'sun_ang_diam_deg': round(params['sun_ang_diam_deg'], 6),
+        'umbral_exists': shadow['umbral_exists'],
+        'offset_km': round(params['moon_dist_km'] * np.radians(
+            params['sun_moon_separation_deg']), 1),
+        'angular_separation_deg': round(params['sun_moon_separation_deg'], 4),
     }
-
-    # Cache the result (Phase 2.2 optimization)
-    _ECLIPSE_TYPE_CACHE_SOLAR.set(cache_key, result)
-
-    return result
 
 
 def _check_lunar_eclipse_at_time(time_obj, moon_lat, moon_lon):
@@ -609,6 +547,9 @@ def _check_lunar_eclipse_at_time(time_obj, moon_lat, moon_lon):
         'greatest_eclipse_time': greatest_time.iso,
         'is_eclipse': eclipse_type != "NONE",
         'eclipse_type': eclipse_type,
+        'global_eclipse_type': eclipse_type,
+        'maximum_eclipse_phase': eclipse_type,
+        'classification_revision': LUNAR_MODEL_REVISION,
         'phase': 'full',
         'moon_ecl_lat_deg': round(moon_lat, 4),
         'within_threshold': True,
@@ -619,8 +560,11 @@ def _check_lunar_eclipse_at_time(time_obj, moon_lat, moon_lon):
 
 def _check_solar_eclipse_at_time(time_obj, moon_lat):
     """Check for solar eclipse at given time (assumes syzygy/node pre-filter passed)."""
-    greatest_time = find_greatest_eclipse_time(time_obj, is_lunar=False)
-    type_info = classify_solar_eclipse_type(greatest_time)
+    from api.services.eclipse_classification import classify_solar_eclipse
+
+    analysis = classify_solar_eclipse(time_obj)
+    greatest_time = analysis.greatest_eclipse_time
+    type_info = classify_solar_eclipse_type(time_obj)
     eclipse_type = type_info['eclipse_type']
     size_ratio = type_info['size_ratio']
 
@@ -633,6 +577,9 @@ def _check_solar_eclipse_at_time(time_obj, moon_lat):
         'moon_ecl_lat_deg': round(moon_lat, 4),
         'within_threshold': True,
         'size_ratio': size_ratio,
+        'global_eclipse_type': analysis.global_type,
+        'maximum_eclipse_phase': analysis.maximum_phase,
+        'classification_revision': analysis.model_revision,
         'umbral_exists': type_info.get('umbral_exists'),
     }
 
@@ -645,17 +592,25 @@ def _get_eclipse_pre_filter_result(time_obj, moon_lat, is_lunar):
             'greatest_eclipse_time': time_obj.iso,
             'is_eclipse': False,
             'eclipse_type': "NONE",
+            'global_eclipse_type': "NONE",
+            'maximum_eclipse_phase': "NONE",
+            'classification_revision': LUNAR_MODEL_REVISION,
             'phase': 'full',
             'moon_ecl_lat_deg': round(moon_lat, 4),
             'within_threshold': False,
             'umbral_magnitude': None,
             'penumbral_magnitude': None,
         }
+    from api.services.eclipse_classification import SOLAR_MODEL_REVISION
+
     return {
         'time': time_obj.iso,
         'greatest_eclipse_time': time_obj.iso,
         'is_eclipse': False,
         'eclipse_type': "NONE",
+        'global_eclipse_type': "NONE",
+        'maximum_eclipse_phase': "NONE",
+        'classification_revision': SOLAR_MODEL_REVISION,
         'phase': 'new',
         'moon_ecl_lat_deg': round(moon_lat, 4),
         'within_threshold': False,
@@ -673,7 +628,9 @@ def clear_eclipse_caches():
     """
     _GREATEST_ECLIPSE_CACHE.clear()
     _ECLIPSE_TYPE_CACHE_LUNAR.clear()
-    _ECLIPSE_TYPE_CACHE_SOLAR.clear()
+    from api.services.eclipse_classification import clear_classification_cache
+
+    clear_classification_cache()
 
 
 def check_eclipse_at_time(time_obj, is_lunar=True):

@@ -23,6 +23,46 @@ describe('Export Service', () => {
     vi.restoreAllMocks();
   });
 
+  it.each(['csv', 'json'] as const)('preserves hybrid classification in %s exports', async (format) => {
+    const event: AstronomicalEvent = {
+      date: '2023-04-20',
+      event_type: 'New Moon',
+      is_lunar: false,
+      julian_date: 2460054.5,
+      moon_ecl_lat_deg: 0,
+      eclipse_occurs: true,
+      eclipse_type: 'Total',
+      global_eclipse_type: 'HYBRID',
+      maximum_eclipse_phase: 'TOTAL',
+      classification_revision: 'wgs84-finite-distance-cones-v4',
+      greatest_eclipse_time: '2023-04-20 04:17:00',
+      umbral_magnitude: null,
+      penumbral_magnitude: null,
+      size_ratio: 0.99,
+      contact_times: { eclipse_begins: '2023-04-20 01:34:26' },
+    };
+    const exporter = format === 'csv' ? exportContactTimesToCSV : exportContactTimesToJSON;
+    exporter([event]);
+    const blob = vi.mocked(global.URL.createObjectURL).mock.calls[0]?.[0];
+    expect(blob).toBeInstanceOf(Blob);
+    if (!(blob instanceof Blob)) throw new Error('Export did not create a Blob');
+    const content = await blob.text();
+    if (format === 'csv') {
+      expect(content.split('\n')[0]).toContain(
+        'Global Eclipse Type,Maximum Phase Anywhere,Classification Revision'
+      );
+      expect(content.split('\n')[1]).toContain(
+        'HYBRID,TOTAL,wgs84-finite-distance-cones-v4'
+      );
+    } else {
+      expect(JSON.parse(content).events[0]).toMatchObject({
+        globalEclipseType: 'HYBRID',
+        maximumEclipsePhase: 'TOTAL',
+        classificationRevision: 'wgs84-finite-distance-cones-v4',
+      });
+    }
+  });
+
   describe('CSV Export', () => {
     it('should export events with contact times to CSV', () => {
       const events: AstronomicalEvent[] = [

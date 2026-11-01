@@ -94,6 +94,7 @@ describe('useAstronomicalEvents SSE', () => {
   function installMockEventSource() {
     let pageListener: ((event: any) => void) | undefined;
     let metadataListener: ((event: any) => void) | undefined;
+    let calculationErrorListener: (() => void) | undefined;
     let instance: any = null;
     let lastUrl = '';
     const close = vi.fn();
@@ -107,6 +108,7 @@ describe('useAstronomicalEvents SSE', () => {
       addEventListener = (type: string, cb: (event: any) => void) => {
         if (type === 'page') pageListener = cb;
         if (type === 'metadata') metadataListener = cb;
+        if (type === 'calculation-error') calculationErrorListener = () => cb({});
       };
       constructor(url: string) {
         instance = this;
@@ -119,6 +121,7 @@ describe('useAstronomicalEvents SSE', () => {
       emitPage: (events: unknown[]) => pageListener?.({ data: JSON.stringify({ page: 1, events }) }),
       emitMetadata: (metadata: unknown) => metadataListener?.({ data: JSON.stringify(metadata) }),
       emitError: () => instance?.onerror?.({}),
+      emitCalculationError: () => calculationErrorListener?.(),
       getUrl: () => lastUrl,
       close,
     };
@@ -126,6 +129,26 @@ describe('useAstronomicalEvents SSE', () => {
 
   const eventA = { event_type: 'New Moon', is_lunar: false, date: '2025-01-01 00:00:00.000', julian_date: 1, moon_ecl_lat_deg: 1, eclipse_occurs: false, eclipse_type: 'No Eclipse', greatest_eclipse_time: null, umbral_magnitude: null, penumbral_magnitude: null, size_ratio: null, contact_times: null };
   const eventB = { ...eventA, date: '2025-02-01 00:00:00.000' };
+
+  it('rejects calculation failures without publishing partial results', async () => {
+    const mock = installMockEventSource();
+    try {
+      const { events, pagination, loading, error, sseEventCount, fetchEventsSSE } = useAstronomicalEvents();
+      const promise = fetchEventsSSE({ start_date: '2025-01-01', end_date: '2025-12-31' });
+      const rejected = expect(promise).rejects.toThrow('Eclipse calculation failed');
+      mock.emitPage([eventA]);
+      mock.emitCalculationError();
+      await rejected;
+      expect(events.value).toEqual([]);
+      expect(pagination.value).toBeNull();
+      expect(sseEventCount.value).toBe(0);
+      expect(loading.value).toBe(false);
+      expect(error.value).toBe('Eclipse calculation failed. Please try again later.');
+      expect(mock.close).toHaveBeenCalled();
+    } finally {
+      mock.restore();
+    }
+  });
 
   it('collects events across pages and resolves on metadata', async () => {
     const mock = installMockEventSource();

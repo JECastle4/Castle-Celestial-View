@@ -12,6 +12,9 @@ const solarEvent: AstronomicalEvent = {
   moon_ecl_lat_deg: 0,
   eclipse_occurs: true,
   eclipse_type: 'Total',
+  global_eclipse_type: 'TOTAL',
+  maximum_eclipse_phase: 'TOTAL',
+  classification_revision: 'wgs84-finite-distance-cones-v4',
   greatest_eclipse_time: '2026-08-12 01:45:00.000',
   umbral_magnitude: null,
   penumbral_magnitude: null,
@@ -296,8 +299,8 @@ test.describe('Events browser regressions', () => {
       const csv = await readFile(path, 'utf8');
       expect(download.suggestedFilename()).toMatch(/\.csv$/);
       expect(csv.split('\n')).toEqual([
-        'Date,Event Type,Is Lunar,Occurs,Contact Type,Time (UTC)',
-        `${solarEvent.date},${solarEvent.event_type},No,Yes,eclipse_begins,2026-08-12 01:15:00.000`,
+        'Date,Event Type,Is Lunar,Occurs,Contact Type,Time (UTC),Global Eclipse Type,Maximum Phase Anywhere,Classification Revision',
+        `${solarEvent.date},${solarEvent.event_type},No,Yes,eclipse_begins,2026-08-12 01:15:00.000,TOTAL,TOTAL,wgs84-finite-distance-cones-v4`,
       ]);
       await expect(page.locator('.event-details .detail-row').filter({ hasText: 'Eclipse Begins' }))
         .toContainText(/18:15:00|6:15:00\s*PM/i);
@@ -355,6 +358,8 @@ test.describe('Events browser regressions', () => {
       expect(data.events).toEqual([{
         date: solarEvent.date, eventType: 'Result for en-UK',
         isLunar: false, eclipseOccurs: true, contactTimes: solarEvent.contact_times,
+        globalEclipseType: 'TOTAL', maximumEclipsePhase: 'TOTAL',
+        classificationRevision: 'wgs84-finite-distance-cones-v4',
       }]);
       await expect(page.locator('.event-type')).toHaveText('Result for en-US');
       await expect(page.getByRole('button', { name: 'Search', exact: true })).toBeEnabled();
