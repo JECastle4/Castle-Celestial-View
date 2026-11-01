@@ -14,6 +14,7 @@ import api.cache as cache_module
 import api.main as main
 import api.routes.events as events
 from api.metrics import record_cache_lifecycle_safe
+from api.services.eclipse_errors import EclipseCalculationError
 
 
 app = main.app
@@ -73,6 +74,11 @@ def event_stream(**_kwargs):
             state["stream_waiting"] += 1
         if not gate.wait(15):
             raise RuntimeError("Test did not release stream computation")
+    failure = os.environ.get("TEST_RUNTIME_STREAM_FAILURE")
+    if failure == "calculation":
+        raise EclipseCalculationError("private numerical detail")
+    if failure == "unexpected":
+        raise RuntimeError("private programming detail")
     # A disconnected consumer may never resume the generator after its last yield.
     with lock:
         state["stream_finished"] += 1

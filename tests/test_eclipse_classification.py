@@ -12,6 +12,7 @@ from astropy.time import Time
 from astropy.utils import iers
 
 from api.services import eclipse_classification as solar
+from api.services.eclipse_errors import EclipseCalculationError
 
 
 FIXTURE = Path(__file__).parent / "fixtures" / "eclipse_reference_cases.json"
@@ -32,7 +33,7 @@ def test_global_phase_resolution(phases, expected):
 
 
 def test_axis_transition_requires_both_strong_witnesses():
-    with pytest.raises(RuntimeError, match="axis transition lacks both phase witnesses"):
+    with pytest.raises(EclipseCalculationError, match="axis transition lacks both phase witnesses"):
         solar._global_type({"TOTAL": object()}, "A-T")
 
 
@@ -53,7 +54,7 @@ def test_contact_interval_resolution(values, expected):
     ],
 )
 def test_contact_interval_rejects_ambiguity_or_open_window(values, message):
-    with pytest.raises(RuntimeError, match=message):
+    with pytest.raises(EclipseCalculationError, match=message):
         solar._has_contact_interval(values)
 
 
@@ -65,7 +66,7 @@ def test_contact_interval_rejects_ambiguity_or_open_window(values, message):
     ],
 )
 def test_witness_clearance_rejects_invalid_evidence(clearance, point, message):
-    with pytest.raises(RuntimeError, match=message):
+    with pytest.raises(EclipseCalculationError, match=message):
         solar._validate_witness_clearance("TOTAL", clearance, point)
 
 
@@ -227,7 +228,7 @@ def test_surface_optimizer_failure_is_explicit():
     optimizer = type("Optimizer", (), {"success": False, "x": np.array([0.0, 0.0]),
                                        "fun": np.nan})()
     with patch("api.services.eclipse_geometry.minimize", return_value=optimizer):
-        with pytest.raises(RuntimeError, match="Surface optimizer did not converge"):
+        with pytest.raises(EclipseCalculationError, match="Surface optimizer did not converge"):
             geometry.best_surface_clearance("TOTAL")
 
 
@@ -272,7 +273,7 @@ def test_confirmed_phase_missing_contacts_is_a_calculation_error(missing_phase):
         ("2023-04-20 01:34:00.000", "2023-04-20 06:59:00.000"), (None, None),
     ]
     with patch.object(solar, "_contact_pair", side_effect=pairs):
-        with pytest.raises(RuntimeError, match="no resolved"):
+        with pytest.raises(EclipseCalculationError, match="no resolved"):
             solar.calculate_global_solar_contacts(analysis)
     assert not solar._CONTACT_CACHE._entries
 
@@ -281,3 +282,8 @@ def test_contacts_reject_old_model_analysis():
     analysis = solar.classify_solar_eclipse(Time("2023-04-20 04:17", scale="utc"))
     with pytest.raises(ValueError, match="model revision"):
         solar.calculate_global_solar_contacts(replace(analysis, model_revision="old-model"))
+
+
+def test_calculation_failures_remain_runtime_errors_for_existing_callers():
+    assert issubclass(EclipseCalculationError, RuntimeError)
+    assert solar.EclipseCalculationError is EclipseCalculationError

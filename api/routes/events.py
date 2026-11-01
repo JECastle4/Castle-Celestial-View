@@ -9,6 +9,7 @@ from fastapi import APIRouter, Body, Query, Request
 from fastapi.responses import StreamingResponse
 
 from api.cache import cache_response
+from api.middleware.request_lifecycle import mark_stream_failure
 from api.models import (
     AstronomicalEventsRequest,
     AstronomicalEventsResponse,
@@ -27,6 +28,7 @@ from api.services.astronomical_events import (
     stream_astronomical_events,
     validate_date_range,
 )
+from api.services.eclipse_errors import EclipseCalculationError
 
 from .helpers import handle_route_errors, validate_request_model
 
@@ -102,7 +104,7 @@ def get_astronomical_events_route(
 @limiter.limit(LIMIT_STREAM_EVENTS)  # DDoS protection: 10 req/min per IP
 @handle_route_errors("streaming astronomical events")
 def stream_astronomical_events_route(
-    request: Request,  # pylint: disable=unused-argument
+    request: Request,
     start_date: str = Query(...),
     end_date: str = Query(...),
     page_size: int = Query(10, ge=1, le=100),
@@ -149,8 +151,12 @@ def stream_astronomical_events_route(
                     yield f"event: page\ndata: {json.dumps(item)}\n\n"
                 else:
                     yield f"event: metadata\ndata: {json.dumps(item)}\n\n"
-        except Exception:
+        except EclipseCalculationError:
+            # HTTP 200 is already committed: send a safe terminal event and let
+            # metrics count the stream as failed. Other errors and cancellation
+            # propagate to the middleware boundary unchanged.
             logger.exception("Calculation failed while streaming astronomical events")
+            mark_stream_failure(request.scope)
             yield 'event: calculation-error\ndata: {"detail": "Eclipse calculation failed"}\n\n'
 
     return StreamingResponse(

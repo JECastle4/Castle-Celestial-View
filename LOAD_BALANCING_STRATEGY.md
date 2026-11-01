@@ -106,7 +106,11 @@ not add gunicorn multiprocess Prometheus aggregation.
 Error categories are `invalid_input` (400), `payload_too_large` (413),
 `request_validation` (422), `rate_limited` (429), `timeout` (explicit deadline),
 `server_error` (other 5xx), `unhandled_exception` (escaping before/non-streaming
-failure), and `stream_error` (escaping during a stream). Labels never include
+failure), and `stream_error` (a failure after a stream has committed HTTP 200).
+A stream that converts a domain calculation failure into a terminal SSE event
+(for example `calculation-error` when an eclipse cannot be resolved) marks the
+request via `mark_stream_failure`, so it is still counted once as `stream_error`;
+unexpected exceptions are not converted and abort the stream. Labels never include
 exception messages or raw unmatched paths. Cache labels use the bounded decorated
 function names; HTTP labels use matched route templates (including router
 prefixes such as `/api/v1`) or `unknown`. This keeps completed-request samples

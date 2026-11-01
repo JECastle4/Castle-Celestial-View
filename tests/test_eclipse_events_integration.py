@@ -11,6 +11,7 @@ from api.main import app
 from api.models import AstronomicalEvent
 from api.services.astronomical_events import get_astronomical_events, get_contact_times_for_event
 from api.services.eclipse_classification import clear_classification_cache
+from api.services.eclipse_errors import EclipseCalculationError
 
 
 client = TestClient(app)
@@ -96,7 +97,7 @@ def test_solar_numerical_failure_is_not_no_eclipse():
 def test_stream_failure_is_terminal_and_does_not_emit_metadata():
     def failing_stream(**kwargs):
         yield {"page": 1, "events": []}
-        raise RuntimeError("private numerical detail")
+        raise EclipseCalculationError("private numerical detail")
 
     with patch("api.routes.events.stream_astronomical_events", side_effect=failing_stream):
         response = client.get("/api/v1/astronomical-events-stream", params={
@@ -106,6 +107,19 @@ def test_stream_failure_is_terminal_and_does_not_emit_metadata():
     assert "event: calculation-error" in response.text
     assert "event: metadata" not in response.text
     assert "private numerical detail" not in response.text
+
+
+def test_unexpected_stream_failure_is_not_reported_as_calculation_error():
+    """Programming errors reach the middleware boundary instead of a domain event."""
+    def failing_stream(**kwargs):
+        yield {"page": 1, "events": []}
+        raise TypeError("private programming detail")
+
+    with patch("api.routes.events.stream_astronomical_events", side_effect=failing_stream):
+        with pytest.raises(TypeError, match="private programming detail"):
+            client.get("/api/v1/astronomical-events-stream", params={
+                "start_date": "2023-04-20", "end_date": "2023-04-20",
+            })
 
 
 def test_out_of_range_solar_circumstances_are_explicit():

@@ -19,7 +19,12 @@ from prometheus_client import REGISTRY
 
 import api.main as main
 from api.cache import cache_response, clear_response_cache
-from api.middleware.request_lifecycle import BackgroundRequests, disconnected_before_response
+from api.middleware.request_lifecycle import (
+    BackgroundRequests,
+    disconnected_before_response,
+    mark_stream_failure,
+    stream_failure_handled,
+)
 from api.models import EclipseContactTimesRequest
 from api.routes.helpers import handle_route_errors
 
@@ -235,6 +240,49 @@ def test_stream_failure_is_not_a_second_http_response(metrics):
     metrics.record_error.assert_called_once_with("/stream", "stream_error", 200)
     metrics.record_abandoned_work.assert_not_called()
     metrics.record_request_end.assert_called_once()
+
+
+def test_handled_stream_failure_records_one_bounded_stream_error(metrics):
+    """A terminal SSE failure event after HTTP 200 is not a successful stream."""
+    application = wrapped_app()
+
+    @application.get("/stream")
+    def stream(request: Request):
+        def chunks():
+            yield "event: page\ndata: {}\n\n"
+            mark_stream_failure(request.scope)
+            yield "event: calculation-error\ndata: {}\n\n"
+        return StreamingResponse(chunks(), media_type="text/event-stream")
+
+    with TestClient(application) as client:
+        response = client.get("/stream")
+    assert response.status_code == 200
+    assert "event: calculation-error" in response.text
+    metrics.record_error.assert_called_once_with("/stream", "stream_error", 200)
+    metrics.record_request.assert_called_once()
+    metrics.record_request_end.assert_called_once()
+    metrics.record_abandoned_work.assert_not_called()
+
+
+def test_successful_stream_records_no_error(metrics):
+    application = wrapped_app()
+
+    @application.get("/stream")
+    def stream():
+        return StreamingResponse(iter(["event: metadata\ndata: {}\n\n"]))
+
+    with TestClient(application) as client:
+        assert client.get("/stream").status_code == 200
+    metrics.record_error.assert_not_called()
+    metrics.record_request_end.assert_called_once()
+
+
+def test_stream_failure_marker_is_request_scoped():
+    scope = {"type": "http"}
+    assert not stream_failure_handled(scope)
+    mark_stream_failure(scope)
+    assert stream_failure_handled(scope)
+    assert not stream_failure_handled({"type": "http", "state": {}})
 
 
 @pytest.mark.asyncio

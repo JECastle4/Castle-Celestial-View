@@ -9,6 +9,8 @@ from astropy.coordinates import EarthLocation, get_body, get_sun
 import astropy.units as u
 from scipy.optimize import minimize
 
+from api.services.eclipse_errors import EclipseCalculationError
+
 SolarFootprintPhase = Literal["PARTIAL", "ANNULAR", "TOTAL"]
 EARTH_AXES_KM = np.array([6378.137, 6378.137, 6356.752314245])
 GEOCENTRIC = EarthLocation.from_geocentric(0, 0, 0, unit=u.km)
@@ -238,5 +240,5 @@ class Geometry:
                 point = point_at(solution.x)
                 candidates.append((self.clearance(point, phase), point))
         if not converged:
-            raise RuntimeError(f"Surface optimizer did not converge for {phase}")
+            raise EclipseCalculationError(f"Surface optimizer did not converge for {phase}")
         return max(candidates, key=lambda candidate: candidate[0])

@@ -14,6 +14,7 @@ from astropy.time import Time
 import astropy.units as u
 from scipy.optimize import brentq, minimize_scalar
 from api.services import eclipse_ephemeris
+from api.services.eclipse_errors import EclipseCalculationError
 from api.services.eclipse_geometry import (
     EARTH_AXES_KM,
     GEOCENTRIC,
@@ -25,6 +26,7 @@ from api.services.eclipse_geometry import (
 
 __all__ = [
     "EARTH_AXES_KM",
+    "EclipseCalculationError",
     "GEOCENTRIC",
     "Geometry",
     "MODEL_METADATA",
@@ -154,7 +156,7 @@ def refine_maxima(times, values, objective, tolerance_seconds):
                 method="bounded", options={"xatol": tolerance_seconds},
             )
             if not maximum.success or not np.isfinite(maximum.fun):
-                raise RuntimeError("Temporal footprint search failed")
+                raise EclipseCalculationError("Temporal footprint search failed")
             maxima.append(float(maximum.x))
     return maxima
 
@@ -203,30 +205,30 @@ def _find_closest_approach(context, samples):
         context.geometry(seconds).axis_discriminant() for seconds in samples
     ])
     if discriminants[0] >= 0 or discriminants[-1] >= 0:
-        raise RuntimeError("Central path extends outside the search window")
+        raise EclipseCalculationError("Central path extends outside the search window")
     peak_index = int(np.argmax(discriminants))
     if peak_index in (0, len(samples) - 1):
-        raise RuntimeError("Closest approach is not bracketed")
+        raise EclipseCalculationError("Closest approach is not bracketed")
     peak = minimize_scalar(
         lambda seconds: -context.geometry(seconds).axis_discriminant(),
         bounds=(samples[peak_index - 1], samples[peak_index + 1]),
         method="bounded", options={"xatol": ROOT_TOLERANCE_SECONDS},
     )
     if not peak.success or not np.isfinite(peak.fun):
-        raise RuntimeError("Closest-approach search failed")
+        raise EclipseCalculationError("Closest-approach search failed")
     closest = float(peak.x)
     if abs(context.geometry(closest).axis_margin_km()) <= PHASE_TOLERANCE_KM:
-        raise RuntimeError("Indeterminate axis intersection within numerical tolerance")
+        raise EclipseCalculationError("Indeterminate axis intersection within numerical tolerance")
     return closest, context.geometry(closest).axis_discriminant() > 0
 
 
 def _validate_witness_clearance(phase, clearance, point):
     """Reject invalid positive margins and identify strict candidate witnesses."""
     if not np.isfinite(clearance):
-        raise RuntimeError(f"Non-finite {phase} surface clearance")
+        raise EclipseCalculationError(f"Non-finite {phase} surface clearance")
     if point is None:
         if clearance > PHASE_TOLERANCE_KM:
-            raise RuntimeError(f"Missing {phase} surface witness")
+            raise EclipseCalculationError(f"Missing {phase} surface witness")
         return False
     return clearance > PHASE_TOLERANCE_KM
 
@@ -243,7 +245,7 @@ def _witness_measurements(context, phase, seconds, clearance, point):
     overlaps = np.isfinite(angular_margin) and angular_margin > 0
     daylight = np.isfinite(altitude) and altitude >= -1e-6
     if not (on_surface and overlaps and daylight):
-        raise RuntimeError(f"Invalid {phase} surface witness")
+        raise EclipseCalculationError(f"Invalid {phase} surface witness")
     return angular_margin, altitude
 
 
@@ -272,7 +274,7 @@ def _axis_radius(context, seconds):
     geometry = context.geometry(seconds)
     point = geometry.axis_surface()
     if point is None:
-        raise RuntimeError("Axis-surface search left the central interval")
+        raise EclipseCalculationError("Axis-surface search left the central interval")
     return geometry.clearance(point, "TOTAL")
 
 
@@ -306,7 +308,7 @@ def _central_interval(context, samples, closest):
     interval = [(epoch + beginning * u.s).iso, (epoch + ending * u.s).iso]
     limb_offset = min(.01, (ending - beginning) / 4)
     if limb_offset <= ROOT_TOLERANCE_SECONDS:
-        raise RuntimeError("Indeterminate central path within root tolerance")
+        raise EclipseCalculationError("Indeterminate central path within root tolerance")
     path_samples = np.unique(np.concatenate((
         samples[(samples > beginning) & (samples < ending)],
         [beginning + limb_offset, ending - limb_offset, closest],
@@ -388,7 +390,7 @@ def _search_phase(context, phase, search_times, witnesses, witness_seconds):
                         clearance, point, "surface-optimization")
         best_clearance = max(best_clearance, clearance)
     if phase not in witnesses and abs(best_clearance) <= PHASE_TOLERANCE_KM:
-        raise RuntimeError(f"Indeterminate {phase} within numerical tolerance")
+        raise EclipseCalculationError(f"Indeterminate {phase} within numerical tolerance")
     return float(best_clearance)
 
 
@@ -405,7 +407,9 @@ def _global_type(witnesses, hybrid_sequence):
     else:
         global_type = "NONE"
     if hybrid_sequence is not None and global_type != "HYBRID":
-        raise RuntimeError("Indeterminate hybrid: axis transition lacks both phase witnesses")
+        raise EclipseCalculationError(
+            "Indeterminate hybrid: axis transition lacks both phase witnesses"
+        )
     return global_type
 
 
@@ -434,7 +438,7 @@ def _search_phases(context, samples, closest, central):
     witness_seconds = {}
     for seconds in (samples[0], samples[-1]):
         if context.surface(seconds, "PARTIAL")[0] >= -PHASE_TOLERANCE_KM:
-            raise RuntimeError("Penumbral footprint extends outside the search window")
+            raise EclipseCalculationError("Penumbral footprint extends outside the search window")
     if central:
         interval, hybrid_sequence, transitions, search_times = _central_path(
             context, samples, closest, witnesses, witness_seconds)
@@ -574,9 +578,11 @@ def _contact_crossings(context, phases, times, values):
                     xtol=ROOT_TOLERANCE_SECONDS,
                 ))
             except (ValueError, RuntimeError) as error:
-                raise RuntimeError("Unable to bracket global solar contact crossing") from error
+                raise EclipseCalculationError(
+                    "Unable to bracket global solar contact crossing"
+                ) from error
     if len(crossings) < 2:
-        raise RuntimeError("Global solar contact crossings were not bracketed")
+        raise EclipseCalculationError("Global solar contact crossings were not bracketed")
     return crossings
 
 
@@ -605,10 +611,14 @@ def _contact_search_samples(context, phases, samples):
 def _has_contact_interval(values):
     """Validate search-window closure and report whether a positive interval exists."""
     if values[0] >= -PHASE_TOLERANCE_KM or values[-1] >= -PHASE_TOLERANCE_KM:
-        raise RuntimeError("Global solar contact interval extends outside the search window")
+        raise EclipseCalculationError(
+            "Global solar contact interval extends outside the search window"
+        )
     peak_value = max(values)
     if abs(peak_value) <= PHASE_TOLERANCE_KM:
-        raise RuntimeError("Indeterminate global solar contact within numerical tolerance")
+        raise EclipseCalculationError(
+            "Indeterminate global solar contact within numerical tolerance"
+        )
     return peak_value > 0
 
 
@@ -665,13 +675,17 @@ def calculate_global_solar_contacts(
             analysis.greatest_eclipse_time, ("PARTIAL",),
             search_window_hours=search_window_hours)
         if None in penumbral:
-            raise RuntimeError("Confirmed solar eclipse has no resolved penumbral contacts")
+            raise EclipseCalculationError(
+                "Confirmed solar eclipse has no resolved penumbral contacts"
+            )
         if analysis.global_type in ("TOTAL", "ANNULAR", "HYBRID"):
             central = _contact_pair(
                 analysis.greatest_eclipse_time, ("TOTAL", "ANNULAR"),
                 search_window_hours=search_window_hours)
             if None in central:
-                raise RuntimeError("Confirmed strong solar phase has no resolved global contacts")
+                raise EclipseCalculationError(
+                    "Confirmed strong solar phase has no resolved global contacts"
+                )
         else:
             central = (None, None)
         contacts = {
