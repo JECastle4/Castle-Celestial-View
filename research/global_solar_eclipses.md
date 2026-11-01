@@ -33,7 +33,8 @@ alternative classification or no-eclipse fallback. SSE failures terminate with
 
 Lunar classification and contacts retain the existing shadow convention and
 `lunar-shadow-v1` revision; the two marginal lunar reference failures are separate
-follow-up work. The five solar hybrid expected failures have been cleared.
+follow-up work. All six solar hybrid reference cases pass without expected-failure
+markers.
 
 The research runner now calls the production numerical search directly, rather
 than maintaining a second classifier. Its 23 synthetic checks and 84 catalog
@@ -252,10 +253,10 @@ for the production implementation, exercised by
 `tests/test_eclipse_reference_cases.py`. It covers every calendar type, all three
 arrangements for both total and annular eclipses, `A-T-A` and `A-T` hybrids,
 tiny/deep partial solar eclipses, and marginal lunar cases (shortest totality,
-near-total partial, total penumbral, barely penumbral). Current failures are
-strict xfails: the hybrids (#275) and two lunar cases where the production
-shadow omits atmospheric enlargement (2015-04-04 reports Partial, 2016-08-18
-reports No Eclipse).
+near-total partial, total penumbral, barely penumbral). All six hybrid cases pass
+with exact `HYBRID` global classification and `TOTAL` calendar summaries. The only
+current strict xfails are two lunar cases where the production shadow omits
+atmospheric enlargement (2015-04-04 reports Partial, 2016-08-18 reports No Eclipse).
 
 Additional examples were derived with a Besselian-style limit scan
 (`uv run research/scan_eclipse_arrangements.py 2001 2101`, about 4 minutes per
