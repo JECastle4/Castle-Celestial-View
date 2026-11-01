@@ -5,6 +5,7 @@ from pathlib import Path
 from dataclasses import FrozenInstanceError, replace
 from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -77,6 +78,31 @@ def test_contact_crossings_keep_first_and_last_of_disjoint_intervals(monkeypatch
     times = np.array([-1., 0., 1., 2., 3.])
     crossings = solar._contact_crossings(None, ("TOTAL", "ANNULAR"), times, [-1, 1, -1, 1, -1])
     assert crossings == pytest.approx([-0.5, 0.5, 1.5, 2.5], abs=0.001)
+
+
+@pytest.mark.parametrize("error_type", [ValueError, RuntimeError, EclipseCalculationError])
+def test_contact_crossings_preserve_callback_exceptions(monkeypatch, error_type):
+    error = error_type("callback failure")
+
+    def broken_margin(*_args):
+        raise error
+
+    monkeypatch.setattr(solar, "_combined_margin", broken_margin)
+    with pytest.raises(error_type) as raised:
+        solar._contact_crossings(None, ("TOTAL",), [-1., 0., 1.], [-1., 1., -1.])
+    assert raised.value is error
+
+
+@pytest.mark.parametrize(("root", "converged"), [(0., False), (np.nan, True)])
+def test_contact_crossings_reject_solver_failure(monkeypatch, root, converged):
+    def failed_solver(*_args, **kwargs):
+        assert kwargs["full_output"] is True
+        assert kwargs["disp"] is False
+        return root, SimpleNamespace(converged=converged)
+
+    monkeypatch.setattr(solar, "brentq", failed_solver)
+    with pytest.raises(EclipseCalculationError, match="did not converge"):
+        solar._contact_crossings(None, ("TOTAL",), [-1., 0., 1.], [-1., 1., -1.])
 
 
 def _solar_cases():
@@ -252,6 +278,25 @@ def test_cache_identity_matches_serialized_event_timestamp():
     seed = Time("2023-04-20 04:12:32.362123", scale="utc")
     serialized = Time(seed.iso, scale="utc")
     assert solar._cache_key(seed) == solar._cache_key(serialized)
+
+
+def test_cold_cache_classification_matches_serialized_seed():
+    seed = Time("2023-04-20 04:12:32.362123", scale="utc")
+    serialized = Time(seed.iso, scale="utc")
+    results = []
+    contacts = []
+    try:
+        for time_obj in (seed, serialized):
+            solar.clear_classification_cache()
+            solar.eclipse_ephemeris.GREATEST_ECLIPSE_CACHE.clear()
+            result = solar.classify_solar_eclipse(time_obj)
+            results.append(result)
+            contacts.append(solar.calculate_global_solar_contacts(result))
+        assert results[0] == results[1]
+        assert contacts[0] == contacts[1]
+    finally:
+        solar.clear_classification_cache()
+        solar.eclipse_ephemeris.GREATEST_ECLIPSE_CACHE.clear()
 
 
 def test_contact_cache_returns_isolated_values():

@@ -110,7 +110,9 @@ failure), and `stream_error` (a failure after a stream has committed HTTP 200).
 A stream that converts a domain calculation failure into a terminal SSE event
 (for example `calculation-error` when an eclipse cannot be resolved) marks the
 request via `mark_stream_failure`, so it is still counted once as `stream_error`;
-unexpected exceptions are not converted and abort the stream. Labels never include
+the marker is also checked during teardown if delivery is interrupted by a
+disconnect or cancellation. Explicit deadline errors take precedence over that
+marker. Unexpected exceptions are not converted and abort the stream. Labels never include
 exception messages or raw unmatched paths. Cache labels use the bounded decorated
 function names; HTTP labels use matched route templates (including router
 prefixes such as `/api/v1`) or `unknown`. This keeps completed-request samples

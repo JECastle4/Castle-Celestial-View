@@ -571,16 +571,16 @@ def _contact_crossings(context, phases, times, values):
     for left, right, left_value, right_value in zip(
             times[:-1], times[1:], values[:-1], values[1:], strict=True):
         if (left_value < 0 <= right_value) or (left_value >= 0 > right_value):
-            try:
-                crossings.append(brentq(
-                    lambda seconds: _combined_margin(context, seconds, phases),
-                    float(left), float(right),
-                    xtol=ROOT_TOLERANCE_SECONDS,
-                ))
-            except (ValueError, RuntimeError) as error:
+            root, result = brentq(
+                lambda seconds: _combined_margin(context, seconds, phases),
+                float(left), float(right),
+                xtol=ROOT_TOLERANCE_SECONDS, full_output=True, disp=False,
+            )
+            if not result.converged or not np.isfinite(root):
                 raise EclipseCalculationError(
-                    "Unable to bracket global solar contact crossing"
-                ) from error
+                    "Global solar contact crossing did not converge"
+                )
+            crossings.append(root)
     if len(crossings) < 2:
         raise EclipseCalculationError("Global solar contact crossings were not bracketed")
     return crossings

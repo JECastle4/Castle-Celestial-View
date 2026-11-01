@@ -286,6 +286,82 @@ def test_stream_failure_marker_is_request_scoped():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "termination", ["early_return", "disconnect", "cancel", "send_error", "complete", "bug"]
+)
+@pytest.mark.parametrize("timed_out", [False, True])
+async def test_marked_stream_teardown_records_error_once(metrics, termination, timed_out):
+    async def application(scope, receive, send):
+        await send({
+            "type": "http.response.start", "status": 200,
+            "headers": [(b"content-type", b"text/event-stream")],
+        })
+        mark_stream_failure(scope)
+        await send({
+            "type": "http.response.body", "body": b"event: calculation-error\n\n",
+            "more_body": True,
+        })
+        if timed_out:
+            scope["_timeout_middleware_generated"] = True
+        if termination == "disconnect":
+            raise main.ClientDisconnect()
+        if termination == "cancel":
+            raise asyncio.CancelledError()
+        if termination == "bug":
+            raise RuntimeError("unexpected teardown failure")
+        if termination in ("complete", "send_error"):
+            await send({"type": "http.response.body", "body": b"", "more_body": False})
+
+    async def receive():
+        await asyncio.sleep(10)
+
+    async def send(message):
+        if termination == "send_error" and message.get("more_body") is False:
+            raise main.ClientDisconnect()
+
+    scope = {"type": "http", "method": "GET", "path": "/stream", "headers": []}
+    scope["route"] = SimpleNamespace(path="/stream")
+    middleware = main.MetricsMiddleware(application)
+    errors = {
+        "disconnect": main.ClientDisconnect, "cancel": asyncio.CancelledError,
+        "send_error": main.ClientDisconnect, "bug": RuntimeError,
+    }
+    if termination in errors:
+        with pytest.raises(errors[termination]):
+            await middleware(scope, receive, send)
+    else:
+        await middleware(scope, receive, send)
+    metrics.record_error.assert_called_once_with(
+        "/stream", "timeout" if timed_out else "stream_error", 200
+    )
+    metrics.record_request_end.assert_called_once()
+    metrics.record_abandoned_work.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("error_type", [main.ClientDisconnect, asyncio.CancelledError])
+async def test_unmarked_stream_teardown_is_not_a_calculation_failure(metrics, error_type):
+    async def application(scope, receive, send):
+        await send({
+            "type": "http.response.start", "status": 200,
+            "headers": [(b"content-type", b"text/event-stream")],
+        })
+        raise error_type()
+
+    async def receive():
+        await asyncio.sleep(10)
+
+    async def send(message):
+        pass
+
+    scope = {"type": "http", "method": "GET", "path": "/stream", "headers": []}
+    with pytest.raises(error_type):
+        await main.MetricsMiddleware(application)(scope, receive, send)
+    metrics.record_error.assert_not_called()
+    metrics.record_request_end.assert_called_once()
+
+
+@pytest.mark.asyncio
 async def test_detached_exception_observed_and_logged(metrics, caplog):
     background = BackgroundRequests()
 

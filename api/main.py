@@ -639,8 +639,14 @@ class MetricsMiddleware:  # pylint: disable=too-few-public-methods
                     "stream_error" if is_streaming else "unhandled_exception"
                 )
                 metrics.record_error(endpoint, category, status_code)
+                error_recorded = True
             raise
         finally:
+            if is_streaming and not error_recorded and stream_failure_handled(scope):
+                category = "timeout" if scope.get("_timeout_middleware_generated", False) else (
+                    "stream_error"
+                )
+                metrics.record_error(endpoint, category, status_code)
             # For non-streaming: always record request completion
             # For streaming: metrics are finalized in send_with_metrics when final body chunk
             # (more_body=False) is sent. However, if client disconnects or generator raises
