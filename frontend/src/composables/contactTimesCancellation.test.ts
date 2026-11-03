@@ -169,7 +169,7 @@ describe('contact time subscriber cancellation', () => {
 
   it('separates locales and ignores old locale results without aborting them', async () => {
     const previous = getCurrentLocale();
-    const next = previous === 'en-US' ? 'en-UK' : 'en-US';
+    const next = previous === 'en-US' ? 'en-GB' : 'en-US';
     const state = setup();
     try {
       const old = state.fetchContactTimesForEvent(date, true);
@@ -197,7 +197,7 @@ describe('contact time subscriber cancellation', () => {
 
   it('uses the deduplication locale when invoking the API even if locale changes in the same turn', async () => {
     const previous = getCurrentLocale();
-    const next = previous === 'en-US' ? 'en-UK' : 'en-US';
+    const next = previous === 'en-US' ? 'en-GB' : 'en-US';
     const state = setup();
     const requestedLocales: string[] = [];
     state.api.getContactTimesForEvent.mockImplementation(() => {

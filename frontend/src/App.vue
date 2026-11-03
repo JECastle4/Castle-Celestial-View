@@ -8,14 +8,8 @@
 </template>
 
 <script setup lang="ts">
-import { watchEffect } from 'vue';
-import { useI18n } from 'vue-i18n';
 import AstronomyScene from '@/components/AstronomyScene.vue';
 import AppFooter from '@/components/Footer.vue';
-
-const { t } = useI18n();
-
-watchEffect(() => { document.title = t('app.title'); });
 </script>
 
 <style>

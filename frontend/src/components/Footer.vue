@@ -3,10 +3,10 @@
     <div class="footer-lang-menu" ref="langMenuRef">
       <button
         class="footer-lang-btn"
-        :aria-label="locale === 'en-UK' ? 'Current language: English (UK)' : 'Current language: English (US)'"
+        :aria-label="locale === 'en-GB' ? 'Current language: English (UK)' : 'Current language: English (US)'"
         @click="showLangMenu = !showLangMenu"
       >
-        <span :class="['fi', locale === 'en-UK' ? 'fi-gb' : 'fi-us']" style="margin-right: 0.3em;"></span>
+        <span :class="['fi', locale === 'en-GB' ? 'fi-gb' : 'fi-us']" style="margin-right: 0.3em;"></span>
       </button>
       <div v-if="showLangMenu" class="footer-lang-dropdown">
         <button
@@ -41,7 +41,7 @@ const langMenuRef = ref<HTMLElement | null>(null);
 
 const langOptions = computed(() => {
   const opts = [
-    { value: 'en-UK', label: t('lang.enUK'), flag: 'fi-gb' },
+    { value: 'en-GB', label: t('lang.enGB'), flag: 'fi-gb' },
     { value: 'en-US', label: t('lang.enUS'), flag: 'fi-us' },
   ];
   if (import.meta.env.DEV) {
@@ -59,9 +59,9 @@ const langOptions = computed(() => {
 const localePathPrefixRegex = (() => {
   if (import.meta.env.DEV) {
     // Dev-only regex (removed from production bundle)
-    return new RegExp('^/(en-UK|en-US|' + String.fromCharCode(120, 120, 45, 114, 101, 118, 101, 114, 115, 101) + ')');
+    return new RegExp('^/(en-GB|en-US|' + String.fromCharCode(120, 120, 45, 114, 101, 118, 101, 114, 115, 101) + ')');
   }
-  return /^\/(en-UK|en-US)/;
+  return /^\/(en-GB|en-US)/;
 })()
 
 function switchLocale(newLocale: string) {
@@ -189,5 +189,21 @@ onBeforeUnmount(() => {
   margin-right: 0.5em;
   border-radius: 2px;
   box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+}
+
+@media (max-width: 700px) {
+  .app-footer {
+    gap: 0.5rem;
+  }
+  .app-footer > p {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+  }
+  .footer-lang-menu,
+  .footer-about-link {
+    flex-shrink: 0;
+  }
 }
 </style>

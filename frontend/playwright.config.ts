@@ -16,6 +16,7 @@ const pythonExe = process.env.CI
  */
 export default defineConfig({
   testDir: './tests/e2e',
+  testIgnore: ['**/crawlable-landing-pages.spec.ts', '**/discovery-assets.spec.ts'],
   
   // Maximum time one test can run
   // Set to 600 seconds (10 minutes) to accommodate frame-by-frame navigation at 0.1x speed

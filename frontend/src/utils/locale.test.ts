@@ -2,8 +2,12 @@ import { describe, it, expect } from 'vitest'
 import { normalizeLocaleForIntl } from './locale'
 
 describe('normalizeLocaleForIntl', () => {
-  it('maps en-UK to en-GB', () => {
+  it('maps legacy en-UK to en-GB', () => {
     expect(normalizeLocaleForIntl('en-UK')).toBe('en-GB')
+  })
+
+  it('returns en-GB unchanged', () => {
+    expect(normalizeLocaleForIntl('en-GB')).toBe('en-GB')
   })
 
   it('maps xx-reverse (dev-only) to en-GB', () => {

@@ -48,7 +48,7 @@ async function stabilizePage(page: Page, timeoutMs: number = 8000) {
 // Load data using the form
 async function loadAstronomyData(page: Page, startDate: string, endDate: string, frameCount: number) {
   // Navigate to the app (fresh navigation ensures Vue renders properly)
-  await page.goto('/en-UK');
+  await page.goto('/en-GB');
   await page.waitForLoadState('domcontentloaded');
   
   // Wait for input form to be attached and visible

@@ -64,7 +64,7 @@ testWithPersistentPage.describe('Eclipse Events - August/September 2026 (Serial)
   });
 
   testWithPersistentPage('1. Search Aug-Sep 2026 and verify all 4 events are returned', async ({ page }) => {
-    await page.goto('/en-UK/events');
+    await page.goto('/en-GB/events');
 
     await expect(page.locator('.search-btn')).toBeVisible();
     await expect(page.getByRole('main')).toHaveCount(1);

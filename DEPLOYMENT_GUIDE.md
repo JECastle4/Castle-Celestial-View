@@ -132,6 +132,104 @@ sudo systemctl reload nginx
 sudo systemctl status nginx
 ```
 
+### British English URL migration
+
+When deploying the British locale migration, update the nginx configuration as
+well as the frontend/API artifacts. The original-request-URI mappings permanently
+redirect legacy British URLs to the same `/en-GB` path and preserve query
+parameters. Browsers retain fragments across this redirect. Vue Router provides
+a client-side compatibility redirect, but that is not a substitute for the HTTP
+301 used by crawlers. Validate a representative old link after reloading:
+
+```bash
+curl -I 'https://castlecelestialview.net/en-UK/events?date=2026-11-03'
+# Expect 301 with Location: https://castlecelestialview.net/en-GB/events?date=2026-11-03
+```
+
+Valid certificates are required for HTTPS redirects and public crawl validation.
+
+Deploy the entire frontend `dist/` tree, including `en-GB/` and `en-US/`, alongside
+the updated nginx configuration. Regional Home pages use `index.html`; Events
+and About use flat `events.html` and `about.html` files. The static location's
+`try_files $uri $uri.html $uri/ /index.html` resolves the clean public routes to
+their own documents without redirecting Events to a trailing-slash URL.
+Generated HTML revalidates on every request; fingerprinted assets remain
+long-lived. The same security headers apply to regional HTML and the root page.
+
+Verify direct HTTP responses, not just client-side navigation:
+
+```bash
+curl -sS -D - 'https://castlecelestialview.net/en-US/events?source=search'
+# Expect 200, text/html, lang="en-US", Events title/content and a self-canonical
+# without the query string. Repeat for both locales and Home/Events/About.
+```
+
+Do not configure all regional URLs to serve only the root `index.html`: that
+would lose the page-specific initial content required by crawlers and visitors
+without JavaScript.
+
+### Canonical URLs and discovery files
+
+The production URL policy is `https://castlecelestialview.net`, British English
+by default, with independently self-canonical `en-GB` and `en-US` pages. Home ends
+with `/`; Events and About do not. nginx issues permanent redirects for HTTPS
+`www`, the bare root, legacy/case-variant regional tags, trailing-slash variants
+and direct `.html` aliases. The `map` must be included at nginx's **http context**
+(as it is when this site file is included from `sites-enabled`), not pasted into
+an existing server block. It uses the original request URI to avoid redirect
+loops during internal index-file resolution. Queries are preserved; browsers
+retain fragments. Canonicals, `og:url` and sitemap URLs omit query/fragment state.
+The legacy suffix also comes from the original encoded request URI, never a
+decoded location capture, so encoded control characters cannot become response
+headers.
+
+Deploy generated `robots.txt`, `sitemap.xml` and both versioned PNG files under
+`social/`. Discovery files revalidate; versioned sharing images are cached for a
+year. Explicit nginx locations return **404** when these files are absent,
+never a successful SPA document, and inherit the server's security headers.
+The sitemap contains four Home/Events URLs, not About, development locales or
+date/location/filter combinations. Robots permits public crawling; it is not
+access control. Protect non-production deployments separately (authentication
+and/or an appropriate indexing policy), rather than changing the public sitemap.
+
+With nginx available and the frontend built, run the isolated local checks:
+
+```bash
+python -m pytest tests/test_landing_deployment.py -o addopts='' -q
+```
+
+These start a temporary HTTP-only nginx using the repository's actual mapping,
+location and header rules. They do not change the system service or validate TLS.
+CI's `landing-production` job builds the frontend, installs nginx and sets
+`REQUIRE_LANDING_DEPLOYMENT_TESTS=true` so missing prerequisites fail rather than
+skip. It also exercises the production landing specs in Chromium, Firefox and
+WebKit; the dev-server suite excludes production-only static/discovery specs.
+
+After deploying and repairing the public certificate, verify:
+
+```bash
+curl -I 'https://www.castlecelestialview.net/en-US/events'
+curl -I 'https://castlecelestialview.net/?source=search'
+curl -I 'https://castlecelestialview.net/en-us/events/?source=search'
+# Expect permanent redirects to the preferred host and canonical regional paths.
+curl -i 'https://castlecelestialview.net/robots.txt'
+curl -i 'https://castlecelestialview.net/sitemap.xml'
+curl -I 'https://castlecelestialview.net/social/home-v1.png'
+curl -I 'https://castlecelestialview.net/social/events-v1.png'
+# Expect real text/XML/PNG files, not SPA HTML; PNGs decode at 1200 x 630.
+curl -I 'https://castlecelestialview.net/social/missing.png'
+# Expect 404.
+```
+
+Fetch all six regional documents directly and inspect their title, description,
+canonical, alternates and Open Graph/X tags before executing JavaScript. Confirm
+that `og:url` is the current page and artwork URLs are public. Refresh previews
+with the relevant platform's sharing debugger/inspector; previews may remain
+cached and are platform-selected. Submit the sitemap in Google Search Console
+and Bing Webmaster Tools, then inspect Home and Events indexing separately.
+Record deployed-response and preview results with the release; do not treat a
+local build as evidence of live indexing or guarantee a ranking/indexing date.
+
 ### Security Headers Included
 
 The configuration implements production-grade security headers:

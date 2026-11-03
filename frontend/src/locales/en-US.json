@@ -1,11 +1,31 @@
 {
 	"lang": {
-		"enUK": "English (UK)",
+		"enGB": "English (UK)",
 		"enUS": "English (US)",
 		"reverseDev": "Reverse EN (dev)"
 	},
+	"metadata": {
+		"home": {
+			"title": "Interactive Solar System & Sky Viewer | Castle Celestial View",
+			"imageAlt": "Castle Celestial View: solar system and sky viewer, with an illustration of planetary orbits.",
+			"description": "Visualize the solar system and planetary orbits, view the sky for your chosen location and time, and find new moons, full moons and eclipses."
+		},
+		"events": {
+			"title": "New Moons, Full Moons & Eclipses | Castle Celestial View",
+			"imageAlt": "Castle Celestial View: new moons, full moons and eclipses, with an illustration of moon phases and a solar eclipse.",
+			"description": "Find new moons, full moons, solar eclipses and lunar eclipses within a date range. Explore available eclipse details with Castle Celestial View."
+		},
+		"about": {
+			"title": "About | Castle Celestial View",
+			"imageAlt": "Castle Celestial View: solar system and sky viewer, with an illustration of planetary orbits.",
+			"description": "About Castle Celestial View, an interactive astronomy viewer and event finder. See the project license, version and open-source attributions."
+		}
+	},
 	"app": {
 		"title": "Castle Celestial View",
+		"introduction": "Visualize the solar system and planetary orbits, or explore the sky from a chosen location and time. Select a location on the map, choose a date range and load the data to begin. Use Eclipses in the header to find new moons, full moons and solar or lunar eclipses.",
+		"interactiveNotice": "Enable JavaScript to use the interactive viewer and event search.",
+		"startupError": "The interactive application could not start. Reload the page to try again.",
 		"copyright": "© 2026 John Castle. Licensed under the MIT License.",
 		"about": "About",
 		"modes": {
@@ -212,7 +232,7 @@
 	},
 	"events": {
 		"title": "Astronomical Events",
-		"description": "Search for new moons, full moons, and eclipses within a date range.",
+		"description": "Choose a date range to find new moons, full moons, solar eclipses and lunar eclipses, then explore available eclipse details. Events describe occurrences worldwide; an eclipse is not necessarily visible from your location.",
 		"search": "Search",
 		"searching": "Searching for events...",
 		"eventsReceived": "({count} received so far)",

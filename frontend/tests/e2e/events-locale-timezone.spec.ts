@@ -82,17 +82,17 @@ test.describe('Events browser regressions', () => {
       });
     });
 
-    await page.goto('/en-UK/events');
+    await page.goto('/en-GB/events');
     await selectRange(page);
     await page.getByRole('button', { name: 'Search', exact: true }).click();
-    await expect(page.locator('.event-type')).toHaveText('Result for en-UK');
+    await expect(page.locator('.event-type')).toHaveText('Result for en-GB');
 
     await page.getByRole('button', { name: 'Current language: English (UK)', exact: true }).click();
     await page.getByRole('button', { name: 'English (US)', exact: true }).click();
 
     await expect(page).toHaveURL(/\/en-US\/events$/);
     await expect(page.locator('.event-type')).toHaveText('Result for en-US');
-    expect(requests.map((url) => url.searchParams.get('lang'))).toEqual(['en-UK', 'en-US']);
+    expect(requests.map((url) => url.searchParams.get('lang'))).toEqual(['en-GB', 'en-US']);
     for (const url of requests) {
       expect(url.searchParams.get('start_date')).toBe('2026-08-01');
       expect(url.searchParams.get('end_date')).toBe('2026-08-31');
@@ -108,7 +108,7 @@ test.describe('Events browser regressions', () => {
       body: streamResponse(solarEvent),
     }));
 
-    await page.goto('/en-UK/events');
+    await page.goto('/en-GB/events');
     const inputs = page.locator('.date-range-picker input[type="date"]');
     await expect(inputs.nth(0)).toHaveValue('2026-10-27');
     await expect(inputs.nth(1)).toHaveValue('2027-10-27');
@@ -146,7 +146,7 @@ test.describe('Events browser regressions', () => {
       await route.fulfill({ json: { contact_times: solarEvent.contact_times } });
     });
 
-    await page.goto('/en-UK/events');
+    await page.goto('/en-GB/events');
     await selectRange(page);
     await page.getByRole('button', { name: 'Search', exact: true }).click();
     await page.locator('.event-summary').click();
@@ -159,8 +159,8 @@ test.describe('Events browser regressions', () => {
       predicate: (request) => request.url().includes('/astronomical-events/contact-times'),
     });
     try {
-      await page.getByRole('button', { name: 'Solar System', exact: true }).click();
-      await expect(page).toHaveURL(/\/en-UK\/$/);
+      await page.getByRole('link', { name: 'Solar System', exact: true }).click();
+      await expect(page).toHaveURL(/\/en-GB\/$/);
       const request = await aborted;
       expect(request.failure()?.errorText).toMatch(/abort|cancel/i);
       expect(contactRequests).toBe(1);
@@ -199,7 +199,7 @@ test.describe('Events browser regressions', () => {
       });
 
       try {
-        await page.goto('/en-UK/events');
+        await page.goto('/en-GB/events');
         await selectRange(page);
         await page.getByRole('button', { name: 'Search', exact: true }).click();
         await expect(page.locator('.event-type')).toHaveText('Search 1');
@@ -245,7 +245,7 @@ test.describe('Events browser regressions', () => {
         const url = new URL(route.request().url());
         return route.continue({ url: `${origin}${url.pathname}${url.search}` });
       });
-      await page.goto('/en-UK/events');
+      await page.goto('/en-GB/events');
       await selectRange(page);
       await page.getByRole('button', { name: 'Search', exact: true }).click();
       await page.locator('.event-summary').click();
@@ -255,7 +255,7 @@ test.describe('Events browser regressions', () => {
       const aborted = page.waitForEvent('requestfailed', {
         predicate: (active) => active.url().includes('/astronomical-events/contact-times'),
       });
-      await page.getByRole('button', { name: 'Solar System', exact: true }).click();
+      await page.getByRole('link', { name: 'Solar System', exact: true }).click();
       expect((await aborted).failure()?.errorText).toMatch(/abort|cancel/i);
       const released = await request.post(`${origin}/__test/release`);
       expect(released.ok()).toBe(true);
@@ -284,7 +284,7 @@ test.describe('Events browser regressions', () => {
       await route.fulfill({ json: { contact_times: solarEvent.contact_times } });
     });
     try {
-      await page.goto('/en-UK/events');
+      await page.goto('/en-GB/events');
       await selectRange(page);
       await page.getByRole('button', { name: 'Search', exact: true }).click();
       await page.locator('.event-summary').click();
@@ -332,23 +332,23 @@ test.describe('Events browser regressions', () => {
     const gate = new Promise<void>((resolve) => { release = resolve; });
     await page.route('**/api/v1/astronomical-events/contact-times?*', async (route) => {
       contactRequests++;
-      expect(new URL(route.request().url()).searchParams.get('lang')).toBe('en-UK');
+      expect(new URL(route.request().url()).searchParams.get('lang')).toBe('en-GB');
       await gate;
       await route.fulfill({ json: { contact_times: solarEvent.contact_times } });
     });
     try {
-      await page.goto('/en-UK/events');
+      await page.goto('/en-GB/events');
       await selectRange(page);
       await page.getByRole('button', { name: 'Search', exact: true }).click();
-      await expect(page.locator('.event-type')).toHaveText('Result for en-UK');
+      await expect(page.locator('.event-type')).toHaveText('Result for en-GB');
       await page.getByRole('button', { name: 'JSON (1)', exact: true }).click();
       await expect.poll(() => contactRequests).toBe(1);
       await page.getByRole('button', { name: 'Current language: English (UK)', exact: true }).click();
       await page.getByRole('button', { name: 'English (US)', exact: true }).click();
       await expect(page).toHaveURL(/\/en-US\/events$/);
       await expect(page.getByRole('button', { name: 'Search', exact: true })).toBeDisabled();
-      await expect(page.locator('.event-type')).toHaveText('Result for en-UK');
-      expect(searches).toEqual(['en-UK']);
+      await expect(page.locator('.event-type')).toHaveText('Result for en-GB');
+      expect(searches).toEqual(['en-GB']);
       const downloaded = page.waitForEvent('download');
       release();
       const download = await downloaded;
@@ -357,15 +357,15 @@ test.describe('Events browser regressions', () => {
       const data = JSON.parse(await readFile(path, 'utf8'));
       expect(data.count).toBe(1);
       expect(data.events).toEqual([{
-        date: solarEvent.date, eventType: 'Result for en-UK',
+        date: solarEvent.date, eventType: 'Result for en-GB',
         isLunar: false, eclipseOccurs: true, contactTimes: solarEvent.contact_times,
         globalEclipseType: 'TOTAL', maximumEclipsePhase: 'TOTAL',
         classificationRevision: 'wgs84-finite-distance-cones-v4',
-        classificationWarning: 'Accuracy warning for en-UK',
+        classificationWarning: 'Accuracy warning for en-GB',
       }]);
       await expect(page.locator('.event-type')).toHaveText('Result for en-US');
       await expect(page.getByRole('button', { name: 'Search', exact: true })).toBeEnabled();
-      expect(searches).toEqual(['en-UK', 'en-US']);
+      expect(searches).toEqual(['en-GB', 'en-US']);
       expect(contactRequests).toBe(1);
     } finally {
       release();
@@ -394,7 +394,7 @@ test.describe('Events browser regressions', () => {
         const url = new URL(route.request().url());
         return route.continue({ url: `${origin}${url.pathname}${url.search}` });
       });
-      await page.goto('/en-UK/events');
+      await page.goto('/en-GB/events');
       await selectRange(page);
       const search = page.getByRole('button', { name: 'Search', exact: true });
       await search.click();
@@ -452,7 +452,7 @@ test.describe('Events browser regressions', () => {
         }
         return route.fulfill({ json: { contact_times: solarEvent.contact_times } });
       });
-      await page.goto('/en-UK/events');
+      await page.goto('/en-GB/events');
       await selectRange(page);
       const search = page.getByRole('button', { name: 'Search', exact: true });
       await search.click();

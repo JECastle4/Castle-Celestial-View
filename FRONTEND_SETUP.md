@@ -58,6 +58,86 @@ Frontend will be available at: http://localhost:5173
 5. Use "Play" to animate
 6. Use mouse to orbit the camera
 
+## Regional landing pages
+
+British English uses `/en-GB/` (Home), `/en-GB/events` and `/en-GB/about`;
+American English uses the equivalent `/en-US/` routes. Both language resources
+are retained, including regional spelling such as Recentre/Recenter. The bare
+root defaults to British English, without overriding an explicitly chosen region.
+
+Old `/en-UK/...` links redirect to `/en-GB/...`, preserving the page, query and
+fragment. The production nginx configuration supplies permanent HTTP redirects;
+Vue Router also handles legacy links on static/development servers. The API
+loads `en-gb.json`, accepts case-insensitive tags and retains `en-UK` as an alias
+for older clients, in query parameters and Accept-Language headers.
+
+`src/metadata.ts` is the shared source of production route/locale metadata.
+Each Home, Events and About page has its own title, description and self-canonical
+URL. Reciprocal `en-GB`/`en-US` hreflang links identify regional alternatives;
+`x-default` points to the British version of the same page. These are selection
+signals for search engines, not guaranteed regional search placement. Canonical
+URLs omit search-state query parameters and fragments.
+
+The visible application heading and header mode controls are unchanged.
+Localized introductory copy appears above the homepage map before loading data.
+On narrow screens the explanation, map, date picker and query controls scroll
+together; the language selector remains in the footer.
+
+Production builds also emit page-specific initial HTML for all six regional
+routes, with introductory content and real navigation/language links. Static
+and interactive pages share translation resources. With JavaScript disabled,
+the document explains that interactive viewing and event searches need it.
+During startup, the document stays readable until the initial route is ready;
+a failed route load retains the document and shows an explicit error.
+
+Open Graph and X/Twitter large-image tags use the same definitions in initial
+HTML and after navigation. Home and Events have original 1200 x 630 PNG artwork,
+image alternative text and absolute HTTPS URLs; About keeps its own title,
+description and URL while reusing Home artwork. Production builds generate
+`robots.txt` and a sitemap containing exactly Home/Events in both regions, with
+reciprocal language alternatives and no invented modification dates.
+
+The production nginx configuration permanently redirects HTTPS `www` to the
+preferred bare hostname, `/` to `/en-GB/`, locale casing/legacy identifiers to
+canonical tags, Home to its trailing slash and Events/About away from trailing
+slashes and `.html` aliases. Queries survive redirects but are not advertised in
+canonical/social/sitemap URLs. See the deployment guide for serving and release
+verification; Vite preview is not a replacement for production redirect checks.
+
+**Delivery boundary:** regional HTML, metadata, sharing/discovery assets and
+production routing are implemented. Live HTTPS, deployed responses, platform
+preview refreshes and indexing inspection still require release verification.
+Local results do not prove deployment, indexing or search placement.
+
+### Focused verification
+
+From `frontend/`:
+
+```bash
+npx vitest run src/metadata.test.ts src/router.test.ts src/i18n.test.ts src/utils/locale.test.ts src/components/Footer.test.ts src/components/Header.test.ts src/views/EventsView.test.ts src/composables/contactTimesCancellation.test.ts
+npx vitest run src/landing.test.ts src/bootstrap.test.ts src/discovery.test.ts plugins/landingPages.test.ts
+npm run build
+npm run lint:a11y
+```
+
+With the built frontend served by `npm run preview`, the production-artifact
+configuration can verify navigation and responsive layout without an API:
+
+```bash
+npx playwright test tests/e2e/regional-landing-pages.spec.ts tests/e2e/crawlable-landing-pages.spec.ts tests/e2e/discovery-assets.spec.ts --config=playwright.prod.config.ts --project=chromium
+```
+
+From the repository root, verify API locale loading and negotiation:
+
+```bash
+python -m pytest tests/test_api_i18n.py tests/test_main_integration.py::TestLocaleResolution tests/test_api_routes.py::TestAcceptLanguage -o addopts=''
+```
+
+When using Node versions exposing experimental global Web Storage, run Vitest
+with `NODE_OPTIONS=--no-experimental-webstorage` so happy-dom provides browser
+storage. The browser checks cover both spellings, legacy URLs, reciprocal
+alternates, direct entry, back/forward navigation and 320/390/1024/1280px layouts.
+
 ## CORS Configuration
 
 The FastAPI backend needs CORS enabled for local development. This should already be configured in `api/main.py`:

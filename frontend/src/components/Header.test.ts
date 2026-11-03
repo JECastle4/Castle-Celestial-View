@@ -18,6 +18,23 @@ describe('Header', () => {
   });
 
   describe('mode switcher', () => {
+    it('exposes real localized navigation links', () => {
+      const wrapper = mount(Header, { props: { hasData: false, selectedBody: 'sun' } });
+      expect(wrapper.findAll('a.mode-btn').map(link => link.attributes('href')))
+        .toEqual(['/en-GB/', '/en-GB/events']);
+    });
+
+    it.each(['ctrlKey', 'metaKey', 'shiftKey', 'altKey'])('preserves browser navigation for %s clicks', async (modifier) => {
+      const wrapper = mount(Header, { props: { hasData: false, selectedBody: 'sun' } });
+      await wrapper.find('a.mode-btn').trigger('click', { [modifier]: true });
+      expect(wrapper.emitted('select-mode')).toBeUndefined();
+    });
+
+    it('preserves non-primary clicks', async () => {
+      const wrapper = mount(Header, { props: { hasData: false, selectedBody: 'sun' } });
+      await wrapper.find('a.mode-btn').trigger('click', { button: 1 });
+      expect(wrapper.emitted('select-mode')).toBeUndefined();
+    });
     it('renders the Solar System button as active by default', () => {
       const wrapper = mount(Header, { props: { hasData: false, selectedBody: 'sun' } });
       const activeBtn = wrapper.find('.mode-btn.active');
