@@ -22,6 +22,13 @@ test.describe('landing documents without JavaScript', () => {
         await expect(page.locator('head link[hreflang="en-US"]'))
           .toHaveAttribute('href', `https://castlecelestialview.net/en-US${route}`);
         await expect(page.locator('h1')).toHaveText('Castle Celestial View');
+        await expect(page.locator('meta[property="og:url"]'))
+          .toHaveAttribute('content', `https://castlecelestialview.net/${locale}${route}`);
+        await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', title);
+        await expect(page.locator('meta[property="og:locale"]')).toHaveAttribute('content', locale.replace('-', '_'));
+        await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute('content', 'summary_large_image');
+        await expect(page.locator('meta[property="og:image"]'))
+          .toHaveAttribute('content', `https://castlecelestialview.net/social/${route === '/events' ? 'events' : 'home'}-v1.png`);
         await expect(page.locator('noscript p')).toHaveText('Enable JavaScript to use the interactive viewer and event search.');
         await expect(page.locator('noscript p')).toBeVisible();
         await expect(page.locator('main')).toContainText(route === '/events'

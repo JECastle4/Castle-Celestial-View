@@ -7,14 +7,17 @@
 	"metadata": {
 		"home": {
 			"title": "Interactive Solar System & Sky Viewer | Castle Celestial View",
+			"imageAlt": "Castle Celestial View: solar system and sky viewer, with an illustration of planetary orbits.",
 			"description": "Visualize the solar system and planetary orbits, view the sky for your chosen location and time, and find new moons, full moons and eclipses."
 		},
 		"events": {
 			"title": "New Moons, Full Moons & Eclipses | Castle Celestial View",
+			"imageAlt": "Castle Celestial View: new moons, full moons and eclipses, with an illustration of moon phases and a solar eclipse.",
 			"description": "Find new moons, full moons, solar eclipses and lunar eclipses within a date range. Explore available eclipse details with Castle Celestial View."
 		},
 		"about": {
 			"title": "About | Castle Celestial View",
+			"imageAlt": "Castle Celestial View: solar system and sky viewer, with an illustration of planetary orbits.",
 			"description": "About Castle Celestial View, an interactive astronomy viewer and event finder. See the project license, version and open-source attributions."
 		}
 	},

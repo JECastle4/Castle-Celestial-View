@@ -7,6 +7,7 @@ export type Page = 'home' | 'events' | 'about'
 export const PAGES: readonly Page[] = ['home', 'events', 'about']
 
 export const SITE_ORIGIN = 'https://castlecelestialview.net'
+export const SEARCH_PAGES: readonly Page[] = ['home', 'events']
 
 const messages = { 'en-GB': enGB, 'en-US': enUS }
 const paths: Record<Page, string> = { home: '/', events: '/events', about: '/about' }
@@ -41,10 +42,32 @@ export function getLandingContent(page: Page, locale: ProductionLocale) {
 export function getPageMetadata(page: Page, locale: ProductionLocale) {
   const copy = messages[locale].metadata[page]
   const urlFor = (language: ProductionLocale) => `${SITE_ORIGIN}${getPagePath(page, language)}`
+  const image = `${SITE_ORIGIN}/social/${page === 'events' ? 'events' : 'home'}-v1.png`
   return {
     ...copy,
     language: locale,
     canonical: urlFor(locale),
+    socialTags: [
+      { attribute: 'property', key: 'og:title', content: copy.title },
+      { attribute: 'property', key: 'og:description', content: copy.description },
+      { attribute: 'property', key: 'og:url', content: urlFor(locale) },
+      { attribute: 'property', key: 'og:type', content: 'website' },
+      { attribute: 'property', key: 'og:site_name', content: messages[locale].app.title },
+      { attribute: 'property', key: 'og:locale', content: locale.replace('-', '_') },
+      ...PRODUCTION_LOCALES.filter(language => language !== locale).map(language => ({
+        attribute: 'property', key: 'og:locale:alternate', content: language.replace('-', '_'),
+      })),
+      { attribute: 'property', key: 'og:image', content: image },
+      { attribute: 'property', key: 'og:image:type', content: 'image/png' },
+      { attribute: 'property', key: 'og:image:width', content: '1200' },
+      { attribute: 'property', key: 'og:image:height', content: '630' },
+      { attribute: 'property', key: 'og:image:alt', content: copy.imageAlt },
+      { attribute: 'name', key: 'twitter:card', content: 'summary_large_image' },
+      { attribute: 'name', key: 'twitter:title', content: copy.title },
+      { attribute: 'name', key: 'twitter:description', content: copy.description },
+      { attribute: 'name', key: 'twitter:image', content: image },
+      { attribute: 'name', key: 'twitter:image:alt', content: copy.imageAlt },
+    ],
     alternates: [
       ...PRODUCTION_LOCALES.map(language => ({ language, href: urlFor(language) })),
       { language: 'x-default', href: urlFor('en-GB') },
@@ -68,6 +91,8 @@ export function updatePageMetadata(page: Page, locale: string) {
 
   document.head.querySelectorAll('link[rel="canonical"], link[rel="alternate"][hreflang]')
     .forEach(element => element.remove())
+  document.head.querySelectorAll('meta[property^="og:"], meta[name^="twitter:"]')
+    .forEach(element => element.remove())
 
   // The development pseudo-locale must not advertise production URLs.
   if (!productionLocale) return
@@ -76,6 +101,13 @@ export function updatePageMetadata(page: Page, locale: string) {
   canonical.rel = 'canonical'
   canonical.href = metadata.canonical
   document.head.append(canonical)
+
+  for (const tag of metadata.socialTags) {
+    const element = document.createElement('meta')
+    element.setAttribute(tag.attribute, tag.key)
+    element.content = tag.content
+    document.head.append(element)
+  }
 
   for (const alternate of metadata.alternates) {
     const link = document.createElement('link')

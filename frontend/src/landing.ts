@@ -13,6 +13,8 @@ export function renderLandingPage(template: string, page: Page, locale: Producti
     `<title>${escapeHtml(metadata.title)}</title>`,
     `<meta name="description" content="${escapeHtml(metadata.description)}">`,
     `<link rel="canonical" href="${escapeHtml(metadata.canonical)}">`,
+    ...metadata.socialTags.map(tag =>
+      `<meta ${tag.attribute}="${tag.key}" content="${escapeHtml(tag.content)}">`),
     ...metadata.alternates.map(alternate =>
       `<link rel="alternate" hreflang="${alternate.language}" href="${escapeHtml(alternate.href)}">`),
   ].join('\n    ')

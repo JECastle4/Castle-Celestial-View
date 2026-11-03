@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { build, preview } from 'vite'
@@ -13,6 +13,9 @@ describe('landing build integration', () => {
     const root = await mkdtemp(join(tmpdir(), 'castle-landing-'))
     try {
       await writeFile(join(root, 'index.html'), template)
+      await mkdir(join(root, 'public/social'), { recursive: true })
+      await writeFile(join(root, 'public/social/home-v1.png'),
+        await readFile(join(process.cwd(), 'public/social/home-v1.png')))
       const output = await build({
         configFile: false, root, plugins: [landingPages()], logLevel: 'silent',
         build: { write: true },
@@ -20,7 +23,7 @@ describe('landing build integration', () => {
       if (Array.isArray(output) || !('output' in output)) throw new Error('Expected one build output')
       expect(output.output.map(asset => asset.fileName).sort()).toEqual([
         'en-GB/about.html', 'en-GB/events.html', 'en-GB/index.html',
-        'en-US/about.html', 'en-US/events.html', 'en-US/index.html', 'index.html',
+        'en-US/about.html', 'en-US/events.html', 'en-US/index.html', 'index.html', 'robots.txt', 'sitemap.xml',
       ])
       const server = await preview({
         configFile: false, root, plugins: [landingPages()], logLevel: 'silent',
@@ -41,6 +44,27 @@ describe('landing build integration', () => {
         }
         const rootResponse = await fetch(`http://127.0.0.1:${port}/`)
         expect(await rootResponse.text()).toContain('href="https://castlecelestialview.net/en-GB/"')
+        for (const [file, type, content] of [
+          ['robots.txt', 'text/plain', 'Sitemap: https://castlecelestialview.net/sitemap.xml'],
+          ['sitemap.xml', 'xml', '<loc>https://castlecelestialview.net/en-US/events</loc>'],
+        ]) {
+          const response = await fetch(`http://127.0.0.1:${port}/${file}`)
+          expect(response.status).toBe(200)
+          expect(response.headers.get('content-type')).toContain(type)
+          expect(await response.text()).toContain(content)
+        }
+        const image = await fetch(`http://127.0.0.1:${port}/social/home-v1.png`)
+        expect(image.headers.get('content-type')).toContain('image/png')
+        const bytes = Buffer.from(await image.arrayBuffer())
+        expect(bytes.subarray(1, 4).toString()).toBe('PNG')
+        expect([bytes.readUInt32BE(16), bytes.readUInt32BE(20)]).toEqual([1200, 630])
+        await rm(join(root, 'dist/robots.txt'))
+        await rm(join(root, 'dist/sitemap.xml'))
+        for (const path of ['/robots.txt', '/sitemap.xml', '/social/missing.png', '/social/subdir/missing.png']) {
+          const missing = await fetch(`http://127.0.0.1:${port}${path}`)
+          expect(missing.status).toBe(404)
+          expect(await missing.text()).not.toContain('static-landing')
+        }
       } finally {
         await new Promise<void>((resolve, reject) => {
           server.httpServer.close(error => error ? reject(error) : resolve())

@@ -90,10 +90,24 @@ the document explains that interactive viewing and event searches need it.
 During startup, the document stays readable until the initial route is ready;
 a failed route load retains the document and shows an explicit error.
 
-**Delivery boundary:** regional metadata, initial HTML and navigation are
-implemented. Social cards, robots and the four-URL Home/Events sitemap remain
-subsequent work, together with final production URL normalisation and live
-crawl validation. This is not yet complete search-engine or sharing support.
+Open Graph and X/Twitter large-image tags use the same definitions in initial
+HTML and after navigation. Home and Events have original 1200 x 630 PNG artwork,
+image alternative text and absolute HTTPS URLs; About keeps its own title,
+description and URL while reusing Home artwork. Production builds generate
+`robots.txt` and a sitemap containing exactly Home/Events in both regions, with
+reciprocal language alternatives and no invented modification dates.
+
+The production nginx configuration permanently redirects HTTPS `www` to the
+preferred bare hostname, `/` to `/en-GB/`, locale casing/legacy identifiers to
+canonical tags, Home to its trailing slash and Events/About away from trailing
+slashes and `.html` aliases. Queries survive redirects but are not advertised in
+canonical/social/sitemap URLs. See the deployment guide for serving and release
+verification; Vite preview is not a replacement for production redirect checks.
+
+**Delivery boundary:** regional HTML, metadata, sharing/discovery assets and
+production routing are implemented. Live HTTPS, deployed responses, platform
+preview refreshes and indexing inspection still require release verification.
+Local results do not prove deployment, indexing or search placement.
 
 ### Focused verification
 
@@ -101,7 +115,7 @@ From `frontend/`:
 
 ```bash
 npx vitest run src/metadata.test.ts src/router.test.ts src/i18n.test.ts src/utils/locale.test.ts src/components/Footer.test.ts src/components/Header.test.ts src/views/EventsView.test.ts src/composables/contactTimesCancellation.test.ts
-npx vitest run src/landing.test.ts src/bootstrap.test.ts plugins/landingPages.test.ts
+npx vitest run src/landing.test.ts src/bootstrap.test.ts src/discovery.test.ts plugins/landingPages.test.ts
 npm run build
 npm run lint:a11y
 ```
@@ -110,7 +124,7 @@ With the built frontend served by `npm run preview`, the production-artifact
 configuration can verify navigation and responsive layout without an API:
 
 ```bash
-npx playwright test tests/e2e/regional-landing-pages.spec.ts tests/e2e/crawlable-landing-pages.spec.ts --config=playwright.prod.config.ts --project=chromium
+npx playwright test tests/e2e/regional-landing-pages.spec.ts tests/e2e/crawlable-landing-pages.spec.ts tests/e2e/discovery-assets.spec.ts --config=playwright.prod.config.ts --project=chromium
 ```
 
 From the repository root, verify API locale loading and negotiation:

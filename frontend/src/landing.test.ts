@@ -24,6 +24,11 @@ describe('build-time landing documents', () => {
       expect(document.querySelector('meta[name="description"]')?.getAttribute('content')).toBe(metadata.description)
       expect(document.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe(metadata.canonical)
       expect(document.querySelectorAll('link[hreflang]')).toHaveLength(3)
+      for (const tag of metadata.socialTags) {
+        const matches = document.querySelectorAll(`meta[${tag.attribute}="${tag.key}"]`)
+        expect(matches).toHaveLength(1)
+        expect(matches[0].getAttribute('content')).toBe(tag.content)
+      }
       expect(document.querySelectorAll('h1')).toHaveLength(1)
       expect(document.querySelector('h1')?.textContent).toBe('Castle Celestial View')
       expect(document.querySelector('main')?.textContent).toContain(content.introduction)

@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <radialGradient id="space"><stop stop-color="#192b4d"/><stop offset="1" stop-color="#060914"/></radialGradient>
+    <radialGradient id="corona"><stop offset=".62" stop-color="#060914"/><stop offset=".65" stop-color="#fff3b3"/><stop offset=".69" stop-color="#eaa947"/><stop offset=".82" stop-color="#b35c28" stop-opacity=".25"/><stop offset="1" stop-color="#b35c28" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#space)"/>
+  <g fill="#e0eaff" opacity=".65">
+    <circle cx="92" cy="72" r="2"/><circle cx="320" cy="117" r="2"/><circle cx="1040" cy="84" r="2"/>
+    <circle cx="1120" cy="470" r="2"/><circle cx="650" cy="83" r="2"/><circle cx="720" cy="540" r="2"/>
+    <circle cx="430" cy="557" r="2"/><circle cx="100" cy="460" r="2"/>
+  </g>
+  <circle cx="970" cy="280" r="180" fill="url(#corona)"/>
+  <circle cx="970" cy="280" r="111" fill="#060914"/>
+  <g transform="translate(840 482)">
+    <circle r="23" fill="#111a2b" stroke="#8595b0"/>
+    <circle cx="65" r="23" fill="#d6deeb"/><path d="M65-23a23 23 0 0 0 0 46Z" fill="#111a2b"/>
+    <circle cx="130" r="23" fill="#d6deeb"/>
+    <circle cx="195" r="23" fill="#d6deeb"/><path d="M195-23a23 23 0 0 1 0 46Z" fill="#111a2b"/>
+  </g>
+  <g font-family="DejaVu Sans, sans-serif">
+    <text x="88" y="238" font-size="24" fill="#9dcaff">CASTLE CELESTIAL VIEW</text>
+    <text x="88" y="310" font-size="48" font-weight="bold" fill="#fff">Moon phases &amp; eclipses</text>
+    <text x="88" y="362" font-size="27" fill="#d9e3f0">Find new moons, full moons</text>
+    <text x="88" y="402" font-size="27" fill="#d9e3f0">and solar or lunar eclipses by date</text>
+    <text x="88" y="568" font-size="22" fill="#9dcaff">castlecelestialview.net</text>
+  </g>
+</svg>

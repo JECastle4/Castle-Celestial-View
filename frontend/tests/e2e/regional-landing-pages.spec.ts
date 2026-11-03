@@ -25,6 +25,9 @@ test('regional metadata follows mounting, locale selection, navigation and histo
   await expect(page.locator('html')).toHaveAttribute('lang', 'en-US');
   await expect(page.locator('link[rel="canonical"]'))
     .toHaveAttribute('href', 'https://castlecelestialview.net/en-US/');
+  await expect(page.locator('meta[property="og:locale"]')).toHaveAttribute('content', 'en_US');
+  await expect(page.locator('meta[property="og:url"]'))
+    .toHaveAttribute('content', 'https://castlecelestialview.net/en-US/');
 
   await page.getByRole('link', { name: 'Eclipses', exact: true }).click();
   await expect(page).toHaveURL(/\/en-US\/events$/);
@@ -32,14 +35,22 @@ test('regional metadata follows mounting, locale selection, navigation and histo
   await expect(page.locator('link[hreflang="en-GB"]'))
     .toHaveAttribute('href', 'https://castlecelestialview.net/en-GB/events');
   await expect(page.locator('.search-btn')).toBeEnabled();
+  await expect(page.locator('meta[property="og:url"]'))
+    .toHaveAttribute('content', 'https://castlecelestialview.net/en-US/events');
+  await expect(page.locator('meta[name="twitter:image"]'))
+    .toHaveAttribute('content', 'https://castlecelestialview.net/social/events-v1.png');
 
   await page.goBack();
   await expect(page).toHaveTitle('Interactive Solar System & Sky Viewer | Castle Celestial View');
+  await expect(page.locator('meta[name="twitter:image"]'))
+    .toHaveAttribute('content', 'https://castlecelestialview.net/social/home-v1.png');
   await page.goBack();
   await expect(page).toHaveURL(/\/en-GB\/$/);
   await expect(page.locator('html')).toHaveAttribute('lang', 'en-GB');
+  await expect(page.locator('meta[property="og:locale"]')).toHaveAttribute('content', 'en_GB');
   await page.goForward();
   await expect(page.locator('html')).toHaveAttribute('lang', 'en-US');
+  await expect(page.locator('meta[property="og:locale"]')).toHaveAttribute('content', 'en_US');
   await page.locator('.footer-about-link').click();
   await expect(page).toHaveTitle('About | Castle Celestial View');
   await expect(page.locator('link[rel="canonical"]'))
@@ -47,6 +58,21 @@ test('regional metadata follows mounting, locale selection, navigation and histo
   await expect(page.locator('link[rel="canonical"]')).toHaveCount(1);
   await expect(page.locator('meta[name="description"]')).toHaveCount(1);
   await expect(page.locator('link[hreflang]')).toHaveCount(3);
+  for (const [path, title, image] of [
+    ['/en-GB/', 'Interactive Solar System & Sky Viewer | Castle Celestial View', 'home'],
+    ['/en-US/events', 'New Moons, Full Moons & Eclipses | Castle Celestial View', 'events'],
+    ['/en-US/about', 'About | Castle Celestial View', 'home'],
+  ]) {
+    await page.goto(path);
+    await expect(page.locator('.static-landing')).toHaveCount(0);
+    await expect(page.locator('meta[property="og:url"]')).toHaveCount(1);
+    await expect(page.locator('meta[property="og:url"]'))
+      .toHaveAttribute('content', `https://castlecelestialview.net${path}`);
+    await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', title);
+    await expect(page.locator('meta[name="twitter:title"]')).toHaveAttribute('content', title);
+    await expect(page.locator('meta[property="og:image"]'))
+      .toHaveAttribute('content', `https://castlecelestialview.net/social/${image}-v1.png`);
+  }
 });
 
 for (const viewport of [
