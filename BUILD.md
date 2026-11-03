@@ -34,8 +34,9 @@ dist/
 ### Included in Distribution
 
 - `api/` package and `api/services/` subpackage
-- `api/locales/en-US.json` (production locale only)
-- `api/locales/en-UK.json` (production locale only)
+- `api/locales/en.json` (default English)
+- `api/locales/en-us.json` (American English)
+- `api/locales/en-gb.json` (British English)
 
 ### Excluded from Distribution
 
@@ -73,7 +74,7 @@ frontend/dist/
 - TypeScript type-checking runs before bundling (`vue-tsc`)
 - JavaScript is minified and split into optimized chunks during the Vite production build
 - `import.meta.env.DEV` is replaced with `false` at build time, which tree-shakes:
-  - `xx-reverse` locale from `src/locales/xx-reverse.json`
+  - `xx-reverse` locale from `dev-locales/xx-reverse.json`
   - The `xx-reverse` route from the router
 - All `console.log` calls in dev-only branches are eliminated
 

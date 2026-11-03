@@ -8,7 +8,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('BaseMap - Pin Tool', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/en-UK');
+    await page.goto('/en-GB');
     // The map is rendered before data is loaded; wait for it to appear.
     await expect(page.getByRole('application', { name: 'Interactive map' })).toBeVisible({ timeout: 8000 });
   });

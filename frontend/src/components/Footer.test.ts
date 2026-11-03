@@ -31,7 +31,7 @@ describe('Footer', () => {
     mockRouter = {
       currentRoute: {
         value: {
-          fullPath: '/en-UK/',
+          fullPath: '/en-GB/',
         },
       },
       push: vi.fn(),
@@ -39,7 +39,7 @@ describe('Footer', () => {
     vi.mocked(useRouter).mockReturnValue(mockRouter);
 
     mockI18n = {
-      locale: ref('en-UK'),
+      locale: ref('en-GB'),
       t: vi.fn((key) => {
         if (key === 'app.copyright') return '© 2024 Astronomy Animation';
         if (key === 'app.about') return 'About';
@@ -56,7 +56,7 @@ describe('Footer', () => {
       expect(langBtn.exists()).toBe(true);
     });
 
-    it('displays the correct flag for en-UK locale', async () => {
+    it('displays the correct flag for en-GB locale', async () => {
       const wrapper = mount(Footer);
       const flagSpan = wrapper.find('.footer-lang-btn span.fi');
       expect(flagSpan.classes()).toContain('fi-gb');
@@ -78,7 +78,7 @@ describe('Footer', () => {
       expect(langBtn.attributes('aria-label')).toContain('English (US)');
     });
 
-    it('has the correct aria-label for en-UK', () => {
+    it('has the correct aria-label for en-GB', () => {
       const wrapper = mount(Footer);
       const langBtn = wrapper.find('.footer-lang-btn');
       expect(langBtn.attributes('aria-label')).toContain('English (UK)');
@@ -98,7 +98,7 @@ describe('Footer', () => {
       const langBtn = wrapper.find('.footer-lang-btn');
       const ariaLabel = langBtn.attributes('aria-label') || '';
       
-      // In test, locale is 'en-UK' so it should have the en-UK label
+      // In test, locale is 'en-GB' so it should have the en-GB label
       // But we test that it renders the correct conditional label
       expect(ariaLabel.length > 0).toBe(true);
     });
@@ -204,7 +204,7 @@ describe('Footer', () => {
     });
 
     it('has navigation capability when switching to a different locale', () => {
-      mockRouter.currentRoute.value.fullPath = '/en-UK/';
+      mockRouter.currentRoute.value.fullPath = '/en-GB/';
       
       const wrapper = mount(Footer);
       const langBtn = wrapper.find('.footer-lang-btn');
@@ -215,7 +215,7 @@ describe('Footer', () => {
     });
 
     it('preserves locale in URL paths', () => {
-      mockRouter.currentRoute.value.fullPath = '/en-UK/events';
+      mockRouter.currentRoute.value.fullPath = '/en-GB/events';
       
       // The component should preserve the path structure
       const wrapper = mount(Footer);
@@ -223,32 +223,32 @@ describe('Footer', () => {
       const href = aboutLink.attributes('href');
       
       // Should navigate to about while maintaining the locale
-      expect(href).toContain('en-UK');
+      expect(href).toContain('en-GB');
     });
 
     it('builds correct path with multiple segments', () => {
-      mockRouter.currentRoute.value.fullPath = '/en-UK/some/nested/path';
+      mockRouter.currentRoute.value.fullPath = '/en-GB/some/nested/path';
       
       const wrapper = mount(Footer);
       const aboutLink = wrapper.find('.footer-about-link');
       const href = aboutLink.attributes('href');
       
-      expect(href).toContain('en-UK');
-      expect(href).toBe('/en-UK/about');
+      expect(href).toContain('en-GB');
+      expect(href).toBe('/en-GB/about');
     });
 
     it('handles root path correctly', () => {
-      mockRouter.currentRoute.value.fullPath = '/en-UK/';
+      mockRouter.currentRoute.value.fullPath = '/en-GB/';
       
       const wrapper = mount(Footer);
       const aboutLink = wrapper.find('.footer-about-link');
       const href = aboutLink.attributes('href');
       
-      expect(href).toBe('/en-UK/about');
+      expect(href).toBe('/en-GB/about');
     });
 
     it('calls router.push when switching to different locale', () => {
-      mockRouter.currentRoute.value.fullPath = '/en-UK/events';
+      mockRouter.currentRoute.value.fullPath = '/en-GB/events';
       mockRouter.push.mockClear();
       
       const wrapper = mount(Footer);
@@ -263,7 +263,7 @@ describe('Footer', () => {
     });
 
     it('replaces locale in path when switching', () => {
-      mockRouter.currentRoute.value.fullPath = '/en-UK/events';
+      mockRouter.currentRoute.value.fullPath = '/en-GB/events';
       mockRouter.push.mockClear();
       
       const wrapper = mount(Footer);
@@ -276,7 +276,7 @@ describe('Footer', () => {
     });
 
     it('closes dropdown after switching locale', async () => {
-      mockRouter.currentRoute.value.fullPath = '/en-UK/';
+      mockRouter.currentRoute.value.fullPath = '/en-GB/';
       const wrapper = mount(Footer);
       const langBtn = wrapper.find('.footer-lang-btn');
       await langBtn.trigger('click');
@@ -304,7 +304,7 @@ describe('Footer', () => {
     });
 
     it('preserves query parameters and hash when switching locales', () => {
-      mockRouter.currentRoute.value.fullPath = '/en-UK/events?date=2024&time=noon#section';
+      mockRouter.currentRoute.value.fullPath = '/en-GB/events?date=2024&time=noon#section';
       mockRouter.push.mockClear();
       
       const wrapper = mount(Footer);
@@ -318,7 +318,7 @@ describe('Footer', () => {
     });
 
     it('handles deeply nested paths', () => {
-      mockRouter.currentRoute.value.fullPath = '/en-UK/very/deep/nested/path';
+      mockRouter.currentRoute.value.fullPath = '/en-GB/very/deep/nested/path';
       mockRouter.push.mockClear();
       
       const wrapper = mount(Footer);
@@ -332,7 +332,7 @@ describe('Footer', () => {
 
     it('handles path replacement edge cases', () => {
       // Test case where path might not start with locale after replacement
-      mockRouter.currentRoute.value.fullPath = '/en-UK/path';
+      mockRouter.currentRoute.value.fullPath = '/en-GB/path';
       mockRouter.push.mockClear();
       
       const wrapper = mount(Footer);
@@ -345,7 +345,7 @@ describe('Footer', () => {
     });
 
     it('correctly closes menu and navigates together', async () => {
-      mockRouter.currentRoute.value.fullPath = '/en-UK/events';
+      mockRouter.currentRoute.value.fullPath = '/en-GB/events';
       mockRouter.push.mockClear();
       
       const wrapper = mount(Footer);
@@ -397,10 +397,10 @@ describe('Footer', () => {
       expect(aboutLink.exists()).toBe(true);
     });
 
-    it('has the correct href for en-UK locale', () => {
+    it('has the correct href for en-GB locale', () => {
       const wrapper = mount(Footer);
       const aboutLink = wrapper.find('.footer-about-link');
-      expect(aboutLink.attributes('href')).toBe('/en-UK/about');
+      expect(aboutLink.attributes('href')).toBe('/en-GB/about');
     });
 
     it('renders the about icon', () => {
@@ -534,7 +534,7 @@ describe('Footer', () => {
       await langBtn.trigger('click');
       
       const options = wrapper.findAll('.footer-lang-option');
-      // In dev mode, there should be at least 2 locales (en-UK, en-US)
+      // In dev mode, there should be at least 2 locales (en-GB, en-US)
       // and potentially more if dev locales are included
       expect(options.length).toBeGreaterThanOrEqual(2);
     });
@@ -588,7 +588,7 @@ describe('Footer', () => {
       const langBtn = wrapper.find('.footer-lang-btn');
       const ariaLabel = langBtn.attributes('aria-label') || '';
       
-      // Should contain either en-UK or en-US based on current locale
+      // Should contain either en-GB or en-US based on current locale
       expect(ariaLabel).toMatch(/(English \(UK\)|English \(US\))/);
     });
 
@@ -602,7 +602,7 @@ describe('Footer', () => {
     });
 
     it('footer about link points to correct locale path', () => {
-      mockRouter.currentRoute.value.fullPath = '/en-UK/';
+      mockRouter.currentRoute.value.fullPath = '/en-GB/';
       
       const wrapper = mount(Footer);
       const aboutLink = wrapper.find('.footer-about-link');

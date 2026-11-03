@@ -82,6 +82,16 @@ class TestLocaleResolution:
         result = _resolve_accept_language("")
         assert result == "en"
 
+    @pytest.mark.parametrize("header, expected", [
+        ("en-GB,en;q=0.9", "en-gb"),
+        ("en-UK,en;q=0.9", "en-gb"),
+        ("fr;q=0.5,en-GB;q=0.9", "en-gb"),
+        ("en-GB;q=0,en-US;q=0.9", "en-us"),
+        ("en-US,en-GB;q=0.9", "en-us"),
+    ])
+    def test_regional_language_negotiation(self, header, expected):
+        assert _resolve_accept_language(header) == expected
+
     def test_en_locale_supported(self):
         """'en' locale should be supported."""
         result = _resolve_accept_language("en")

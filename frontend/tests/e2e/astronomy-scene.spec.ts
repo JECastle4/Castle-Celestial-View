@@ -90,7 +90,7 @@ async function stabilizePage(page: Page, timeoutMs: number = 8000, throwOnFailur
  * Used by all tests in the carousel flow suite
  */
 async function loadAstronomyData(page: Page) {
-  await page.goto('/en-UK');
+  await page.goto('/en-GB');
   
   // Verify the input form is visible
   await expect(page.locator('.input-form')).toBeVisible();
@@ -898,7 +898,7 @@ testWithPersistentPage.describe('Astronomy Scene - Carousel & Animation Flow (Se
 test.describe('Astronomy Scene - Initial Load', () => {
   test('should load the page and have Load Data button enabled', { timeout: 240000 }, async ({ page }) => {
     // Navigate to the home page
-    await page.goto('/en-UK');
+    await page.goto('/en-GB');
 
     // Verify the main heading is present
     await expect(page.getByRole('heading', { name: 'Castle Celestial View' })).toBeVisible();
@@ -1111,7 +1111,7 @@ test.describe('Astronomy Scene - Sky View Animation Controls', () => {
       }, 1.0);
     }
     
-    // Assert Recentre button is en-UK
+    // Assert Recentre button is en-GB
     //const allButtons = await page.locator('.animation-controls button').allTextContents();
     //console.log('Animation control buttons:', allButtons);
     const recentreButton = page.getByRole('button', { name: 'Return the camera to the default location (centred on earth)' });
@@ -1123,10 +1123,10 @@ test.describe('Astronomy Scene - Sky View Animation Controls', () => {
     await enUSOption.click();
     const recenterButton = page.getByRole('button', { name: 'Return the camera to the default location (centered on earth)' });
     await expect(recenterButton).toBeVisible();
-    // Open language menu and select en-UK
+    // Open language menu and select en-GB
     await langBtn.click();
-    const enUKOption = page.locator('.footer-lang-option', { hasText: 'English (UK)' });
-    await enUKOption.click();
+    const enGBOption = page.locator('.footer-lang-option', { hasText: 'English (UK)' });
+    await enGBOption.click();
     
 
     // Play animation

@@ -1,11 +1,26 @@
 {
 	"lang": {
-		"enUK": "English (UK)",
+		"enGB": "English (UK)",
 		"enUS": "English (US)",
 		"reverseDev": "Reverse EN (dev)"
 	},
+	"metadata": {
+		"home": {
+			"title": "Interactive Solar System & Sky Viewer | Castle Celestial View",
+			"description": "Visualize the solar system and planetary orbits, view the sky for your chosen location and time, and find new moons, full moons and eclipses."
+		},
+		"events": {
+			"title": "New Moons, Full Moons & Eclipses | Castle Celestial View",
+			"description": "Find new moons, full moons, solar eclipses and lunar eclipses within a date range. Explore available eclipse details with Castle Celestial View."
+		},
+		"about": {
+			"title": "About | Castle Celestial View",
+			"description": "About Castle Celestial View, an interactive astronomy viewer and event finder. See the project license, version and open-source attributions."
+		}
+	},
 	"app": {
 		"title": "Castle Celestial View",
+		"introduction": "Visualize the solar system and planetary orbits, or explore the sky from a chosen location and time. Select a location on the map, choose a date range and load the data to begin. Use Eclipses in the header to find new moons, full moons and solar or lunar eclipses.",
 		"copyright": "© 2026 John Castle. Licensed under the MIT License.",
 		"about": "About",
 		"modes": {

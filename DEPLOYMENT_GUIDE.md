@@ -132,6 +132,22 @@ sudo systemctl reload nginx
 sudo systemctl status nginx
 ```
 
+### British English URL migration
+
+When deploying the British locale migration, update the nginx configuration as
+well as the frontend/API artifacts. The `location ~* ^/en-UK(/.*)?$` rule permanently
+redirects legacy British URLs to the same `/en-GB` path and preserves query
+parameters. Browsers retain fragments across this redirect. Vue Router provides
+a client-side compatibility redirect, but that is not a substitute for the HTTP
+301 used by crawlers. Validate a representative old link after reloading:
+
+```bash
+curl -I 'https://castlecelestialview.net/en-UK/events?date=2026-11-03'
+# Expect 301 with Location: https://castlecelestialview.net/en-GB/events?date=2026-11-03
+```
+
+Valid certificates are required for HTTPS redirects and public crawl validation.
+
 ### Security Headers Included
 
 The configuration implements production-grade security headers:

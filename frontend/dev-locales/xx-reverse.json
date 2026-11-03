@@ -1,11 +1,26 @@
 {
   "lang": {
-    "enUK": ")KU( hsilgnE",
+    "enGB": ")KU( hsilgnE",
     "enUS": ")SU( hsilgnE",
     "reverseDev": ")ved( NE esreveR"
   },
+  "metadata": {
+    "home": {
+      "title": "weiV laitseleC eltsaC | reweiV ykS & metsyS raloS evitcaretnI",
+      "description": ".sespilce dna snoom lluf ,snoom wen dnif dna ,emit dna noitacol nesohc ruoy rof yks eht weiv ,stibro yratenalp dna metsys ralos eht esilausiV"
+    },
+    "events": {
+      "title": "weiV laitseleC eltsaC | sespilcE & snooM lluF ,snooM weN",
+      "description": ".weiV laitseleC eltsaC htiw sliated espilce elbaliava erolpxE .egnar etad a nihtiw sespilce ranul dna sespilce ralos ,snoom lluf ,snoom wen dniF"
+    },
+    "about": {
+      "title": "weiV laitseleC eltsaC | tuobA",
+      "description": ".snoitubirtta ecruos-nepo dna noisrev ,ecnecil tcejorp eht eeS .rednif tneve dna reweiv ymonortsa evitcaretni na ,weiV laitseleC eltsaC tuobA"
+    }
+  },
   "app": {
     "title": "weiV laitseleC eltsaC",
+    "introduction": ".sespilce ranul ro ralos dna snoom lluf ,snoom wen dnif ot redaeh eht ni sespilcE esU .nigeb ot atad eht daol dna egnar etad a esoohc ,pam eht no noitacol a tceleS .emit dna noitacol nesohc a morf yks eht erolpxe ro ,stibro yratenalp dna metsys ralos eht esilausiV",
     "copyright": ".esneciL TIM eht rednu desneciL .eltsaC nhoJ 6202 ©",
     "about": "tuobA",
     "modes": {

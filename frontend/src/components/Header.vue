@@ -131,4 +131,19 @@ function selectMode(mode: 'solarSystem' | 'eclipses') {
   align-items: center;
   justify-content: flex-end;
 }
+
+@media (max-width: 700px) {
+  .app-header {
+    flex-wrap: wrap;
+    height: auto;
+    padding-block: 0.5rem;
+    gap: 0.5rem;
+  }
+  .header-title {
+    flex-basis: 100%;
+  }
+  .header-right:empty {
+    display: none;
+  }
+}
 </style>

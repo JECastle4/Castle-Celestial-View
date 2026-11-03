@@ -1,14 +1,14 @@
 import type { Ref } from 'vue'
-import enUK from './locales/en-UK.json'
+import enGB from './locales/en-GB.json'
 import enUS from './locales/en-US.json'
 import { createI18n } from 'vue-i18n'
 
 // Initialize i18n with production locales
 export const i18n = createI18n({
   legacy: false,
-  locale: 'en-UK',        // router.beforeEach updates this from the URL
-  fallbackLocale: 'en-UK',
-  messages: { 'en-UK': enUK, 'en-US': enUS },
+  locale: 'en-GB',        // router.beforeEach updates this from the URL
+  fallbackLocale: 'en-GB',
+  messages: { 'en-GB': enGB, 'en-US': enUS },
 })
 
 // Dev-only: register xx-reverse debug locale
@@ -31,5 +31,5 @@ export function getCurrentLocale(): string {
 }
 
 export function setCurrentLocale(locale: string): void {
-  ;(i18n.global.locale as unknown as Ref<string>).value = locale
+  ;(i18n.global.locale as unknown as Ref<string>).value = locale === 'en-UK' ? 'en-GB' : locale
 }

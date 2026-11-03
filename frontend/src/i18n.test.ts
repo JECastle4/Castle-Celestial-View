@@ -10,9 +10,9 @@ describe('i18n module', () => {
     localStorage.clear();
   });
 
-  it('creates an i18n instance with en as default locale', async () => {
+  it('defaults to British English using en-GB', async () => {
     const { getCurrentLocale } = await import('@/i18n');
-    expect(getCurrentLocale()).toBe('en-UK');
+    expect(getCurrentLocale()).toBe('en-GB');
   });
 
   it
@@ -41,6 +41,15 @@ describe('i18n module', () => {
     const { getCurrentLocale, setCurrentLocale } = await import('@/i18n');
     setCurrentLocale('xx-reverse');
     expect(getCurrentLocale()).toBe('xx-reverse');
+  });
+
+  it('resolves the old British identifier to en-GB without losing regional spelling', async () => {
+    const { getCurrentLocale, setCurrentLocale, i18n } = await import('@/i18n');
+    setCurrentLocale('en-UK');
+    expect(getCurrentLocale()).toBe('en-GB');
+    expect(i18n.global.t('buttons.recentre')).toBe('Recentre');
+    setCurrentLocale('en-US');
+    expect(i18n.global.t('buttons.recentre')).toBe('Recenter');
   });
 
   it('translates a key correctly in en', async () => {

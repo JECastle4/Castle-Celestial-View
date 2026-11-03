@@ -1,6 +1,7 @@
 """
 Integration tests for api/routes.py
 """
+import pytest
 from fastapi.testclient import TestClient
 from api.main import app
 
@@ -978,6 +979,28 @@ class TestAcceptLanguage:
 
     # --- day_name is a localised string returned by dates service ---
 
+    @pytest.mark.parametrize("tag", ["en-GB", "en-UK"])
+    @pytest.mark.parametrize("via_query", [False, True])
+    def test_british_locale_is_not_reduced_to_generic_english(self, tag, via_query):
+        from unittest.mock import patch
+        from api.i18n import get_i18n
+        from api.routes.bodies import calculate_day_of_week
+
+        def localized_result(*args):
+            result = calculate_day_of_week(*args)
+            result["day_name"] = get_i18n().locale
+            return result
+
+        with patch("api.routes.bodies.calculate_day_of_week") as calculate:
+            calculate.side_effect = localized_result
+            response = client.post(
+                f"/api/v1/day-of-week?lang={tag}" if via_query else "/api/v1/day-of-week",
+                json={"date": "2026-02-01"},
+                headers={"Accept-Language": "en-US" if via_query else tag},
+            )
+        assert response.status_code == 200
+        assert response.json()["day_name"] == "en-gb"
+
     def test_no_header_returns_english(self):
         """Requests without Accept-Language default to English."""
         response = client.post("/api/v1/day-of-week", json={"date": "2026-02-01"})
@@ -1213,4 +1236,3 @@ class TestExceptionHandling:
         )
         assert response.status_code == 200
         assert response.json()["day_name"] == "Sunday"
-
