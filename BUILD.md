@@ -61,13 +61,33 @@ npm run build
 
 ```
 frontend/dist/
-  index.html
+  index.html             # Readable British Home fallback
+  en-GB/
+    index.html           # Home: /en-GB/
+    events.html          # Events: /en-GB/events
+    about.html           # About: /en-GB/about
+  en-US/
+    index.html
+    events.html
+    about.html
   assets/
     vendor-<hash>.js      # Vue and core dependencies
     three-<hash>.js       # Three.js (code-split)
     index-<hash>.js       # App entry point
     ...
 ```
+
+The Vite plugin in `frontend/plugins/landingPages.ts` generates these regional
+documents using the shared route metadata and translations. Each contains
+page-specific metadata, visible introductory content and real navigation links
+before JavaScript runs. Generation needs neither an API server nor WebGL.
+Keep the complete directory tree when packaging or deploying `dist/`.
+
+Vue waits for the initial route before replacing the static shell. If route
+loading fails, the shell remains readable and displays a startup error. The
+build preview serves the clean URLs; production must also resolve
+`/en-GB/events` to `en-GB/events.html` (and equivalent regional routes), rather
+than serving the root Home document for every request.
 
 ### Production Optimizations
 

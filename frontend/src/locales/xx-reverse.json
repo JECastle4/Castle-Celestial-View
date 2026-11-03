@@ -21,6 +21,8 @@
   "app": {
     "title": "weiV laitseleC eltsaC",
     "introduction": ".sespilce ranul ro ralos dna snoom lluf ,snoom wen dnif ot redaeh eht ni sespilcE esU .nigeb ot atad eht daol dna egnar etad a esoohc ,pam eht no noitacol a tceleS .emit dna noitacol nesohc a morf yks eht erolpxe ro ,stibro yratenalp dna metsys ralos eht esilausiV",
+    "interactiveNotice": ".hcraes tneve dna reweiv evitcaretni eht esu ot tpircSavaJ elbanE",
+    "startupError": ".niaga yrt ot egap eht daoleR .trats ton dluoc noitacilppa evitcaretni ehT",
     "copyright": ".esneciL TIM eht rednu desneciL .eltsaC nhoJ 6202 ©",
     "about": "tuobA",
     "modes": {
@@ -225,7 +227,7 @@
   },
   "events": {
     "title": "stnevE lacimonortsA",
-    "description": ".egnar etad a nihtiw sespilce dna ,snoom lluf ,snoom wen rof hcraeS",
+    "description": ".noitacol ruoy morf elbisiv ylirassecen ton si espilce na ;ediwdlrow secnerrucco ebircsed stnevE .sliated espilce elbaliava erolpxe neht ,sespilce ranul dna sespilce ralos ,snoom lluf ,snoom wen dnif ot egnar etad a esoohC",
     "search": "hcraeS",
     "searching": "...stneve rof gnihcraeS",
     "eventsReceived": ")raf os deviecer {count}(",

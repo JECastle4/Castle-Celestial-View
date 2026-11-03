@@ -26,7 +26,7 @@ test('regional metadata follows mounting, locale selection, navigation and histo
   await expect(page.locator('link[rel="canonical"]'))
     .toHaveAttribute('href', 'https://castlecelestialview.net/en-US/');
 
-  await page.getByRole('button', { name: 'Eclipses', exact: true }).click();
+  await page.getByRole('link', { name: 'Eclipses', exact: true }).click();
   await expect(page).toHaveURL(/\/en-US\/events$/);
   await expect(page).toHaveTitle('New Moons, Full Moons & Eclipses | Castle Celestial View');
   await expect(page.locator('link[hreflang="en-GB"]'))
@@ -73,7 +73,7 @@ for (const viewport of [
     expect(mapBox!.x + mapBox!.width).toBeLessThanOrEqual(viewport.width);
     const mapViewport = await page.locator('.ol-viewport').boundingBox();
     expect(mapViewport!.height).toBeLessThanOrEqual(mapBox!.height);
-    await expect(page.getByRole('button', { name: 'Eclipses', exact: true })).toBeInViewport();
+    await expect(page.getByRole('link', { name: 'Eclipses', exact: true })).toBeInViewport();
 
     const apply = page.getByRole('button', { name: 'Apply', exact: true });
     await apply.scrollIntoViewIfNeeded();

@@ -4,22 +4,24 @@
       <h1 class="app-title">{{ t('app.title') }}</h1>
     </div>
     <nav class="mode-switcher" :aria-label="t('app.modes.ariaLabel')">
-      <button
+      <a
         class="mode-btn"
+        :href="`/${locale}/`"
         :class="{ active: currentMode === 'solarSystem' }"
         :aria-current="currentMode === 'solarSystem' ? 'page' : undefined"
-        @click="selectMode('solarSystem')"
+        @click="selectMode($event, 'solarSystem')"
       >
         {{ t('app.modes.solarSystem') }}
-      </button>
-      <button
+      </a>
+      <a
         class="mode-btn"
+        :href="`/${locale}/events`"
         :class="{ active: currentMode === 'eclipses' }"
         :aria-current="currentMode === 'eclipses' ? 'page' : undefined"
-        @click="selectMode('eclipses')"
+        @click="selectMode($event, 'eclipses')"
       >
         {{ t('app.modes.eclipses') }}
-      </button>
+      </a>
       <button class="mode-btn" disabled :title="t('app.modes.comingSoon')">
         {{ t('app.modes.transits') }}
       </button>
@@ -38,7 +40,7 @@
 import { useI18n } from 'vue-i18n';
 import PlanetCarousel from './PlanetCarousel.vue';
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
 withDefaults(defineProps<{
   hasData: boolean;
@@ -53,7 +55,9 @@ const emit = defineEmits<{
   'select-mode': [mode: 'solarSystem' | 'eclipses'];
 }>();
 
-function selectMode(mode: 'solarSystem' | 'eclipses') {
+function selectMode(event: MouseEvent, mode: 'solarSystem' | 'eclipses') {
+  if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.defaultPrevented) return;
+  event.preventDefault();
   emit('select-mode', mode);
 }
 </script>
@@ -103,6 +107,7 @@ function selectMode(mode: 'solarSystem' | 'eclipses') {
   white-space: nowrap;
   width: auto;
   margin-bottom: 0;
+  text-decoration: none;
 }
 
 .mode-btn.active {

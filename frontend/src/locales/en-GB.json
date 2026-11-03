@@ -21,6 +21,8 @@
 	"app": {
 		"title": "Castle Celestial View",
 		"introduction": "Visualise the solar system and planetary orbits, or explore the sky from a chosen location and time. Select a location on the map, choose a date range and load the data to begin. Use Eclipses in the header to find new moons, full moons and solar or lunar eclipses.",
+		"interactiveNotice": "Enable JavaScript to use the interactive viewer and event search.",
+		"startupError": "The interactive application could not start. Reload the page to try again.",
 		"copyright": "© 2026 John Castle. Licensed under the MIT License.",
 		"about": "About",
 		"modes": {
@@ -227,7 +229,7 @@
 	},
 	"events": {
 		"title": "Astronomical Events",
-		"description": "Search for new moons, full moons, and eclipses within a date range.",
+		"description": "Choose a date range to find new moons, full moons, solar eclipses and lunar eclipses, then explore available eclipse details. Events describe occurrences worldwide; an eclipse is not necessarily visible from your location.",
 		"search": "Search",
 		"searching": "Searching for events...",
 		"eventsReceived": "({count} received so far)",

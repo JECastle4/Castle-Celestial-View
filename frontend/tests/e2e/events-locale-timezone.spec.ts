@@ -159,7 +159,7 @@ test.describe('Events browser regressions', () => {
       predicate: (request) => request.url().includes('/astronomical-events/contact-times'),
     });
     try {
-      await page.getByRole('button', { name: 'Solar System', exact: true }).click();
+      await page.getByRole('link', { name: 'Solar System', exact: true }).click();
       await expect(page).toHaveURL(/\/en-GB\/$/);
       const request = await aborted;
       expect(request.failure()?.errorText).toMatch(/abort|cancel/i);
@@ -255,7 +255,7 @@ test.describe('Events browser regressions', () => {
       const aborted = page.waitForEvent('requestfailed', {
         predicate: (active) => active.url().includes('/astronomical-events/contact-times'),
       });
-      await page.getByRole('button', { name: 'Solar System', exact: true }).click();
+      await page.getByRole('link', { name: 'Solar System', exact: true }).click();
       expect((await aborted).failure()?.errorText).toMatch(/abort|cancel/i);
       const released = await request.post(`${origin}/__test/release`);
       expect(released.ok()).toBe(true);

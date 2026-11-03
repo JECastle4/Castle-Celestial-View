@@ -83,10 +83,17 @@ Localized introductory copy appears above the homepage map before loading data.
 On narrow screens the explanation, map, date picker and query controls scroll
 together; the language selector remains in the footer.
 
-**Delivery boundary:** this first slice updates metadata on client navigation.
-Page-specific initial HTML, crawler-visible navigation, social cards, robots and
-the four-URL Home/Events sitemap are subsequent work. Do not treat this slice
-alone as complete search-engine or sharing-crawler support.
+Production builds also emit page-specific initial HTML for all six regional
+routes, with introductory content and real navigation/language links. Static
+and interactive pages share translation resources. With JavaScript disabled,
+the document explains that interactive viewing and event searches need it.
+During startup, the document stays readable until the initial route is ready;
+a failed route load retains the document and shows an explicit error.
+
+**Delivery boundary:** regional metadata, initial HTML and navigation are
+implemented. Social cards, robots and the four-URL Home/Events sitemap remain
+subsequent work, together with final production URL normalisation and live
+crawl validation. This is not yet complete search-engine or sharing support.
 
 ### Focused verification
 
@@ -94,6 +101,7 @@ From `frontend/`:
 
 ```bash
 npx vitest run src/metadata.test.ts src/router.test.ts src/i18n.test.ts src/utils/locale.test.ts src/components/Footer.test.ts src/components/Header.test.ts src/views/EventsView.test.ts src/composables/contactTimesCancellation.test.ts
+npx vitest run src/landing.test.ts src/bootstrap.test.ts plugins/landingPages.test.ts
 npm run build
 npm run lint:a11y
 ```
@@ -102,7 +110,7 @@ With the built frontend served by `npm run preview`, the production-artifact
 configuration can verify navigation and responsive layout without an API:
 
 ```bash
-npx playwright test tests/e2e/regional-landing-pages.spec.ts --config=playwright.prod.config.ts --project=chromium
+npx playwright test tests/e2e/regional-landing-pages.spec.ts tests/e2e/crawlable-landing-pages.spec.ts --config=playwright.prod.config.ts --project=chromium
 ```
 
 From the repository root, verify API locale loading and negotiation:

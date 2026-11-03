@@ -7,5 +7,11 @@ import ToastPlugin from 'vue-toast-notification'
 import Shell from './Shell.vue'
 import { i18n } from './i18n'
 import router from './router'
+import { mountWhenReady } from './bootstrap'
 
-createApp(Shell).use(ToastPlugin).use(i18n).use(router).mount('#app')
+const app = createApp(Shell).use(ToastPlugin).use(i18n).use(router)
+void mountWhenReady(router.isReady(), () => app.mount('#app'), (error) => {
+  console.error('Application startup failed:', error)
+  const notice = document.getElementById('startup-error')
+  if (notice) notice.hidden = false
+})

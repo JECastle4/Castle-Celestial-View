@@ -3,6 +3,7 @@
     <div class="about-card">
       <img src="/logo.png" alt="Castle Celestial View eclipse logo" class="about-logo" />
       <h1>{{ t('about.title') }}</h1>
+      <p>{{ t('metadata.about.description') }}</p>
       <p class="copyright">{{ t('about.copyright') }}</p>
       <p class="version">{{ t('about.version', { version: appVersion }) }}</p>
       <p class="license">{{ t('about.license') }}</p>

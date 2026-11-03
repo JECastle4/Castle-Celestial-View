@@ -148,6 +148,27 @@ curl -I 'https://castlecelestialview.net/en-UK/events?date=2026-11-03'
 
 Valid certificates are required for HTTPS redirects and public crawl validation.
 
+Deploy the entire frontend `dist/` tree, including `en-GB/` and `en-US/`, alongside
+the updated nginx configuration. Regional Home pages use `index.html`; Events
+and About use flat `events.html` and `about.html` files. The static location's
+`try_files $uri $uri.html $uri/ /index.html` resolves the clean public routes to
+their own documents without redirecting Events to a trailing-slash URL.
+Generated HTML revalidates on every request; fingerprinted assets remain
+long-lived. The same security headers apply to regional HTML and the root page.
+
+Verify direct HTTP responses, not just client-side navigation:
+
+```bash
+curl -sS -D - 'https://castlecelestialview.net/en-US/events?source=search'
+# Expect 200, text/html, lang="en-US", Events title/content and a self-canonical
+# without the query string. Repeat for both locales and Home/Events/About.
+```
+
+Do not configure all regional URLs to serve only the root `index.html`: that
+would lose the page-specific initial content required by crawlers and visitors
+without JavaScript. Social assets, robots/sitemap and remaining canonical URL
+redirects are separate delivery work.
+
 ### Security Headers Included
 
 The configuration implements production-grade security headers:

@@ -4,15 +4,43 @@ import enUS from './locales/en-US.json'
 export const PRODUCTION_LOCALES = ['en-GB', 'en-US'] as const
 export type ProductionLocale = typeof PRODUCTION_LOCALES[number]
 export type Page = 'home' | 'events' | 'about'
+export const PAGES: readonly Page[] = ['home', 'events', 'about']
 
 export const SITE_ORIGIN = 'https://castlecelestialview.net'
 
 const messages = { 'en-GB': enGB, 'en-US': enUS }
 const paths: Record<Page, string> = { home: '/', events: '/events', about: '/about' }
 
+export function getPagePath(page: Page, locale: ProductionLocale) {
+  return `/${locale}${paths[page]}`
+}
+
+export function getLandingContent(page: Page, locale: ProductionLocale) {
+  const copy = messages[locale]
+  return {
+    projectTitle: copy.app.title,
+    heading: page === 'events' ? copy.events.title : page === 'about' ? copy.about.title : copy.app.title,
+    introduction: page === 'events' ? copy.events.description
+      : page === 'about' ? copy.metadata.about.description : copy.app.introduction,
+    interactiveNotice: copy.app.interactiveNotice,
+    startupError: copy.app.startupError,
+    navigationLabel: copy.app.modes.ariaLabel,
+    navigation: [
+      { page: 'home', label: copy.app.modes.solarSystem, href: getPagePath('home', locale) },
+      { page: 'events', label: copy.app.modes.eclipses, href: getPagePath('events', locale) },
+      { page: 'about', label: copy.app.about, href: getPagePath('about', locale) },
+    ],
+    languages: PRODUCTION_LOCALES.map(language => ({
+      language,
+      label: language === 'en-GB' ? copy.lang.enGB : copy.lang.enUS,
+      href: getPagePath(page, language),
+    })),
+  }
+}
+
 export function getPageMetadata(page: Page, locale: ProductionLocale) {
   const copy = messages[locale].metadata[page]
-  const urlFor = (language: ProductionLocale) => `${SITE_ORIGIN}/${language}${paths[page]}`
+  const urlFor = (language: ProductionLocale) => `${SITE_ORIGIN}${getPagePath(page, language)}`
   return {
     ...copy,
     language: locale,
