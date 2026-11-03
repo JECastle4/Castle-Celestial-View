@@ -135,8 +135,8 @@ sudo systemctl status nginx
 ### British English URL migration
 
 When deploying the British locale migration, update the nginx configuration as
-well as the frontend/API artifacts. The `location ~* ^/en-UK(/.*)?$` rule permanently
-redirects legacy British URLs to the same `/en-GB` path and preserves query
+well as the frontend/API artifacts. The original-request-URI mappings permanently
+redirect legacy British URLs to the same `/en-GB` path and preserve query
 parameters. Browsers retain fragments across this redirect. Vue Router provides
 a client-side compatibility redirect, but that is not a substitute for the HTTP
 301 used by crawlers. Validate a representative old link after reloading:
@@ -179,6 +179,9 @@ and direct `.html` aliases. The `map` must be included at nginx's **http context
 an existing server block. It uses the original request URI to avoid redirect
 loops during internal index-file resolution. Queries are preserved; browsers
 retain fragments. Canonicals, `og:url` and sitemap URLs omit query/fragment state.
+The legacy suffix also comes from the original encoded request URI, never a
+decoded location capture, so encoded control characters cannot become response
+headers.
 
 Deploy generated `robots.txt`, `sitemap.xml` and both versioned PNG files under
 `social/`. Discovery files revalidate; versioned sharing images are cached for a
@@ -197,6 +200,10 @@ python -m pytest tests/test_landing_deployment.py -o addopts='' -q
 
 These start a temporary HTTP-only nginx using the repository's actual mapping,
 location and header rules. They do not change the system service or validate TLS.
+CI's `landing-production` job builds the frontend, installs nginx and sets
+`REQUIRE_LANDING_DEPLOYMENT_TESTS=true` so missing prerequisites fail rather than
+skip. It also exercises the production landing specs in Chromium, Firefox and
+WebKit; the dev-server suite excludes production-only static/discovery specs.
 
 After deploying and repairing the public certificate, verify:
 

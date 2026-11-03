@@ -2,6 +2,7 @@
 
 import getpass
 import http.client
+import os
 from pathlib import Path
 import re
 import shutil
@@ -18,8 +19,12 @@ ROOT = Path(__file__).resolve().parents[1]
 @pytest.fixture(scope="module")
 def landing_server(tmp_path_factory):
     if not shutil.which("nginx"):
+        if os.environ.get("REQUIRE_LANDING_DEPLOYMENT_TESTS") == "true":
+            pytest.fail("nginx is required for deployment checks")
         pytest.skip("nginx is required for deployment checks")
     if not (ROOT / "frontend/dist/sitemap.xml").exists():
+        if os.environ.get("REQUIRE_LANDING_DEPLOYMENT_TESTS") == "true":
+            pytest.fail("Run the production frontend build first")
         pytest.skip("Run the production frontend build first")
     directory = tmp_path_factory.mktemp("landing-nginx")
     dist = directory / "dist"
@@ -129,6 +134,22 @@ def test_https_www_redirect(landing_server):
     status, headers, _ = request("/en-US/events?source=share", "www.castlecelestialview.net")
     assert status == 301
     assert headers["Location"] == "https://castlecelestialview.net/en-US/events?source=share"
+
+
+@pytest.mark.parametrize("suffix", [
+    "/%0dSet-Cookie:%20injected=yes;%20Path=/",
+    "/%0D%0AX-Injected:%20yes",
+    "/saved%20path/%3Fvalue?source=a%26b",
+    "/%250dSet-Cookie:%20injected=yes",
+])
+def test_legacy_redirect_preserves_encoding_without_header_injection(landing_server, suffix):
+    request, _ = landing_server
+    status, headers, _ = request(f"/en-UK{suffix}")
+    assert status == 301
+    assert headers["Location"] == f"https://castlecelestialview.net/en-GB{suffix}"
+    assert not any("\r" in value or "\n" in value for value in headers.values())
+    assert "Set-Cookie" not in headers
+    assert "X-Injected" not in headers
 
 
 def test_real_discovery_files_and_images(landing_server):

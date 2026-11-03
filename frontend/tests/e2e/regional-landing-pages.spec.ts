@@ -8,6 +8,26 @@ test('legacy British URLs keep their page, query and fragment', async ({ page })
     .toHaveAttribute('href', 'https://castlecelestialview.net/en-GB/events');
 });
 
+test('header links support keyboard navigation and opening a separate page', async ({ page }) => {
+  await page.goto('/en-GB/');
+  const events = page.getByRole('link', { name: 'Eclipses', exact: true });
+  await events.focus();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/\/en-GB\/events$/);
+  await expect(page.locator('.search-btn')).toBeEnabled();
+  const home = page.getByRole('link', { name: 'Solar System', exact: true });
+  const opened = page.context().waitForEvent('page');
+  await home.click({ modifiers: ['ControlOrMeta'] });
+  const popup = await opened;
+  try {
+    await expect(popup).toHaveURL(/\/en-GB\/$/);
+    await expect(popup.locator('.scene-introduction')).toContainText('Visualise');
+    await expect(page).toHaveURL(/\/en-GB\/events$/);
+  } finally {
+    await popup.close();
+  }
+});
+
 test('regional metadata follows mounting, locale selection, navigation and history', async ({ page }) => {
   await page.goto('/en-GB/');
   await expect(page.locator('.app-title')).toHaveText('Castle Celestial View');

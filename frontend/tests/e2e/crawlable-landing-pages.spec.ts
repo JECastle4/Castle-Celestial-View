@@ -67,6 +67,31 @@ test('retains the document and shows an explicit error if the route chunk fails'
   await expect(page.locator('main')).toContainText('Choose a date range');
   await expect(page.locator('link[rel="canonical"]'))
     .toHaveAttribute('href', 'https://castlecelestialview.net/en-GB/events');
+  const context = page.context();
+  await page.close();
+  const recovered = await context.newPage();
+  await recovered.goto('/en-GB/events');
+  await expect(recovered.locator('.search-btn')).toBeEnabled();
+  await expect(recovered.locator('.static-landing')).toHaveCount(0);
+  await expect(recovered.getByRole('alert')).toHaveCount(0);
+});
+
+test('no-JavaScript content and language links remain usable on a narrow screen', async ({ browser }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 320, height: 568 } });
+  try {
+    const page = await context.newPage();
+    await page.goto('/en-GB/events');
+    await expect(page.locator('main')).toContainText('an eclipse is not necessarily visible from your location');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+    await page.getByRole('link', { name: 'English (US)', exact: true }).click();
+    await expect(page).toHaveURL(/\/en-US\/events$/);
+    await page.getByRole('link', { name: 'About', exact: true }).click();
+    await expect(page).toHaveTitle('About | Castle Celestial View');
+    await page.getByRole('link', { name: 'Solar System', exact: true }).click();
+    await expect(page.locator('main')).toContainText('Visualize');
+  } finally {
+    await context.close();
+  }
 });
 
 test('waits for the route, then replaces rather than duplicates the static shell', async ({ page }) => {

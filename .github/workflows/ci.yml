@@ -360,3 +360,54 @@ jobs:
         path: |
           frontend/test-results/
           frontend/tests/e2e/astronomy-scene.spec.ts-snapshots/
+
+  landing-production:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+      - name: Install deployment test prerequisites
+        working-directory: .
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y nginx
+          python -m pip install pytest pytest-cov pytest-asyncio pydantic prometheus-client
+      - name: Install and build frontend
+        run: npm ci && npm run build
+      - name: Verify production nginx routes and security headers
+        working-directory: .
+        env:
+          REQUIRE_LANDING_DEPLOYMENT_TESTS: 'true'
+        run: python -m pytest tests/test_landing_deployment.py -o addopts='' -q
+      - name: Install production-test browsers
+        run: npx playwright install chromium firefox webkit --with-deps
+      - name: Start production preview
+        run: |
+          npm run preview -- --host 127.0.0.1 > /tmp/landing-preview.log 2>&1 &
+          curl --fail --retry 20 --retry-connrefused --retry-delay 1 http://127.0.0.1:4173/robots.txt
+      - name: Verify production landing documents in all browsers
+        run: |
+          npx playwright test tests/e2e/crawlable-landing-pages.spec.ts \
+            tests/e2e/discovery-assets.spec.ts tests/e2e/regional-landing-pages.spec.ts \
+            --config=playwright.prod.config.ts
+      - name: Upload production landing test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: landing-production-results
+          path: |
+            frontend/test-results/
+            frontend/playwright-report-prod/
