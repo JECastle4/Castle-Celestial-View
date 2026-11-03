@@ -1,9 +1,12 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { enableAutoUnmount, mount } from '@vue/test-utils';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { ref } from 'vue';
 import Footer from './Footer.vue';
+
+enableAutoUnmount(afterEach);
+afterEach(() => vi.unstubAllEnvs());
 
 // Mock the router
 vi.mock('vue-router', async () => {
@@ -187,6 +190,33 @@ describe('Footer', () => {
   });
 
   describe('locale switching', () => {
+    it.each([
+      ['en-GB', 'en-US', '/en-GB/events?date=2026-11-03#details', '/en-US/events?date=2026-11-03#details'],
+      ['en-US', 'en-GB', '/en-US/about', '/en-GB/about'],
+      ['xx-reverse', 'en-GB', '/xx-reverse/events?source=menu#details', '/en-GB/events?source=menu#details'],
+    ])('switches from %s to %s through the rendered option', async (current, target, path, expected) => {
+      mockI18n.locale.value = current;
+      mockRouter.currentRoute.value.fullPath = path;
+      const wrapper = mount(Footer);
+      await wrapper.find('.footer-lang-btn').trigger('click');
+      const option = wrapper.findAll('.footer-lang-option')
+        .find(button => button.text() === `lang.${target === 'en-GB' ? 'enGB' : 'enUS'}`)!;
+      await option.trigger('click');
+      expect(mockRouter.push).toHaveBeenCalledExactlyOnceWith(expected);
+      expect(wrapper.find('.footer-lang-dropdown').exists()).toBe(false);
+    });
+
+    it('closes the menu without navigating if an option becomes the current locale before its click', async () => {
+      const wrapper = mount(Footer);
+      await wrapper.find('.footer-lang-btn').trigger('click');
+      const option = wrapper.findAll('.footer-lang-option')
+        .find(button => button.text() === 'lang.enUS')!;
+      mockI18n.locale.value = 'en-US';
+      await option.trigger('click');
+      expect(mockRouter.push).not.toHaveBeenCalled();
+      expect(wrapper.find('.footer-lang-dropdown').exists()).toBe(false);
+    });
+
     it('does not navigate when the current locale is clicked', async () => {
       mockRouter.push.mockClear();
       const wrapper = mount(Footer);
@@ -528,6 +558,24 @@ describe('Footer', () => {
   });
 
   describe('development mode locales', () => {
+    it.each([
+      ['en-GB', 'en-US', '/en-GB/events?date=2026-11-03#details', '/en-US/events?date=2026-11-03#details'],
+      ['en-US', 'en-GB', '/en-US/about', '/en-GB/about'],
+    ])('offers only production locales and switches %s to %s with the production regex', async (current, target, path, expected) => {
+      vi.stubEnv('DEV', false);
+      mockI18n.locale.value = current;
+      mockRouter.currentRoute.value.fullPath = path;
+      const wrapper = mount(Footer);
+      await wrapper.find('.footer-lang-btn').trigger('click');
+      const options = wrapper.findAll('.footer-lang-option');
+      expect(options.map(option => option.text())).toEqual(['lang.enGB', 'lang.enUS']);
+      expect(options.find(option => option.attributes('disabled') !== undefined)?.text())
+        .toBe(`lang.${current === 'en-GB' ? 'enGB' : 'enUS'}`);
+      await options.find(option => option.text() === `lang.${target === 'en-GB' ? 'enGB' : 'enUS'}`)!.trigger('click');
+      expect(mockRouter.push).toHaveBeenCalledExactlyOnceWith(expected);
+      expect(wrapper.find('.footer-lang-dropdown').exists()).toBe(false);
+    });
+
     it('includes development locales in dev mode', async () => {
       const wrapper = mount(Footer);
       const langBtn = wrapper.find('.footer-lang-btn');
