@@ -20,7 +20,7 @@ idna>=3.20
 starlette>=1.10.0
 # Explicit transitive dependency version pins for security compliance
 # click: PYSEC-2026-2132 fixed in 8.3.3
-click>=8.5.0
+click>=8.5.1
 # msgpack: GHSA-6v7p-g79w-8964 fixed in 1.2.1
 msgpack>=1.2.3
 # Rate limiting for DDoS protection (Phase 3.1)
