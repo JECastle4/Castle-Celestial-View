@@ -82,6 +82,8 @@
 		"selectBody": "Select {body} to view details",
 		"zoomToBody": "Zoom to {body}",
 		"downloadAsCSV": "Download eclipse contact times as CSV",
+		"exportCsv": "CSV ({count})",
+		"exportJson": "JSON ({count})",
 		"downloadAsJSON": "Download eclipse contact times as JSON"
 	},
 	"views": {

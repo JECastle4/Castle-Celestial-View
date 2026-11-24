@@ -78,8 +78,10 @@
     "cancel": "lecnaC",
     "selectBody": "sliated weiv ot {body} tceleS",
     "zoomToBody": "{body} ot mooZ",
-    "downloadAsCSV": "VCS sa semit tcatnoc esplice daolnwoD",
-    "downloadAsJSON": "NOSJ sa semit tcatnoc esplice daolnwoD"
+    "downloadAsCSV": "VSC sa semit tcatnoc espilce daolnwoD",
+    "exportCsv": "){count}( VSC",
+    "exportJson": "){count}( NOSJ",
+    "downloadAsJSON": "NOSJ sa semit tcatnoc espilce daolnwoD"
   },
   "views": {
     "solar3d": "weiV metsyS raloS",
