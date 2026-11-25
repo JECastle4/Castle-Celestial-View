@@ -669,7 +669,7 @@ class TestLocaleNormalization:
             "start_date=2025-09-01&"
             "end_date=2025-09-30&"
             "include_contact_times=false&"
-            "lang=en-UK"
+            "lang=en-GB"
         )
         
         # Should successfully start stream with normalized locale

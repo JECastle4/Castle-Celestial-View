@@ -9,6 +9,7 @@ from fastapi import APIRouter, Body, Query, Request
 from fastapi.responses import StreamingResponse
 
 from api.cache import cache_response
+from api.i18n import normalize_locale
 from api.middleware.request_lifecycle import mark_stream_failure
 from api.models import (
     AstronomicalEventsRequest,
@@ -69,9 +70,7 @@ def get_astronomical_events_route(
     lang: Optional[str] = Query(None)
 ) -> AstronomicalEventsResponse:
     """Find new/full moons and classify eclipses within a date range."""
-    # Normalize locale to lowercase (frontend sends mixed case like en-US,
-    # backend whitelist uses lowercase like en-us)
-    normalized_locale = lang.lower() if lang else None
+    normalized_locale = normalize_locale(lang) if lang else None
     result = get_astronomical_events(
         start_date_str=events_request.start_date,
         end_date_str=events_request.end_date,
@@ -132,9 +131,7 @@ def stream_astronomical_events_route(
     # Each endpoint has domain-specific generator logic (idx-based vs
     # content-based event type detection) coupled to its service function.
     # Extracting would reduce readability without practical benefit.
-    # Normalize locale to lowercase (frontend sends mixed case like en-US,
-    # backend whitelist uses lowercase like en-us)
-    normalized_locale = lang.lower() if lang else None
+    normalized_locale = normalize_locale(lang) if lang else None
 
     def event_generator():
         gen = stream_astronomical_events(

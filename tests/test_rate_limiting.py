@@ -652,7 +652,7 @@ class TestRateLimitingI18n:
         """Test that error messages work correctly in different locales."""
         from api.i18n import get_i18n
 
-        for locale in ['en', 'en-us', 'en-uk']:
+        for locale in ['en', 'en-us', 'en-gb']:
             i18n = get_i18n(locale)
             message = i18n.get(
                 'errors.tooManyRequests',

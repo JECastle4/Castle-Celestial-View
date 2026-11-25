@@ -6,8 +6,9 @@
       @update:selectedBody="selectedBodyId = $event"
       @select-mode="onSelectMode"
     />
-    <div class="scene-layout">
+    <div class="scene-layout" :class="{ 'query-layout': !hasData }">
       <div class="map-and-date-container">
+        <p v-if="!hasData" class="scene-introduction">{{ t('app.introduction') }}</p>
         <div class="map-container">
           <BaseMap v-if="!hasData" class="map-panel" :enablePinTool="true" @pin-placed="onPinPlaced" />
           <canvas v-if="hasData" ref="canvasRef" class="canvas-panel" />
@@ -278,7 +279,6 @@
   flex: 1 1 auto;
   position: relative;
   width: 100%;
-  height: 100%;
   min-height: 0;
   min-width: 0;
   display: flex;
@@ -302,8 +302,25 @@
   width: 420px;
   max-width: 90vw;
   margin-top: 0;
-  min-height: 0;
-  max-height: 100%;
+  flex-shrink: 0;
+}
+.scene-introduction {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 12px 16px;
+  background: #181818;
+  color: #ddd;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.query-layout .map-container {
+  flex: 1 0 220px;
+}
+.query-layout {
+  width: 100%;
+}
+.query-layout .map-and-date-container {
+  overflow-y: auto;
 }
 .date-range-bordered {
   border: 2px solid #b0b0b0;
@@ -327,6 +344,34 @@
   height: 100%;
   overflow-y: auto;
   font-size: 1em;
+}
+
+.query-layout .controls-panel {
+  box-sizing: border-box;
+}
+
+@media (max-width: 700px) {
+  .query-layout {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .query-layout .map-and-date-container {
+    flex: none;
+    height: auto;
+    overflow: visible;
+  }
+  .query-layout .map-container {
+    flex: none;
+    height: 280px;
+  }
+  .query-layout .controls-panel {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    height: auto;
+    box-sizing: border-box;
+    overflow: visible;
+  }
 }
 </style>
 

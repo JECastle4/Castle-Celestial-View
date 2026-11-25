@@ -78,6 +78,26 @@ class TestI18nSetLocale:
         i18n.set_locale('en')
         assert i18n.translations == original_translations
 
+    @pytest.mark.parametrize("locale", ["en-gb", "en-GB", "en-uk", "en-UK", " EN-GB "])
+    def test_british_locale_and_legacy_alias(self, locale):
+        i18n = I18n(locale)
+        assert i18n.locale == 'en-gb'
+        assert i18n._get_locale_path(i18n.locale).name == 'en-gb.json'
+        assert i18n.translations == I18n('en-gb').translations
+
+    def test_british_alias_uses_same_cached_instance(self):
+        assert get_i18n('en-UK') is get_i18n('en-GB')
+
+    @pytest.mark.parametrize("locale", ["en-GB", "en-UK"])
+    def test_request_locale_is_normalized(self, locale):
+        token = _current_locale.set('en')
+        try:
+            set_request_locale(locale)
+            assert _current_locale.get() == 'en-gb'
+            assert get_i18n().locale == 'en-gb'
+        finally:
+            _current_locale.reset(token)
+
 
 class TestI18nLoadLocale:
     """Tests for locale loading error handling."""

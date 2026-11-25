@@ -15,8 +15,14 @@ logger = logging.getLogger(__name__)
 # The Literal alias lets static analysis (CodeQL) prove that any value typed
 # as SupportedLocale can only be one of these fixed, non-attacker-controlled
 # strings — it is never built from raw user input.
-SupportedLocale = Literal['en', 'en-uk', 'en-us', 'xx-reverse']
-ALLOWED_LOCALES: frozenset[str] = frozenset(('en', 'en-uk', 'en-us', 'xx-reverse'))
+SupportedLocale = Literal['en', 'en-gb', 'en-us', 'xx-reverse']
+ALLOWED_LOCALES: frozenset[str] = frozenset(('en', 'en-gb', 'en-us', 'xx-reverse'))
+
+
+def normalize_locale(locale: str) -> str:
+    """Normalize language tags, retaining compatibility with older clients."""
+    normalized = locale.strip().lower()
+    return 'en-gb' if normalized == 'en-uk' else normalized
 
 
 def _to_supported_locale(locale: str) -> SupportedLocale:
@@ -39,7 +45,7 @@ _LOCALES_DIR = Path(__file__).parent / 'locales'
 # string an attacker sends — an unrecognized locale simply isn't a key here.
 _LOCALE_FILE_PATHS: Dict[SupportedLocale, Path] = {
     'en': _LOCALES_DIR / 'en.json',
-    'en-uk': _LOCALES_DIR / 'en-uk.json',
+    'en-gb': _LOCALES_DIR / 'en-gb.json',
     'en-us': _LOCALES_DIR / 'en-us.json',
     'xx-reverse': _LOCALES_DIR / 'xx-reverse.json',
 }
@@ -63,6 +69,7 @@ class I18n:
 
     def _load_locale(self, locale: str) -> str:
         """Load translations for a given locale. Returns the resolved locale."""
+        locale = normalize_locale(locale)
         # Use whitelist-based validation
         if locale not in ALLOWED_LOCALES:
             if locale != 'en':
@@ -133,7 +140,7 @@ class I18n:
             self.locale = self._load_locale(locale)
 
 
-SUPPORTED_LOCALES = {'en', 'en-uk', 'en-us', 'xx-reverse'}
+SUPPORTED_LOCALES = ALLOWED_LOCALES
 
 # Per-request locale stored in an async-safe context variable.
 # Defaults to English so callers that don't set a locale get English.
@@ -151,12 +158,13 @@ def set_request_locale(locale: str) -> None:
     Safe to call from FastAPI middleware — uses a ContextVar so
     concurrent requests each get their own value.
     """
-    _current_locale.set(locale if locale in SUPPORTED_LOCALES else 'en')
+    normalized = normalize_locale(locale)
+    _current_locale.set(normalized if normalized in SUPPORTED_LOCALES else 'en')
 
 
 def get_i18n(locale: Optional[str] = None) -> I18n:
     """Return a cached I18n instance for *locale* (defaults to current request locale)."""
-    requested = locale if locale is not None else _current_locale.get()
+    requested = normalize_locale(locale) if locale is not None else _current_locale.get()
     if requested not in _locale_cache:
         with _locale_cache_lock:
             # Re-check inside the lock in case another thread populated it

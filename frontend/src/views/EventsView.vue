@@ -70,7 +70,7 @@
                 :disabled="!allSseEvents.length || isPreparingExport"
               >
                 <i class="fa fa-download" aria-hidden="true"></i>
-                CSV ({{ allSseEvents.length }})
+                {{ t('buttons.exportCsv', { count: allSseEvents.length }) }}
               </button>
               <button
                 type="button"
@@ -80,7 +80,7 @@
                 :disabled="!allSseEvents.length || isPreparingExport"
               >
                 <i class="fa fa-download" aria-hidden="true"></i>
-                JSON ({{ allSseEvents.length }})
+                {{ t('buttons.exportJson', { count: allSseEvents.length }) }}
               </button>
             </div>
           </div>
