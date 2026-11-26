@@ -34,7 +34,7 @@ def streamed_events(response):
     ]
 
 
-@pytest.mark.parametrize("locale", ["en", "en-us", "en-uk", "xx-reverse"])
+@pytest.mark.parametrize("locale", ["en", "en-us", "en-gb", "xx-reverse"])
 def test_hybrid_post_stream_and_warm_cache_parity(locale):
     clear_response_cache()
     clear_classification_cache()
@@ -136,7 +136,7 @@ def test_out_of_range_solar_circumstances_are_explicit():
     assert "1900-2100" in event["classification_warning"]
 
 
-@pytest.mark.parametrize("locale", ["en", "en-us", "en-uk", "xx-reverse"])
+@pytest.mark.parametrize("locale", ["en", "en-us", "en-gb", "xx-reverse"])
 def test_warning_is_localized_in_post_stream_and_warm_cache(locale):
     clear_response_cache()
     payload = {

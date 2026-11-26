@@ -150,7 +150,7 @@ describe('EventsView', () => {
       await wrapper.find('.event-summary').trigger('click');
       await flushPromises();
       if (refresh === 'search') await wrapper.find('.search-btn').trigger('click');
-      else setCurrentLocale(previousLocale === 'en-US' ? 'en-UK' : 'en-US');
+      else setCurrentLocale(previousLocale === 'en-US' ? 'en-GB' : 'en-US');
       await flushPromises();
       expect(requestSignal.aborted).toBe(false);
       instances[1].emit('page', { page: 1, events: [makeEvent()] });
@@ -180,7 +180,7 @@ describe('EventsView', () => {
       await flushPromises();
       await wrapper.find('.event-summary').trigger('click');
       await flushPromises();
-      setCurrentLocale(previousLocale === 'en-US' ? 'en-UK' : 'en-US');
+      setCurrentLocale(previousLocale === 'en-US' ? 'en-GB' : 'en-US');
       await flushPromises();
       instances[1].emit('page', { page: 1, events: [makeEvent()] });
       instances[1].emit('metadata', { page_size: 10, total_events: 1, total_pages: 1 });
@@ -211,7 +211,7 @@ describe('EventsView', () => {
     { format: 'csv', outcome: 'unmount' },
   ] as const)('defers locale refresh during $format export preparation ($outcome)', async ({ format, outcome }) => {
     const previousLocale = getCurrentLocale();
-    const nextLocale = previousLocale === 'en-US' ? 'en-UK' : 'en-US';
+    const nextLocale = previousLocale === 'en-US' ? 'en-GB' : 'en-US';
     const wrapper = mount(EventsView);
     let resolveContact!: (response: Response) => void;
     let rejectContact!: (reason: Error) => void;
@@ -319,7 +319,7 @@ describe('EventsView', () => {
     const wrapper = mount(EventsView);
     try {
       await flushPromises();
-      setCurrentLocale(previousLocale === 'en-US' ? 'en-UK' : 'en-US');
+      setCurrentLocale(previousLocale === 'en-US' ? 'en-GB' : 'en-US');
       await flushPromises();
       expect(instances).toHaveLength(0);
     } finally {
@@ -338,12 +338,12 @@ describe('EventsView', () => {
       await flushPromises();
       const activeSource = instances[0];
 
-      setCurrentLocale(previousLocale === 'en-US' ? 'en-UK' : 'en-US');
+      setCurrentLocale(previousLocale === 'en-US' ? 'en-GB' : 'en-US');
       await flushPromises();
 
       expect(activeSource.close).toHaveBeenCalledOnce();
       expect(instances).toHaveLength(2);
-      expect(instances[1].url).toContain(`lang=${previousLocale === 'en-US' ? 'en-UK' : 'en-US'}`);
+      expect(instances[1].url).toContain(`lang=${previousLocale === 'en-US' ? 'en-GB' : 'en-US'}`);
     } finally {
       wrapper.unmount();
       setCurrentLocale(previousLocale);
@@ -454,7 +454,7 @@ describe('EventsView', () => {
     const modeButtons = wrapper.findAll('.mode-btn');
     await modeButtons[0].trigger('click'); // Solar System is the first mode button
 
-    expect(pushMock).toHaveBeenCalledWith('/en-UK/');
+    expect(pushMock).toHaveBeenCalledWith('/en-GB/');
   });
 
   it('paginates client-side across the already-loaded results without a new request', async () => {

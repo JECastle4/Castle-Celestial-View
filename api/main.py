@@ -13,7 +13,7 @@ from slowapi.errors import RateLimitExceeded
 from starlette.requests import ClientDisconnect
 
 from api.cache import get_cache_stats
-from api.i18n import SUPPORTED_LOCALES, set_request_locale
+from api.i18n import SUPPORTED_LOCALES, normalize_locale, set_request_locale
 from api.metrics import get_metrics
 from api.middleware.request_lifecycle import (
     BackgroundRequests,
@@ -294,6 +294,7 @@ def _match_supported_locale(tag: str) -> str | None:
     Returns exact match if available, otherwise language-prefix match,
     otherwise None.
     """
+    tag = normalize_locale(tag)
     if tag in SUPPORTED_LOCALES:
         return tag
     prefix = tag.split("-")[0]
@@ -428,7 +429,7 @@ async def locale_middleware(request: Request, call_next):
     if lang_param:
         # ?lang= is an explicit per-request override used by SSE
         # (EventSource cannot set custom headers, so the frontend appends ?lang=).
-        tag = lang_param.strip().lower()
+        tag = normalize_locale(lang_param)
         if tag in SUPPORTED_LOCALES:
             locale = tag
         else:

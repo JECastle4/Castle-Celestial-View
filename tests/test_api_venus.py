@@ -494,12 +494,12 @@ class TestVenusLocaleSupport:
         assert isinstance(result["phase_name"], str)
         assert result["phase_name"] in ["New", "Crescent", "Quarter", "Gibbous", "Full"]
 
-    def test_venus_with_en_uk_locale(self):
-        """Test Venus position with en-UK locale."""
+    def test_venus_with_en_gb_locale(self):
+        """Test Venus position with en-GB locale."""
         result = calculate_venus_position(
             ObservationDateTime(date="2026-06-01", time="12:00:00"),
             LocationModel(latitude=40.7128, longitude=-74.0060, elevation=0.0),
-            locale="en-UK",
+            locale="en-GB",
         )
 
         assert isinstance(result["phase_name"], str)

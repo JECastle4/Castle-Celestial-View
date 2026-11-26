@@ -25,14 +25,14 @@ test.describe('About Page', () => {
   });
 
   test('should navigate back to main page from about page', async ({ page }) => {
-    await page.goto('/en-UK/about');
+    await page.goto('/en-GB/about');
 
     const closeLink = page.getByRole('link', { name: /←|Close/i });
     await expect(closeLink).toBeVisible();
     await closeLink.click();
 
     // Wait for navigation back to home page to complete
-    await page.waitForURL(/\/en-UK\/?$/);
+    await page.waitForURL(/\/en-GB\/?$/);
     
     // Verify we're back on the home page with the input form visible
     await expect(page.locator('.input-form')).toBeVisible({ timeout: 10000 });
