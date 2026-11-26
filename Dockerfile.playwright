@@ -4,7 +4,7 @@
 #
 # Usage: see Update-LinuxSnapshots.ps1 or `npm run test:e2e:update-snapshots:linux`
 
-FROM mcr.microsoft.com/playwright:v1.59.1-noble
+FROM mcr.microsoft.com/playwright:v1.65.1-noble
 
 # Add Python (Ubuntu Noble ships 3.12; python-is-python3 provides the `python` alias
 # that playwright.config.ts expects when CI=true).
