@@ -114,7 +114,8 @@ for (const viewport of [
     expect(introductionBox).not.toBeNull();
     expect(mapBox).not.toBeNull();
     expect(introductionBox!.y + introductionBox!.height).toBeLessThanOrEqual(mapBox!.y + 1);
-    expect(mapBox!.height).toBeGreaterThanOrEqual(220);
+    // Allow sub-pixel layout rounding (Firefox reports 219.99998 for a 220px basis)
+    expect(mapBox!.height).toBeGreaterThanOrEqual(219.9);
     expect(mapBox!.x).toBeGreaterThanOrEqual(0);
     expect(mapBox!.x + mapBox!.width).toBeLessThanOrEqual(viewport.width);
     const mapViewport = await page.locator('.ol-viewport').boundingBox();
