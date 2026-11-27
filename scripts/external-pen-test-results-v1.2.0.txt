@@ -288,3 +288,19 @@ so it likely reached nginx's default server block, which appears to lack the sec
 and to expose "nginx/1.24.0 (Ubuntu)". Low severity (version disclosure; headers missing only
 on IP-based access), but worth aligning the default server block.
 
+9.2: Access by raw IP (follow-up to 9.1)
+Commands: curl.exe -skI https://77.68.79.252 ; curl.exe -sk https://77.68.79.252/nonexistent
+Both returned no output. Verbose run (curl.exe -skv https://77.68.79.252):
+* schannel: using IP address, SNI is not supported by OS.
+* ALPN: server accepted http/1.1
+> GET / HTTP/1.1 / Host: 77.68.79.252
+* schannel: remote party requests renegotiation (x2; client-side schannel behaviour)
+* schannel: server closed abruptly (missing close_notify)
+
+Result: PASS - requests by IP (unknown Host) receive no HTTP response; the server closes the
+connection (consistent with a default server block returning 444). No content, headers or
+version string are served by IP. Revised conclusion for 9.1: the "HSTS not configured" result
+is a scanner artifact of probing by IP; the nginx version string came from nmap service
+fingerprinting, not a served Server header (Step 4 showed bare "Server: nginx"). Discrepancy
+resolved - no action required.
+
