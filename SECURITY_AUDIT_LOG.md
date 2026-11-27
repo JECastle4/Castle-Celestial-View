@@ -26,7 +26,7 @@
 
 ### Findings & Follow-ups
 
-1. **SSH password authentication appears enabled (Medium, needs confirmation).** The root login attempt reported `Permission denied (publickey,password)` and `deployuser` was prompted for a password. The guide expects `passwordauthentication no`. Verify the effective config with `sudo sshd -T | grep -E 'permitrootlogin|passwordauth|pubkeyauth'` (check `/etc/ssh/sshd_config.d/*.conf` for overrides) and disable if key-only is intended.
+1. **SSH password authentication appears enabled (Medium, needs confirmation).** The root login attempt reported `Permission denied (publickey,password)` and `deployuser` was prompted for a password. The guide expects `passwordauthentication no`. Verify the effective config with `sudo sshd -T | grep -E 'permitrootlogin|passwordauth|pubkeyauth'` (check `/etc/ssh/sshd_config.d/*.conf` for overrides) and disable if key-only is intended. Mitigating factor reported by the owner: the `deployuser` password is 16 characters with upper/lower case, digits and symbols; this reduces guessing risk but does not remove online brute-force exposure. Decision (remediate vs. accept risk) pending.
 2. **Host keys not retrieved (Info).** Windows `ssh-keyscan` does not support the server's `sntrup761x25519` KEX; re-run from Git Bash/WSL if key fingerprints are needed.
 3. **No HTTP to HTTPS redirect (Low/Info).** Port 80 is filtered by design; optionally open it only to serve a 301.
 4. **CSP `style-src 'unsafe-inline'` (Low advisory).** `script-src` is strict `'self'`.
