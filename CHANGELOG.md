@@ -8,6 +8,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versio
 
 ## [Unreleased]
 
+### Added
+- Google Search Console ownership verification file served at
+  `/googlefcc1289a3c92f432.html` (follow-up to #216).
+
 ## [1.2.0] - 2026-11-27
 
 ### Added
