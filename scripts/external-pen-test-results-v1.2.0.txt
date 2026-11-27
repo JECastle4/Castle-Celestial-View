@@ -112,3 +112,21 @@ TLS 1.0/1.1: INCONCLUSIVE - "no protocols available" is raised locally by the Wi
 OpenSSL build (legacy protocols disabled at the client), so no handshake was attempted.
 Follow-up: confirm server-side with nmap --script ssl-enum-ciphers -p 443 77.68.79.252.
 
+3.3: Server-side protocol/cipher enumeration (follow-up to 3.2)
+Command: nmap --script ssl-enum-ciphers -p 443 77.68.79.252   (Nmap 7.80)
+
+443/tcp open  https
+| ssl-enum-ciphers:
+|   TLSv1.2:
+|     ciphers: 15 ECDHE-ECDSA suites (AES-GCM, CHACHA20-POLY1305, AES-CCM/CCM_8, ARIA-GCM,
+|              AES/CAMELLIA-CBC SHA256/SHA384, AES-CBC-SHA) - all graded A, all ecdh_x25519
+|     compressors: NULL
+|     cipher preference: server
+|_  least strength: A
+
+Result: PASS - TLSv1.0 and TLSv1.1 not offered (only TLSv1.2 listed; no SSLv3), no
+compression, least cipher strength A, ECDHE forward secrecy only.
+Notes: Nmap 7.80 predates TLS 1.3 support in this script, so TLSv1.3 is not listed (it was
+confirmed in 3.2). Advisory (low): legacy CBC-SHA, CAMELLIA, ARIA and AES-CCM_8 suites
+remain enabled for TLS 1.2; could be trimmed but are not a vulnerability.
+
