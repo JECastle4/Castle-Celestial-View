@@ -172,3 +172,24 @@ TRACE: 405
 
 Result: PASS - all unsafe methods return 405 Method Not Allowed.
 
+STEP 6: HTTP -> HTTPS REDIRECT
+══════════════════════════════
+
+Command: curl.exe -sI http://castlecelestialview.net
+(no output)
+
+Command: curl.exe -v --connect-timeout 10 http://castlecelestialview.net
+*   Trying 77.68.79.252:80...
+* Host castlecelestialview.net:80 was resolved.
+* IPv6: (none)
+* IPv4: 77.68.79.252
+* Connection timed out after 10015 milliseconds
+* closing connection #0
+curl: (28) Connection timed out after 10015 milliseconds
+
+Result: N/A (deviation from guide) - port 80 is filtered (consistent with Step 1), so no
+301 redirect is served. Plain-HTTP requests time out rather than redirect; no cleartext
+content is exposed. Same behaviour as the firewall policy of allowing only 22/443.
+Note: users typing http:// get a timeout; HSTS (preload, 1 year) protects returning
+browsers. Consider opening 80 solely for a 301 redirect if friendlier UX is wanted.
+
