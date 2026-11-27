@@ -113,7 +113,7 @@ jobs:
             | Manual acceptance | | |
 
             ### Artifacts
-            - `astronomy_tools-*.whl` — Python API wheel (install with `pip install astronomy_tools-*.whl`)
+            - `castle_celestial_view-*.whl` — Python API wheel (install with `pip install castle_celestial_view-*.whl`)
             - `castle-celestial-view-frontend-*.zip` — Frontend static dist (serve via any HTTP server)
           files: |
             dist/*.whl

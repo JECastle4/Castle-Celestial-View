@@ -6,9 +6,9 @@ Only the latest released version (see [CHANGELOG.md](CHANGELOG.md)) of Castle Ce
 
 ## Reporting a vulnerability
 
-Please report vulnerabilities through [GitHub Issues](https://github.com/JECastle4/Castle-Celestial-View/issues/new/choose) using the security option.
+Please report vulnerabilities privately using GitHub's [private vulnerability reporting](https://github.com/JECastle4/Castle-Celestial-View/security/advisories/new) (**Security** tab, then **Report a vulnerability**). Do not open a public issue with exploit details, credentials or personal data.
 
-Because issues are public, **do not include exploit details, credentials or personal data**. Describe the affected area and impact, and the maintainer will arrange a private channel for the specifics. If private vulnerability reporting is enabled on the repository, you may also use the **Security** tab, then **Report a vulnerability**.
+If that option is unavailable, open a [GitHub issue](https://github.com/JECastle4/Castle-Celestial-View/issues/new/choose) that says only that you have a security concern, with no technical details, and the maintainer will arrange a private channel.
 
 You can expect an acknowledgement as soon as the maintainer is able to respond. This is a volunteer-run project, so there is no guaranteed response time.
 

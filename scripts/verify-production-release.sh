@@ -351,7 +351,7 @@ download_artifacts() {
 
   # Download the wheel
   info "Downloading wheel..."
-  # Keep the real wheel filename (astronomy_tools-1.0.0-py3-none-any.whl) so pip
+  # Keep the real wheel filename (castle_celestial_view-1.0.0-py3-none-any.whl) so pip
   # can validate the wheel name format, which it requires even for local installs.
   WHL_FILENAME=$(basename "$wheel_url")
   curl -fsSL "${asset_auth[@]}" -o "$WORK_DIR/$WHL_FILENAME" "$wheel_url"

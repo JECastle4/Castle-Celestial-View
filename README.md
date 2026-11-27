@@ -35,6 +35,7 @@ Prerequisites: Python 3.14+, Node.js 20.19+ and npm.
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1          # macOS/Linux: source .venv/bin/activate
 pip install -r requirements-dev.txt
+pip install pytest-cov bandit pip-audit pylint radon   # test and check tooling used by CI
 uvicorn api.main:app --reload --port 8000
 ```
 

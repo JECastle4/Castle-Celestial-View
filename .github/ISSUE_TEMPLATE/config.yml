@@ -3,6 +3,6 @@ contact_links:
   - name: Question or idea
     url: https://github.com/JECastle4/Castle-Celestial-View/discussions
     about: Ask questions and share ideas in Discussions.
-  - name: Security concern
-    url: https://github.com/JECastle4/Castle-Celestial-View/blob/main/SECURITY.md
-    about: Read the security policy before reporting a vulnerability. Do not post exploit details publicly.
+  - name: Report a security vulnerability
+    url: https://github.com/JECastle4/Castle-Celestial-View/security/advisories/new
+    about: Report privately. Read SECURITY.md first and do not post exploit details publicly.
