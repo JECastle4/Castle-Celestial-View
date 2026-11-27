@@ -423,6 +423,13 @@ install_api() {
     exit 1
   fi
 
+  # The distribution was renamed from astronomy-tools; remove the old one so two
+  # distributions don't both claim the same api package files.
+  if "$pip_cmd" show astronomy-tools >/dev/null 2>&1; then
+    run_command "Removing legacy astronomy-tools distribution" \
+      "$pip_cmd" uninstall -y astronomy-tools
+  fi
+
   run_command "Installing/upgrading $WHL_FILENAME" \
     "$pip_cmd" install --upgrade --force-reinstall \
     "$WORK_DIR/$WHL_FILENAME"
