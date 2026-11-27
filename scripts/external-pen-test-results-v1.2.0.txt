@@ -1,0 +1,24 @@
+═══════════════════════════════════════════════════════════════
+EXTERNAL PEN TEST - Castle Celestial View v1.2.0 (Windows)
+Target: castlecelestialview.net (77.68.79.252)
+Date: 2026-11-27
+Platform: Windows (steps run manually, one at a time, per EXTERNAL_PEN_TEST_GUIDE.md)
+═══════════════════════════════════════════════════════════════
+
+STEP 1: PORT SCAN
+═════════════════
+
+Command: nmap -p- 77.68.79.252
+
+Starting Nmap 7.80 ( https://nmap.org ) at 2026-11-27 18:00 GMT Standard Time
+Nmap scan report for 77.68.79.252
+Host is up (0.020s latency).
+Not shown: 65533 filtered ports
+PORT    STATE SERVICE
+22/tcp  open  ssh
+443/tcp open  https
+
+Nmap done: 1 IP address (1 host up) scanned in 180.43 seconds
+
+Result: PASS - only 22/tcp and 443/tcp open; all other ports filtered.
+
