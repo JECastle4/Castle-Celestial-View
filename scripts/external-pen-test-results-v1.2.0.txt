@@ -22,3 +22,43 @@ Nmap done: 1 IP address (1 host up) scanned in 180.43 seconds
 
 Result: PASS - only 22/tcp and 443/tcp open; all other ports filtered.
 
+STEP 2: SSH SECURITY CHECK
+══════════════════════════
+
+2.1: SSH key scan
+Command: ssh-keyscan -t rsa,ed25519 castlecelestialview.net
+
+# castlecelestialview.net:22 SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.20
+choose_kex: unsupported KEX method sntrup761x25519-sha512@openssh.com
+(repeated for second key type)
+
+Result: INCONCLUSIVE - server banner OpenSSH_9.6p1 Ubuntu-3ubuntu13.20 obtained, but the
+Windows OpenSSH client's ssh-keyscan does not support the server's sntrup761x25519 KEX,
+so host keys were not retrieved. (Client limitation, not a server fault.)
+
+2.2: Root login
+Command: ssh root@castlecelestialview.net
+
+root@castlecelestialview.net's password:
+Permission denied, please try again.
+root@castlecelestialview.net's password:
+Permission denied, please try again.
+root@castlecelestialview.net's password:
+root@castlecelestialview.net: Permission denied (publickey,password).
+
+Result: root login DENIED (expected). FINDING: server advertises "password" as an
+accepted authentication method, which conflicts with the guide's expected
+passwordauthentication=no.
+
+2.3: sshd configuration
+Command: ssh deployuser@castlecelestialview.net "sudo sshd -T | grep -E 'permitrootlogin|passwordauth|pubkeyauth'"
+
+deployuser@castlecelestialview.net's password:
+sudo: a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper
+sudo: a password is required
+
+Result: INCONCLUSIVE - sshd -T could not be run (sudo needs a password / tty).
+Observation: deployuser was prompted for and accepted a password login, again indicating
+PasswordAuthentication is enabled. Needs follow-up (verify effective sshd config and,
+if intended to be key-only, set PasswordAuthentication no).
+
