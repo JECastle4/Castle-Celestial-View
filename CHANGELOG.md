@@ -2,11 +2,14 @@
 
 All notable changes to Castle Celestial View are documented here.
 
-Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follow [Semantic Versioning](https://semver.org/) — see [VERSIONING.md](VERSIONING.md).
+Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follow [Semantic Versioning](https://semver.org/) — see [VERSIONING.md](docs/VERSIONING.md).
 
 ---
 
 ## [Unreleased]
+
+### Changed
+- Refreshed README and CONTRIBUTING; added issue forms, PR template, Code of Conduct, SECURITY, SUPPORT, CODEOWNERS and AI agent guidance (AGENTS.md, CLAUDE.md, Copilot instructions). Moved guides and historical reports from the repository root into `docs/`, and renamed the Python package to `castle-celestial-view`.
 
 ### Added
 - Google Search Console ownership verification file served at
@@ -17,7 +20,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versio
 ### Added
 - Regional landing pages with `en-GB` and `en-US` locales, crawler-readable pages,
   sharing cards, `robots.txt`/`sitemap.xml` and legacy redirects (#282).
-  **Requires a manual nginx config update** — see DEPLOYMENT_GUIDE.md.
+  **Requires a manual nginx config update** — see docs/DEPLOYMENT_GUIDE.md.
 - Eclipse detection and the events calendar (#223).
 
 ### Fixed

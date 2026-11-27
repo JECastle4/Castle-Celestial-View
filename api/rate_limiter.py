@@ -5,7 +5,7 @@ Implements tiered, endpoint-specific rate limiting based on computational cost.
 Uses slowapi for per-IP request throttling with graceful 429 responses.
 Limits request starts, not concurrent CPU work. A timed-out request retains its
 rate-limit cost while its worker may continue and cache the result. A retry before
-completion can duplicate work; see LOAD_BALANCING_STRATEGY.md for the contract.
+completion can duplicate work; see docs/LOAD_BALANCING_STRATEGY.md for the contract.
 
 In test mode (pytest), rate limiting is bypassed to avoid test flakiness.
 

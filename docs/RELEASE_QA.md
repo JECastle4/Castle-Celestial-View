@@ -412,7 +412,7 @@ pip-licenses --order=license --format=markdown
 ```
 
 - [ ] All production dependencies listed
-- [ ] No GPL, AGPL, or other copyleft licences that would conflict with this project's [LICENSE](LICENSE)
+- [ ] No GPL, AGPL, or other copyleft licences that would conflict with this project's [LICENSE](../LICENSE)
 - [ ] NOTICE file updated if any new attribution is required
 
 ### Frontend (Node)

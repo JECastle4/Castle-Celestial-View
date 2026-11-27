@@ -100,7 +100,7 @@ ${BOLD}Configuration:${NC}
 
 ${BOLD}Setup required (option B):${NC}
   1. Create systemd service for gunicorn at: /etc/systemd/system/$SERVICE_API.service
-     See DEPLOYMENT_GUIDE.md for template
+     See docs/DEPLOYMENT_GUIDE.md for template
   2. Enable the service: sudo systemctl daemon-reload && sudo systemctl enable $SERVICE_API
   3. Start the service: sudo systemctl start $SERVICE_API
   4. Verify: sudo systemctl status $SERVICE_API

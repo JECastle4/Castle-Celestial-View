@@ -1,0 +1,45 @@
+name: Bug report
+description: Something isn't working as expected
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include the location, date range and view (Earth/Moon, Solar System, Sky View) if relevant.
+      placeholder: |
+        1. Go to ...
+        2. Pick ...
+        3. See ...
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Frontend
+        - API
+        - Accessibility
+        - Documentation
+        - CI / build
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Browser, OS and version
+      placeholder: Firefox 130 on Windows 11, v1.2.0
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots or logs
+      description: Do not include secrets or personal data.

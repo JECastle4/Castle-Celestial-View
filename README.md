@@ -1,98 +1,84 @@
 # Castle Celestial View
 
-## Purpose
+[![CI](https://github.com/JECastle4/Castle-Celestial-View/actions/workflows/ci.yml/badge.svg)](https://github.com/JECastle4/Castle-Celestial-View/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/JECastle4/Castle-Celestial-View/actions/workflows/codeql.yml/badge.svg)](https://github.com/JECastle4/Castle-Celestial-View/actions/workflows/codeql.yml)
+[![codecov](https://codecov.io/gh/JECastle4/Castle-Celestial-View/graph/badge.svg)](https://codecov.io/gh/JECastle4/Castle-Celestial-View)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Visualise the Solar System. Currently showing the Earth and Moon from any location on earth for pretty much any date range. Solar system view shows the orbits. Sky View is for the location on the sky as seen from the location picked.
+Visualise the Solar System. See the Earth and Moon from any location on Earth, for pretty much any date range, then explore the orbits and the sky as it appears from the place you picked.
 
-## Languages
+**Live site:** <https://castlecelestialview.net/en-GB/>
 
-1. API - Python
-1. FE - Vue
-1. Graphics - WebGL/ThreeJ
+## Features
 
-## Public Website
+- **Earth and Moon view**: watch the Earth and Moon from any location and date range.
+- **Solar System view**: the orbits of the planets.
+- **Sky View**: where the bodies appear in the sky from the chosen location.
+- **Astronomical events**: eclipses and other events, with locale-aware formatting.
+- **Accessible and multilingual**: automated and manual accessibility checks, and a translated interface.
 
-[https://castlecelestialview.net/](https://castlecelestialview.net/)
+## Tech stack
 
-## For Check In
+| Area | Technology | Location |
+| --- | --- | --- |
+| API | Python 3.14, FastAPI, Astropy | [`api/`](api/) |
+| Frontend | Vue 3, TypeScript, Vite | [`frontend/`](frontend/) |
+| Graphics | WebGL / Three.js, OpenLayers (maps) | [`frontend/src/three/`](frontend/src/) |
+| Tests | pytest, Vitest, Playwright, jest-axe | [`tests/`](tests/), [`frontend/tests/`](frontend/tests/) |
 
-### Pre-commit checklist
+## Quick start
 
-- Remove `node_modules` (keep `package-lock.json`).
-- Optionally clear the npm cache.
-- Confirm `npm ci` and `npm run build` succeed.
-
-### To start the app
-
-#### FE Dev PowerShell terminal 1
-
-```powershell
-cd frontend; npm run dev
-```
-
-#### FE Prod PowerShell terminal 2
+Prerequisites: Python 3.14+, Node.js 20.19+ and npm.
 
 ```powershell
-cd frontend
-npm run build
-npm run preview
-## Powershell terminal 3
-may need to run:
-(.\.venv\Scripts\Activate.ps1)
+# API (terminal 1), from the repository root
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1          # macOS/Linux: source .venv/bin/activate
+pip install -r requirements-dev.txt
 uvicorn api.main:app --reload --port 8000
 ```
 
-### To run tests
+```powershell
+# Frontend (terminal 2)
+cd frontend
+npm ci
+npm run dev
+```
 
-#### Python
+Open the URL printed by Vite. The frontend expects the API on `http://localhost:8000`.
+
+To try the production build: `npm run build` then `npm run preview` in `frontend/`.
+
+## Running the tests
 
 ```powershell
-$env:PYTHONPATH="." ; pytest tests/ --cov=. --cov-report=xml --cov-report=term-missing
-```
+# API (from the repository root)
+$env:PYTHONPATH="." ; pytest tests/ --cov=. --cov-report=term-missing
 
-#### FE
-
-```bash
-cd frontend
-npm run build
-npm run lint:a11y
+# Frontend (from frontend/)
 npm run type-check
+npm run lint:a11y
 npm run test:coverage
 npm run test:e2e
-npm run test:e2e:update-snapshots
 ```
 
-## To rebuild the docker image
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full checklist, accessibility gates and snapshot workflow.
 
-```bash
-docker build -f Dockerfile.playwright -t playwright-linux-snapshots .
-```
+## Documentation
 
-## Accessibility
+| Document | Purpose |
+| --- | --- |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute, checks and conventions |
+| [AGENTS.md](AGENTS.md) | Guidance for AI coding agents |
+| [docs/README.md](docs/README.md) | Index of build, deployment, release and security docs |
+| [CHANGELOG.md](CHANGELOG.md) | Release history |
+| [SECURITY.md](SECURITY.md) | Reporting vulnerabilities |
+| [SUPPORT.md](SUPPORT.md) | Getting help |
 
-### Development Phase
+## Community
 
-#### axe DevTools extension (browser manual)
+Questions and ideas are welcome in [Discussions](https://github.com/JECastle4/Castle-Celestial-View/discussions). Bugs and feature requests go in [Issues](https://github.com/JECastle4/Castle-Celestial-View/issues/new/choose). Please follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
-1. Quick spot-checks during dev
-1. Catch obvious contrast/ARIA/semantic issues
+## License
 
-### CI Gate (every PR)
-
-#### eslint-plugin-vuejs-accessibility + jest-axe
-
-1. Automated baseline: accessibility linting plus axe-based test coverage for labels, ARIA, and semantics
-1. Prevent regressions
-
-### Release Gate (before shipping)
-
-#### Manual keyboard testing (15-20 min)
-
-1. Tab through entire UI, both states
-1. Verify focus visible, no traps
-
-#### Manual screen reader testing (15-20 min)
-
-1. Narrator on Edge or
-1. NVDA on Chrome
-1. Verify announcements are clear
+[MIT](LICENSE). See also [NOTICE](NOTICE).

@@ -42,7 +42,7 @@ Generic OWASP Top 10 penetration testing:
 
 ### Ticket 1: Issue #207 - Scaling & Performance (DEFERRED)
 **Status**: Future work  
-**Created**: [ISSUE-207-TEMPLATE.md](./ISSUE-207-TEMPLATE.md)  
+**Created**: [ISSUE-207-TEMPLATE.md](../history/ISSUE-207-TEMPLATE.md)  
 **Scope**:
 - Rate limiting (per-IP throttling)
 - Load balancing (multi-server architecture)
@@ -163,7 +163,7 @@ Test crash resistance:
 ## Git Workflow
 
 1. **Now**: Review both documents
-   - [ISSUE-207-TEMPLATE.md](./ISSUE-207-TEMPLATE.md)
+   - [ISSUE-207-TEMPLATE.md](../history/ISSUE-207-TEMPLATE.md)
    - [PENTEST-REVISED-STABILITY-FOCUS.md](./PENTEST-REVISED-STABILITY-FOCUS.md)
 
 2. **Create Issue #207** in GitHub (copy template, set to future milestone)

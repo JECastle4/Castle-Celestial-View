@@ -1,77 +1,73 @@
-# Astronomy Calculator - Contributing Guide
+# Contributing to Castle Celestial View
 
-## Branch Strategy
+Thanks for helping! Contributions of all sizes are welcome. Please read the [Code of Conduct](CODE_OF_CONDUCT.md) first.
 
-- **`main`** - Production-ready code, protected branch
-- **`develop`** - Integration branch for features
-- **`feature/*`** - New features (e.g., `feature/moon-api`)
-- **`fix/*`** - Bug fixes (e.g., `fix/timezone-handling`)
+## Getting started
 
-## Workflow
+1. Look for an issue labelled `good first issue`, or open one to discuss your idea.
+2. Fork the repository (external contributors) or branch from `main`.
+3. Follow the [quick start in the README](README.md#quick-start) to run the API and frontend.
 
-1. **Create a feature branch:**
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
+## Branches and pull requests
 
-2. **Make your changes and commit:**
-   ```bash
-   git add .
-   git commit -m "Add: description of your changes"
-   ```
+- `main` is the only long-lived branch. Branch from `main` and open pull requests back to `main`.
+- Name branches by intent, for example `feature/moon-phase-label`, `fix/timezone-handling`, `chore/210-repo-welcome`, `docs/readme`.
+- Link the issue in the PR description (`Closes #123`) and fill in the PR template.
+- Keep PRs small and focused. CI must pass before merging.
+- Add a `CHANGELOG.md` entry under `## [Unreleased]` for user-visible changes. Versioning rules are in [docs/VERSIONING.md](docs/VERSIONING.md).
 
-3. **Push to GitHub:**
-   ```bash
-   git push origin feature/your-feature-name
-   ```
+## Checks CI runs
 
-4. **Create a Pull Request** on GitHub
-   - The CI pipeline will automatically run
-   - All checks must pass before merging
+**API** (from the repository root, Python 3.14+):
 
-## What Gets Checked Automatically
-
-Every pull request runs:
-- ✅ **Test Suite** - All unit tests must pass
-- ✅ **Coverage Report** - Code coverage analysis
-- ✅ **Bandit** - Security vulnerability scanning
-- ✅ **pip-audit** - Dependency vulnerability check
-- ✅ **Pylint** - Code quality analysis
-- ✅ **Radon** - Complexity metrics
-
-## Running Checks Locally
-
-Before creating a PR, run these locally:
-
-```bash
-# Run tests
-pytest tests/ --cov=.
-
-# Security scan
-bandit -r . -x ./tests,./htmlcov,./__pycache__,./.venv
-
-# Dependency check
-pip-audit
-
-# Code quality
-pylint *.py
-radon cc . -a
+```powershell
+$env:PYTHONPATH="." ; pytest tests/ --cov=. --cov-report=term-missing
+bandit -r . -x ./tests,./htmlcov,./__pycache__,./.venv,./scripts,./research,./icon-generator,./frontend
+pip-audit --desc --skip-editable
+pylint api
+radon cc api -a
 ```
 
-## Code Standards
+**Frontend** (from `frontend/`, Node 20.19+):
 
-- Python 3.14+ features encouraged
-- Type hints preferred
-- Docstrings required for public functions
-- Test coverage for new features
-- No security vulnerabilities tolerated
+```powershell
+npm ci
+npm run build
+npm run type-check
+npm run lint:a11y
+npm run test:coverage
+npm run test:e2e
+```
 
-## For External Contributors
+CI also runs CodeQL, Trivy and production-landing checks.
 
-🎉 External contributions are welcome! If you're not the project owner:
-- Fork the repository
-- Create your feature branch
-- Ensure all CI checks pass
-- Submit a PR with clear description
+## Code standards
 
-Thank you for contributing to making astronomy calculations accessible! 🌙✨
+- Python: type hints preferred, docstrings for public functions, tests for new behaviour.
+- Frontend: Vue 3 `<script setup>` with TypeScript. Use OpenLayers (`ol`) for maps. User-facing strings go through vue-i18n, with locale formatting via `normalizeLocaleForIntl`.
+- No known security vulnerabilities. Report them privately, see [SECURITY.md](SECURITY.md).
+
+## Accessibility
+
+- **While developing:** spot-check with the axe DevTools browser extension.
+- **Every PR (CI gate):** `eslint-plugin-vuejs-accessibility` and jest-axe must pass.
+- **Before a release:** manual keyboard and screen reader testing, see [frontend/tests/accessibility-manual.md](frontend/tests/accessibility-manual.md).
+
+## Playwright snapshots
+
+Snapshots are per browser and platform. Update them with `npm run test:e2e:update-snapshots` (Windows). Linux snapshots are generated in Docker, via `Update-LinuxSnapshots.ps1` (or `update-linux-snapshots.sh`), using `Dockerfile.playwright`:
+
+```bash
+docker build -f Dockerfile.playwright -t playwright-linux-snapshots .
+```
+
+Only commit snapshot changes that are intended, and explain them in the PR.
+
+## Before you commit
+
+- Confirm `npm ci` and `npm run build` succeed in `frontend/`.
+- Don't commit `node_modules`, `dist/`, `coverage/` or other generated output.
+
+## More documentation
+
+See [docs/README.md](docs/README.md) for build, deployment, release and security documents.
