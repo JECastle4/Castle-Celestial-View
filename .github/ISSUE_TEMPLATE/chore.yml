@@ -1,5 +1,6 @@
 name: Chore / docs
 description: Maintenance, documentation, tooling or refactoring
+labels: ["chore"]
 body:
   - type: textarea
     id: aim
