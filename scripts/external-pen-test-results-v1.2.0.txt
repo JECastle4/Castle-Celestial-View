@@ -62,3 +62,40 @@ Observation: deployuser was prompted for and accepted a password login, again in
 PasswordAuthentication is enabled. Needs follow-up (verify effective sshd config and,
 if intended to be key-only, set PasswordAuthentication no).
 
+STEP 3: TLS / CERTIFICATE VERIFICATION
+══════════════════════════════════════
+
+3.1: Certificate details and chain
+Command: echo $null | openssl s_client -connect castlecelestialview.net:443 -servername castlecelestialview.net
+(PEM certificate block omitted)
+
+Connecting to 77.68.79.252
+depth=3 C=US, O=Internet Security Research Group, CN=ISRG Root X2   verify return:1
+depth=2 C=US, O=ISRG, CN=Root YE                                   verify return:1
+depth=1 C=US, O=Let's Encrypt, CN=YE1                              verify return:1
+depth=0 CN=castlecelestialview.net                                 verify return:1
+
+Certificate chain
+ 0 s:CN=castlecelestialview.net  i:C=US, O=Let's Encrypt, CN=YE1
+   PKEY: EC prime256v1; sigalg: ecdsa-with-SHA384
+   NotBefore: Nov 26 19:05:33 2026 GMT; NotAfter: Feb 24 19:05:32 2027 GMT
+ 1 s:C=US, O=Let's Encrypt, CN=YE1  i:C=US, O=ISRG, CN=Root YE
+   NotBefore: Sep  3 00:00:00 2025 GMT; NotAfter: Sep  2 23:59:59 2028 GMT
+ 2 s:C=US, O=ISRG, CN=Root YE  i:C=US, O=Internet Security Research Group, CN=ISRG Root X2
+   NotBefore: May 13 00:00:00 2026 GMT; NotAfter: Sep  2 23:59:59 2032 GMT
+ 3 s:C=US, O=Internet Security Research Group, CN=ISRG Root X2  i:C=US, O=Internet Security Research Group, CN=ISRG Root X1
+   NotBefore: May 13 00:00:00 2026 GMT; NotAfter: Sep  2 23:59:59 2032 GMT
+
+subject=CN=castlecelestialview.net
+issuer=C=US, O=Let's Encrypt, CN=YE1
+Peer signature type: ecdsa_secp256r1_sha256; Peer Temp Key: X25519, 253 bits
+Verification: OK
+New, TLSv1.3, Cipher is TLS_AES_256_GCM_SHA384
+Protocol: TLSv1.3; Server public key is 256 bit; Compression: NONE; No ALPN negotiated
+Verify return code: 0 (ok)
+
+Result: PASS - subject CN=castlecelestialview.net; Let's Encrypt issuer; full chain
+verified (return code 0); certificate valid until 2027-02-24 (~89 days from test date,
+well over the 30-day threshold; freshly renewed 2026-11-26); TLS 1.3 negotiated.
+Note: "No ALPN negotiated" with s_client is expected when no -alpn is requested.
+
