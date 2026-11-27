@@ -234,3 +234,31 @@ origin, but none was returned; this is expected for same-origin requests (the si
 share an origin, and the allow-list appears to be same-origin only), so no cross-origin
 client is permitted. (3) A preflight from the legitimate origin was not tested.
 
+STEP 8: NETWORK FOOTPRINT
+═════════════════════════
+
+8.1: Traceroute
+Command: tracert -d castlecelestialview.net
+Tracing route to castlecelestialview.net [77.68.79.252] over a maximum of 30 hops:
+  1-4  local network / ISP hops (responding, 3-25 ms)
+  5    Request timed out
+  6    212.187.201.230   13-14 ms
+  7    212.227.117.201   19 ms
+  8    212.227.120.72    18-19 ms
+  9-30 Request timed out (no ICMP replies from hop 9 onward, including the destination)
+Result: last responding hop is 212.227.120.72 (~18 ms) in the hosting provider's network
+(212.227.x.x); the target does not answer ICMP/TTL-exceeded probes.
+
+8.2: ICMP ping
+Command: ping castlecelestialview.net
+Pinging castlecelestialview.net [77.68.79.252] with 32 bytes of data: 4 sent, 0 received, 100% loss.
+Result: ICMP blocked/filtered (acceptable per guide).
+
+8.3: DNS lookup
+Command: nslookup castlecelestialview.net
+Non-authoritative answer: Name: castlecelestialview.net  Address: 77.68.79.252
+Result: resolves to 77.68.79.252 (matches the expected target). IPv4 only in this lookup
+(note: Aug 2026 results showed an additional AAAA record; no IPv6 address returned this time).
+
+Overall Step 8: PASS - minimal footprint; host does not respond to ICMP; DNS as expected.
+
