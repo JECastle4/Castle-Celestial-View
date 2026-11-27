@@ -8,6 +8,26 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versio
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-27
+
+### Added
+- Regional landing pages with `en-GB` and `en-US` locales, crawler-readable pages,
+  sharing cards, `robots.txt`/`sitemap.xml` and legacy redirects (#282).
+  **Requires a manual nginx config update** — see DEPLOYMENT_GUIDE.md.
+- Eclipse detection and the events calendar (#223).
+
+### Fixed
+- Keyboard focus loss (#222).
+- Review findings: locale refresh during exports, event summary layout,
+  locale/timezone/accessibility regressions (#273).
+
+### Changed
+- Code complexity refactor (#246).
+- Routine dependency updates (frontend, Python, Playwright base image).
+- (existing changes; nginx API timeouts also need the manual update)
+
+## [Unreleased]
+
 ### Added
 - Runtime response-cache entry, estimated-memory, eviction and expiration metrics,
   bounded HTTP error categories, and abandoned-work counters, duration and in-progress metrics.
