@@ -160,3 +160,15 @@ Notes: (1) Response was HTTP/1.1 because this curl.exe build did not negotiate H
 allows 'unsafe-inline'; script-src is strict 'self'. (3) Content is fresh: Last-Modified
 2026-11-27 17:53 GMT matches the v1.2.0 deployment.
 
+STEP 5: HTTP METHOD RESTRICTION
+═══════════════════════════════
+
+Command: curl.exe -s -o NUL -w "<METHOD>: %{http_code}" -X <METHOD> https://castlecelestialview.net
+
+PUT: 405
+DELETE: 405
+PATCH: 405
+TRACE: 405
+
+Result: PASS - all unsafe methods return 405 Method Not Allowed.
+
