@@ -193,3 +193,44 @@ content is exposed. Same behaviour as the firewall policy of allowing only 22/44
 Note: users typing http:// get a timeout; HSTS (preload, 1 year) protects returning
 browsers. Consider opening 80 solely for a 301 redirect if friendlier UX is wanted.
 
+STEP 7: CORS VERIFICATION
+═════════════════════════
+
+7.1: Initial attempt (not a valid test)
+curl.exe -sI -H "Origin: https://evil.example.com" https://castlecelestialview.net/api/v1/health  -> 404
+curl.exe -sI -H "Origin: https://castlecelestialview.net" https://castlecelestialview.net/api/v1/health -> 404
+(/api/v1/health does not exist; real route is /health. Neither response had Access-Control-Allow-Origin
+but 404s are not a meaningful CORS test. "vary: Origin" present => API CORS middleware active.)
+
+7.2: Legitimate origin against static root (guide command)
+curl.exe -sI -H "Origin: https://castlecelestialview.net" https://castlecelestialview.net
+HTTP/1.1 200 OK (nginx static page; security headers as in Step 4)
+No Access-Control-Allow-Origin header returned.
+
+7.3: Untrusted origin, simple GET on API
+curl.exe -si -H "Origin: https://evil.example.com" https://castlecelestialview.net/health
+HTTP/1.1 200 OK; vary: Origin; body {"status":"healthy"}
+No Access-Control-Allow-Origin header returned (browser would block cross-origin read).
+
+7.4: Untrusted origin, preflight
+curl.exe -si -X OPTIONS -H "Origin: https://evil.example.com" -H "Access-Control-Request-Method: GET" https://castlecelestialview.net/health
+HTTP/1.1 400 Bad Request; body "Disallowed CORS origin"
+vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers, Access-Control-Request-Private-Network
+access-control-allow-methods: GET, POST
+access-control-max-age: 600
+access-control-allow-headers: Accept, Accept-Language, Content-Language, Content-Type
+No Access-Control-Allow-Origin header returned.
+
+7.5: Legitimate origin, simple GET on API
+curl.exe -si -H "Origin: https://castlecelestialview.net" https://castlecelestialview.net/health
+HTTP/1.1 200 OK; vary: Origin; body {"status":"healthy"}
+No Access-Control-Allow-Origin header returned.
+
+Result: PASS - untrusted origins are never granted CORS access (no ACAO on simple request;
+preflight rejected with 400 "Disallowed CORS origin"); no wildcard origin observed.
+Notes: (1) The guide's "attacker.com" request against the root was not captured separately;
+covered by 7.3/7.4 using evil.example.com. (2) The guide expects ACAO for the legitimate
+origin, but none was returned; this is expected for same-origin requests (the site and API
+share an origin, and the allow-list appears to be same-origin only), so no cross-origin
+client is permitted. (3) A preflight from the legitimate origin was not tested.
+
