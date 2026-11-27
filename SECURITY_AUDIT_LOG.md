@@ -1,5 +1,44 @@
 # Security Audit Log - Castle Celestial View
 
+## Audit Entry: 2026-11-27 - External Pen Test (v1.2.0)
+
+**Date:** November 27, 2026  
+**Time:** 18:00-18:40 UTC  
+**Tester:** Manual run of EXTERNAL_PEN_TEST_GUIDE.md steps from a Windows laptop (nmap 7.80, OpenSSL, curl.exe)  
+**Target:** castlecelestialview.net (77.68.79.252)  
+**Release:** v1.2.0  
+**Status:** ⚠️ PASSED WITH FOLLOW-UPS (1 finding to review)  
+**Full results:** `scripts/external-pen-test-results-v1.2.0.txt`
+
+### Results by Step
+
+| Step | Check | Result | Details |
+|------|-------|--------|---------|
+| 1 | Port scan (`nmap -p-`) | ✅ PASS | Only 22/tcp and 443/tcp open; 65533 filtered |
+| 2 | SSH security | ⚠️ REVIEW | Root login denied; server offers `publickey,password` (password auth appears enabled); host key scan and `sshd -T` inconclusive |
+| 3 | TLS / certificate | ✅ PASS | Let's Encrypt, chain verified, expires 2027-02-24 (~89 days); TLS 1.2 and 1.3 only (1.0/1.1 not offered, confirmed by nmap); all ciphers grade A |
+| 4 | Security headers | ✅ PASS | HSTS, CSP, X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy present; `Server: nginx` (no version) |
+| 5 | HTTP methods | ✅ PASS | PUT, DELETE, PATCH, TRACE all return 405 |
+| 6 | HTTP to HTTPS redirect | ➖ N/A | Port 80 filtered (connection times out); no redirect and no cleartext exposure |
+| 7 | CORS | ✅ PASS | Untrusted origin gets no ACAO header; preflight rejected 400 "Disallowed CORS origin" |
+| 8 | Network footprint | ✅ PASS | ICMP filtered; DNS resolves to 77.68.79.252 |
+| 9 | Automated scanning | ✅ PASS | nikto/sslscan/ZAP not available (not run); nmap HTTP scripts run; raw-IP access gets no response, so the nmap "HSTS not configured" result is a scanner artifact |
+
+### Findings & Follow-ups
+
+1. **SSH password authentication appears enabled (Medium, needs confirmation).** The root login attempt reported `Permission denied (publickey,password)` and `deployuser` was prompted for a password. The guide expects `passwordauthentication no`. Verify the effective config with `sudo sshd -T | grep -E 'permitrootlogin|passwordauth|pubkeyauth'` (check `/etc/ssh/sshd_config.d/*.conf` for overrides) and disable if key-only is intended. Mitigating factor reported by the owner: the `deployuser` password is 16 characters with upper/lower case, digits and symbols; this reduces guessing risk but does not remove online brute-force exposure. Decision (remediate vs. accept risk) pending.
+2. **Host keys not retrieved (Info).** Windows `ssh-keyscan` does not support the server's `sntrup761x25519` KEX; re-run from Git Bash/WSL if key fingerprints are needed.
+3. **No HTTP to HTTPS redirect (Low/Info).** Port 80 is filtered by design; optionally open it only to serve a 301.
+4. **CSP `style-src 'unsafe-inline'` (Low advisory).** `script-src` is strict `'self'`.
+5. **Legacy TLS 1.2 suites (Low advisory).** CBC-SHA, CAMELLIA, ARIA and AES-CCM_8 suites remain enabled; none are known-vulnerable.
+6. **IPv6 record (Info).** The Aug 2026 audit recorded an AAAA record; this lookup returned IPv4 only. Confirm whether that is intentional.
+
+### Conclusion
+
+No critical findings. Perimeter, TLS, headers, method restriction and CORS controls are intact on v1.2.0. The SSH password-authentication item should be confirmed and, if unintended, remediated before the next audit.
+
+---
+
 ## Audit Entry: 2026-08-02 - TLS 1.0/1.1 Vulnerability Remediation
 
 **Date:** August 2, 2026  

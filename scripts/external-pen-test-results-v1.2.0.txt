@@ -1,0 +1,306 @@
+═══════════════════════════════════════════════════════════════
+EXTERNAL PEN TEST - Castle Celestial View v1.2.0 (Windows)
+Target: castlecelestialview.net (77.68.79.252)
+Date: 2026-11-27
+Platform: Windows (steps run manually, one at a time, per EXTERNAL_PEN_TEST_GUIDE.md)
+═══════════════════════════════════════════════════════════════
+
+STEP 1: PORT SCAN
+═════════════════
+
+Command: nmap -p- 77.68.79.252
+
+Starting Nmap 7.80 ( https://nmap.org ) at 2026-11-27 18:00 GMT Standard Time
+Nmap scan report for 77.68.79.252
+Host is up (0.020s latency).
+Not shown: 65533 filtered ports
+PORT    STATE SERVICE
+22/tcp  open  ssh
+443/tcp open  https
+
+Nmap done: 1 IP address (1 host up) scanned in 180.43 seconds
+
+Result: PASS - only 22/tcp and 443/tcp open; all other ports filtered.
+
+STEP 2: SSH SECURITY CHECK
+══════════════════════════
+
+2.1: SSH key scan
+Command: ssh-keyscan -t rsa,ed25519 castlecelestialview.net
+
+# castlecelestialview.net:22 SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.20
+choose_kex: unsupported KEX method sntrup761x25519-sha512@openssh.com
+(repeated for second key type)
+
+Result: INCONCLUSIVE - server banner OpenSSH_9.6p1 Ubuntu-3ubuntu13.20 obtained, but the
+Windows OpenSSH client's ssh-keyscan does not support the server's sntrup761x25519 KEX,
+so host keys were not retrieved. (Client limitation, not a server fault.)
+
+2.2: Root login
+Command: ssh root@castlecelestialview.net
+
+root@castlecelestialview.net's password:
+Permission denied, please try again.
+root@castlecelestialview.net's password:
+Permission denied, please try again.
+root@castlecelestialview.net's password:
+root@castlecelestialview.net: Permission denied (publickey,password).
+
+Result: root login DENIED (expected). FINDING: server advertises "password" as an
+accepted authentication method, which conflicts with the guide's expected
+passwordauthentication=no.
+
+2.3: sshd configuration
+Command: ssh deployuser@castlecelestialview.net "sudo sshd -T | grep -E 'permitrootlogin|passwordauth|pubkeyauth'"
+
+deployuser@castlecelestialview.net's password:
+sudo: a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper
+sudo: a password is required
+
+Result: INCONCLUSIVE - sshd -T could not be run (sudo needs a password / tty).
+Observation: deployuser was prompted for and accepted a password login, again indicating
+PasswordAuthentication is enabled. Needs follow-up (verify effective sshd config and,
+if intended to be key-only, set PasswordAuthentication no).
+
+STEP 3: TLS / CERTIFICATE VERIFICATION
+══════════════════════════════════════
+
+3.1: Certificate details and chain
+Command: echo $null | openssl s_client -connect castlecelestialview.net:443 -servername castlecelestialview.net
+(PEM certificate block omitted)
+
+Connecting to 77.68.79.252
+depth=3 C=US, O=Internet Security Research Group, CN=ISRG Root X2   verify return:1
+depth=2 C=US, O=ISRG, CN=Root YE                                   verify return:1
+depth=1 C=US, O=Let's Encrypt, CN=YE1                              verify return:1
+depth=0 CN=castlecelestialview.net                                 verify return:1
+
+Certificate chain
+ 0 s:CN=castlecelestialview.net  i:C=US, O=Let's Encrypt, CN=YE1
+   PKEY: EC prime256v1; sigalg: ecdsa-with-SHA384
+   NotBefore: Nov 26 19:05:33 2026 GMT; NotAfter: Feb 24 19:05:32 2027 GMT
+ 1 s:C=US, O=Let's Encrypt, CN=YE1  i:C=US, O=ISRG, CN=Root YE
+   NotBefore: Sep  3 00:00:00 2025 GMT; NotAfter: Sep  2 23:59:59 2028 GMT
+ 2 s:C=US, O=ISRG, CN=Root YE  i:C=US, O=Internet Security Research Group, CN=ISRG Root X2
+   NotBefore: May 13 00:00:00 2026 GMT; NotAfter: Sep  2 23:59:59 2032 GMT
+ 3 s:C=US, O=Internet Security Research Group, CN=ISRG Root X2  i:C=US, O=Internet Security Research Group, CN=ISRG Root X1
+   NotBefore: May 13 00:00:00 2026 GMT; NotAfter: Sep  2 23:59:59 2032 GMT
+
+subject=CN=castlecelestialview.net
+issuer=C=US, O=Let's Encrypt, CN=YE1
+Peer signature type: ecdsa_secp256r1_sha256; Peer Temp Key: X25519, 253 bits
+Verification: OK
+New, TLSv1.3, Cipher is TLS_AES_256_GCM_SHA384
+Protocol: TLSv1.3; Server public key is 256 bit; Compression: NONE; No ALPN negotiated
+Verify return code: 0 (ok)
+
+Result: PASS - subject CN=castlecelestialview.net; Let's Encrypt issuer; full chain
+verified (return code 0); certificate valid until 2027-02-24 (~89 days from test date,
+well over the 30-day threshold; freshly renewed 2026-11-26); TLS 1.3 negotiated.
+Note: "No ALPN negotiated" with s_client is expected when no -alpn is requested.
+
+3.2: Protocol version tests
+Commands: echo $null | openssl s_client -connect castlecelestialview.net:443 -servername castlecelestialview.net -<flag> | Select-String "Protocol|Cipher|error|alert"
+
+-tls1_2: New, TLSv1.2, Cipher is ECDHE-ECDSA-AES128-GCM-SHA256   (connected)
+-tls1_3: New, TLSv1.3, Cipher is TLS_AES_256_GCM_SHA384          (connected)
+-tls1_1: error:0A0000BF:SSL routines:tls_setup_handshake:no protocols available; New, (NONE), Cipher is (NONE)
+-tls1:   error:0A0000BF:SSL routines:tls_setup_handshake:no protocols available; New, (NONE), Cipher is (NONE)
+
+Result: TLS 1.2 and 1.3 PASS (both accepted).
+TLS 1.0/1.1: INCONCLUSIVE - "no protocols available" is raised locally by the Windows
+OpenSSL build (legacy protocols disabled at the client), so no handshake was attempted.
+Follow-up: confirm server-side with nmap --script ssl-enum-ciphers -p 443 77.68.79.252.
+
+3.3: Server-side protocol/cipher enumeration (follow-up to 3.2)
+Command: nmap --script ssl-enum-ciphers -p 443 77.68.79.252   (Nmap 7.80)
+
+443/tcp open  https
+| ssl-enum-ciphers:
+|   TLSv1.2:
+|     ciphers: 15 ECDHE-ECDSA suites (AES-GCM, CHACHA20-POLY1305, AES-CCM/CCM_8, ARIA-GCM,
+|              AES/CAMELLIA-CBC SHA256/SHA384, AES-CBC-SHA) - all graded A, all ecdh_x25519
+|     compressors: NULL
+|     cipher preference: server
+|_  least strength: A
+
+Result: PASS - TLSv1.0 and TLSv1.1 not offered (only TLSv1.2 listed; no SSLv3), no
+compression, least cipher strength A, ECDHE forward secrecy only.
+Notes: Nmap 7.80 predates TLS 1.3 support in this script, so TLSv1.3 is not listed (it was
+confirmed in 3.2). Advisory (low): legacy CBC-SHA, CAMELLIA, ARIA and AES-CCM_8 suites
+remain enabled for TLS 1.2; could be trimmed but are not a vulnerability.
+
+STEP 4: SECURITY HEADERS CHECK
+══════════════════════════════
+
+Command: curl.exe -sI https://castlecelestialview.net
+
+HTTP/1.1 200 OK
+Server: nginx
+Date: Fri, 27 Nov 2026 18:13:17 GMT
+Content-Type: text/html
+Content-Length: 3627
+Last-Modified: Fri, 27 Nov 2026 17:53:19 GMT
+Connection: keep-alive
+ETag: "6b09c38f-e2b"
+Cache-Control: public, max-age=3600, must-revalidate
+Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+X-Frame-Options: DENY
+X-Content-Type-Options: nosniff
+Referrer-Policy: strict-no-referrer
+Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), accelerometer=(), gyroscope=(), magnetometer=(), usb=(), vr=()
+Accept-Ranges: bytes
+
+Result: PASS - all six expected headers present with expected values (HSTS 1 year +
+includeSubDomains + preload; CSP; X-Frame-Options DENY; nosniff; Referrer-Policy;
+Permissions-Policy). Server header shows "nginx" without version.
+Notes: (1) Response was HTTP/1.1 because this curl.exe build did not negotiate HTTP/2
+(guide example shows HTTP/2); not a server defect. (2) Low/advisory: CSP style-src
+allows 'unsafe-inline'; script-src is strict 'self'. (3) Content is fresh: Last-Modified
+2026-11-27 17:53 GMT matches the v1.2.0 deployment.
+
+STEP 5: HTTP METHOD RESTRICTION
+═══════════════════════════════
+
+Command: curl.exe -s -o NUL -w "<METHOD>: %{http_code}" -X <METHOD> https://castlecelestialview.net
+
+PUT: 405
+DELETE: 405
+PATCH: 405
+TRACE: 405
+
+Result: PASS - all unsafe methods return 405 Method Not Allowed.
+
+STEP 6: HTTP -> HTTPS REDIRECT
+══════════════════════════════
+
+Command: curl.exe -sI http://castlecelestialview.net
+(no output)
+
+Command: curl.exe -v --connect-timeout 10 http://castlecelestialview.net
+*   Trying 77.68.79.252:80...
+* Host castlecelestialview.net:80 was resolved.
+* IPv6: (none)
+* IPv4: 77.68.79.252
+* Connection timed out after 10015 milliseconds
+* closing connection #0
+curl: (28) Connection timed out after 10015 milliseconds
+
+Result: N/A (deviation from guide) - port 80 is filtered (consistent with Step 1), so no
+301 redirect is served. Plain-HTTP requests time out rather than redirect; no cleartext
+content is exposed. Same behaviour as the firewall policy of allowing only 22/443.
+Note: users typing http:// get a timeout; HSTS (preload, 1 year) protects returning
+browsers. Consider opening 80 solely for a 301 redirect if friendlier UX is wanted.
+
+STEP 7: CORS VERIFICATION
+═════════════════════════
+
+7.1: Initial attempt (not a valid test)
+curl.exe -sI -H "Origin: https://evil.example.com" https://castlecelestialview.net/api/v1/health  -> 404
+curl.exe -sI -H "Origin: https://castlecelestialview.net" https://castlecelestialview.net/api/v1/health -> 404
+(/api/v1/health does not exist; real route is /health. Neither response had Access-Control-Allow-Origin
+but 404s are not a meaningful CORS test. "vary: Origin" present => API CORS middleware active.)
+
+7.2: Legitimate origin against static root (guide command)
+curl.exe -sI -H "Origin: https://castlecelestialview.net" https://castlecelestialview.net
+HTTP/1.1 200 OK (nginx static page; security headers as in Step 4)
+No Access-Control-Allow-Origin header returned.
+
+7.3: Untrusted origin, simple GET on API
+curl.exe -si -H "Origin: https://evil.example.com" https://castlecelestialview.net/health
+HTTP/1.1 200 OK; vary: Origin; body {"status":"healthy"}
+No Access-Control-Allow-Origin header returned (browser would block cross-origin read).
+
+7.4: Untrusted origin, preflight
+curl.exe -si -X OPTIONS -H "Origin: https://evil.example.com" -H "Access-Control-Request-Method: GET" https://castlecelestialview.net/health
+HTTP/1.1 400 Bad Request; body "Disallowed CORS origin"
+vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers, Access-Control-Request-Private-Network
+access-control-allow-methods: GET, POST
+access-control-max-age: 600
+access-control-allow-headers: Accept, Accept-Language, Content-Language, Content-Type
+No Access-Control-Allow-Origin header returned.
+
+7.5: Legitimate origin, simple GET on API
+curl.exe -si -H "Origin: https://castlecelestialview.net" https://castlecelestialview.net/health
+HTTP/1.1 200 OK; vary: Origin; body {"status":"healthy"}
+No Access-Control-Allow-Origin header returned.
+
+Result: PASS - untrusted origins are never granted CORS access (no ACAO on simple request;
+preflight rejected with 400 "Disallowed CORS origin"); no wildcard origin observed.
+Notes: (1) The guide's "attacker.com" request against the root was not captured separately;
+covered by 7.3/7.4 using evil.example.com. (2) The guide expects ACAO for the legitimate
+origin, but none was returned; this is expected for same-origin requests (the site and API
+share an origin, and the allow-list appears to be same-origin only), so no cross-origin
+client is permitted. (3) A preflight from the legitimate origin was not tested.
+
+STEP 8: NETWORK FOOTPRINT
+═════════════════════════
+
+8.1: Traceroute
+Command: tracert -d castlecelestialview.net
+Tracing route to castlecelestialview.net [77.68.79.252] over a maximum of 30 hops:
+  1-4  local network / ISP hops (responding, 3-25 ms)
+  5    Request timed out
+  6    212.187.201.230   13-14 ms
+  7    212.227.117.201   19 ms
+  8    212.227.120.72    18-19 ms
+  9-30 Request timed out (no ICMP replies from hop 9 onward, including the destination)
+Result: last responding hop is 212.227.120.72 (~18 ms) in the hosting provider's network
+(212.227.x.x); the target does not answer ICMP/TTL-exceeded probes.
+
+8.2: ICMP ping
+Command: ping castlecelestialview.net
+Pinging castlecelestialview.net [77.68.79.252] with 32 bytes of data: 4 sent, 0 received, 100% loss.
+Result: ICMP blocked/filtered (acceptable per guide).
+
+8.3: DNS lookup
+Command: nslookup castlecelestialview.net
+Non-authoritative answer: Name: castlecelestialview.net  Address: 77.68.79.252
+Result: resolves to 77.68.79.252 (matches the expected target). IPv4 only in this lookup
+(note: Aug 2026 results showed an additional AAAA record; no IPv6 address returned this time).
+
+Overall Step 8: PASS - minimal footprint; host does not respond to ICMP; DNS as expected.
+
+STEP 9: AUTOMATED SCANNING
+══════════════════════════
+
+Tools not available on this laptop and not installed: nikto, sslscan, OWASP ZAP (not run).
+TLS coverage substituted by nmap ssl-enum-ciphers (see 3.3).
+
+9.1: nmap HTTP scripts
+Command: nmap -sV --script http-security-headers,http-methods,http-server-header -p 443 77.68.79.252
+
+Starting Nmap 7.80 ( https://nmap.org ) at 2026-11-27 18:36 GMT Standard Time
+Host is up (0.019s latency).
+PORT    STATE SERVICE  VERSION
+443/tcp open  ssl/http nginx 1.24.0 (Ubuntu)
+| http-security-headers:
+|   Strict_Transport_Security:
+|_    HSTS not configured in HTTPS Server
+|_http-server-header: nginx/1.24.0 (Ubuntu)
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+Nmap done: 1 IP address (1 host up) scanned in 20.71 seconds
+
+Result: DISCREPANCY (provisional, pending 9.2) - conflicts with Step 4, where the named host
+returned HSTS and a bare "Server: nginx". nmap requested by IP address (no SNI / Host header),
+so it likely reached nginx's default server block, which appears to lack the security headers
+and to expose "nginx/1.24.0 (Ubuntu)". Low severity (version disclosure; headers missing only
+on IP-based access), but worth aligning the default server block.
+
+9.2: Access by raw IP (follow-up to 9.1)
+Commands: curl.exe -skI https://77.68.79.252 ; curl.exe -sk https://77.68.79.252/nonexistent
+Both returned no output. Verbose run (curl.exe -skv https://77.68.79.252):
+* schannel: using IP address, SNI is not supported by OS.
+* ALPN: server accepted http/1.1
+> GET / HTTP/1.1 / Host: 77.68.79.252
+* schannel: remote party requests renegotiation (x2; client-side schannel behaviour)
+* schannel: server closed abruptly (missing close_notify)
+
+Result: PASS - requests by IP (unknown Host) receive no HTTP response; the server closes the
+connection (consistent with a default server block returning 444). No content, headers or
+version string are served by IP. Revised conclusion for 9.1: the "HSTS not configured" result
+is a scanner artifact of probing by IP; the nginx version string came from nmap service
+fingerprinting, not a served Server header (Step 4 showed bare "Server: nginx"). Discrepancy
+resolved - no action required.
+
