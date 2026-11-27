@@ -27,8 +27,8 @@ python -m build
 
 ```
 dist/
-  astronomy_tools-<version>-py3-none-any.whl
-  astronomy_tools-<version>.tar.gz
+  castle_celestial_view-<version>-py3-none-any.whl
+  castle_celestial_view-<version>.tar.gz
 ```
 
 ### Included in Distribution

@@ -746,7 +746,7 @@ class TimeoutMiddleware:  # pylint: disable=too-few-public-methods
     capacity. Multi-instance deployments MUST implement Phase 4 admission control
     (reject before accepting) + cancellable work (interrupt via SIGTERM).
 
-    See LOAD_BALANCING_STRATEGY.md for Phase 4.1 (Admission Control) and Phase 4.2
+    See docs/LOAD_BALANCING_STRATEGY.md for Phase 4.1 (Admission Control) and Phase 4.2
     (Cancellable Work) design and dependencies.
     """
 

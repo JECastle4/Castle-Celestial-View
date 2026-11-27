@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or idea
+    url: https://github.com/JECastle4/Castle-Celestial-View/discussions
+    about: Ask questions and share ideas in Discussions.
+  - name: Report a security vulnerability
+    url: https://github.com/JECastle4/Castle-Celestial-View/security/advisories/new
+    about: Report privately. Read SECURITY.md first and do not post exploit details publicly.

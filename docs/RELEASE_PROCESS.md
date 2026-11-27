@@ -19,7 +19,7 @@ Before creating a tag, confirm all of the following:
 - [ ] All CI checks pass on `main` (tests, security scans, linting)
 - [ ] `pyproject.toml` version and `frontend/package.json` version match
 - [ ] [RELEASE_QA.md](RELEASE_QA.md) checklist completed and evidence captured
-- [ ] [CHANGELOG.md](CHANGELOG.md) entry written for this version
+- [ ] [CHANGELOG.md](../CHANGELOG.md) entry written for this version
 - [ ] No known unresolved security advisories in dependencies
 
 ---
@@ -44,7 +44,7 @@ frontend/package.json  →  "version": "1.0.0"
 
 ### 3. Update CHANGELOG.md
 
-Add an entry for the new version under `## [Unreleased]` following the format in [CHANGELOG.md](CHANGELOG.md).
+Add an entry for the new version under `## [Unreleased]` following the format in [CHANGELOG.md](../CHANGELOG.md).
 
 ### 4. Commit the version bump
 
@@ -220,5 +220,5 @@ screenshots.
 
 - [VERSIONING.md](VERSIONING.md) — Version numbering scheme and sync rules
 - [RELEASE_QA.md](RELEASE_QA.md) — QA checklist and evidence procedures
-- [CHANGELOG.md](CHANGELOG.md) — Release history
+- [CHANGELOG.md](../CHANGELOG.md) — Release history
 - [BUILD.md](BUILD.md) — How to build artifacts locally

@@ -100,7 +100,7 @@ ${BOLD}Configuration:${NC}
 
 ${BOLD}Setup required (option B):${NC}
   1. Create systemd service for gunicorn at: /etc/systemd/system/$SERVICE_API.service
-     See DEPLOYMENT_GUIDE.md for template
+     See docs/DEPLOYMENT_GUIDE.md for template
   2. Enable the service: sudo systemctl daemon-reload && sudo systemctl enable $SERVICE_API
   3. Start the service: sudo systemctl start $SERVICE_API
   4. Verify: sudo systemctl status $SERVICE_API
@@ -427,7 +427,33 @@ install_api() {
     "$pip_cmd" install --upgrade --force-reinstall \
     "$WORK_DIR/$WHL_FILENAME"
 
+  remove_stale_distribution_metadata
+
   debug "API installation completed (or would be in dry-run)"
+}
+
+# The distribution was renamed (astronomy_tools -> castle_celestial_view). Both
+# ship the same api package, so after a successful install drop only the other
+# name's dist-info. Files are never deleted, so a failed install can't remove a
+# working API, and this works for upgrades and for rollbacks to old releases.
+remove_stale_distribution_metadata() {
+  local stale=""
+  case "$WHL_FILENAME" in
+    castle_celestial_view-*) stale="astronomy_tools" ;;
+    astronomy_tools-*) stale="castle_celestial_view" ;;
+    *) return 0 ;;
+  esac
+
+  [[ "$DRY_RUN" == "true" ]] && return 0
+
+  local site_dir dist_info
+  site_dir=$("$API_VENV_DIR/bin/python" -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')
+  for dist_info in "$site_dir/${stale}"-*.dist-info; do
+    if [[ -d "$dist_info" ]]; then
+      info "Removing stale distribution metadata: $(basename "$dist_info")"
+      rm -rf "$dist_info"
+    fi
+  done
 }
 
 # ─── Install frontend ──────────────────────────────────────────────────────────

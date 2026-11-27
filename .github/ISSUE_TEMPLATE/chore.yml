@@ -1,0 +1,23 @@
+name: Chore / docs
+description: Maintenance, documentation, tooling or refactoring
+labels: ["chore"]
+body:
+  - type: textarea
+    id: aim
+    attributes:
+      label: Aim
+      description: What should be improved and why?
+    validations:
+      required: true
+  - type: textarea
+    id: tasks
+    attributes:
+      label: Proposed work
+      placeholder: |
+        - [ ] ...
+    validations:
+      required: true
+  - type: textarea
+    id: questions
+    attributes:
+      label: Open questions

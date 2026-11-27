@@ -412,7 +412,7 @@ pip-licenses --order=license --format=markdown
 ```
 
 - [ ] All production dependencies listed
-- [ ] No GPL, AGPL, or other copyleft licences that would conflict with this project's [LICENSE](LICENSE)
+- [ ] No GPL, AGPL, or other copyleft licences that would conflict with this project's [LICENSE](../LICENSE)
 - [ ] NOTICE file updated if any new attribution is required
 
 ### Frontend (Node)
@@ -435,7 +435,7 @@ npx license-checker --production --summary
 Confirm the release artifacts are clean and correct (see [BUILD.md](BUILD.md)).
 
 - [ ] `python -m build` completes without errors
-- [ ] Wheel filename contains the correct version: `astronomy_tools-<version>-py3-none-any.whl`
+- [ ] Wheel filename contains the correct version: `castle_celestial_view-<version>-py3-none-any.whl`
 - [ ] `xx-reverse.json` is **not** present inside the wheel: `unzip -l dist/*.whl | grep xx-reverse` returns nothing
 - [ ] `npm run build` completes without errors
 - [ ] `xx-reverse` string is **absent** from `frontend/dist/`: `grep -r "xx-reverse" frontend/dist/` returns nothing

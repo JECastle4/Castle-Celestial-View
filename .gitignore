@@ -1,5 +1,6 @@
 # Ignore setuptools build artifacts
 astronomy_tools.egg-info/
+castle_celestial_view.egg-info/
 # Python
 __pycache__/
 *.py[cod]

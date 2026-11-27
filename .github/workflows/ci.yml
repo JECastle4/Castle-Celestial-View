@@ -76,7 +76,7 @@ jobs:
     
     - name: Dependency vulnerability scan - pip-audit
       run: |
-        # --skip-editable: astronomy-tools is our own local package, not on PyPI
+        # --skip-editable: castle-celestial-view is our own local package, not on PyPI
         # CVE-2026-3219 (pip): fixed in pip 26.1
         # CVE-2026-44431, CVE-2026-44432 (urllib3): fixed in 2.7.0
         pip-audit --desc --skip-editable
