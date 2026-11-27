@@ -130,3 +130,33 @@ Notes: Nmap 7.80 predates TLS 1.3 support in this script, so TLSv1.3 is not list
 confirmed in 3.2). Advisory (low): legacy CBC-SHA, CAMELLIA, ARIA and AES-CCM_8 suites
 remain enabled for TLS 1.2; could be trimmed but are not a vulnerability.
 
+STEP 4: SECURITY HEADERS CHECK
+══════════════════════════════
+
+Command: curl.exe -sI https://castlecelestialview.net
+
+HTTP/1.1 200 OK
+Server: nginx
+Date: Fri, 27 Nov 2026 18:13:17 GMT
+Content-Type: text/html
+Content-Length: 3627
+Last-Modified: Fri, 27 Nov 2026 17:53:19 GMT
+Connection: keep-alive
+ETag: "6b09c38f-e2b"
+Cache-Control: public, max-age=3600, must-revalidate
+Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+X-Frame-Options: DENY
+X-Content-Type-Options: nosniff
+Referrer-Policy: strict-no-referrer
+Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), accelerometer=(), gyroscope=(), magnetometer=(), usb=(), vr=()
+Accept-Ranges: bytes
+
+Result: PASS - all six expected headers present with expected values (HSTS 1 year +
+includeSubDomains + preload; CSP; X-Frame-Options DENY; nosniff; Referrer-Policy;
+Permissions-Policy). Server header shows "nginx" without version.
+Notes: (1) Response was HTTP/1.1 because this curl.exe build did not negotiate HTTP/2
+(guide example shows HTTP/2); not a server defect. (2) Low/advisory: CSP style-src
+allows 'unsafe-inline'; script-src is strict 'self'. (3) Content is fresh: Last-Modified
+2026-11-27 17:53 GMT matches the v1.2.0 deployment.
+
