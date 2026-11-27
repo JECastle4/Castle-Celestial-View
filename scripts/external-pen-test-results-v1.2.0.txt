@@ -262,3 +262,29 @@ Result: resolves to 77.68.79.252 (matches the expected target). IPv4 only in thi
 
 Overall Step 8: PASS - minimal footprint; host does not respond to ICMP; DNS as expected.
 
+STEP 9: AUTOMATED SCANNING
+══════════════════════════
+
+Tools not available on this laptop and not installed: nikto, sslscan, OWASP ZAP (not run).
+TLS coverage substituted by nmap ssl-enum-ciphers (see 3.3).
+
+9.1: nmap HTTP scripts
+Command: nmap -sV --script http-security-headers,http-methods,http-server-header -p 443 77.68.79.252
+
+Starting Nmap 7.80 ( https://nmap.org ) at 2026-11-27 18:36 GMT Standard Time
+Host is up (0.019s latency).
+PORT    STATE SERVICE  VERSION
+443/tcp open  ssl/http nginx 1.24.0 (Ubuntu)
+| http-security-headers:
+|   Strict_Transport_Security:
+|_    HSTS not configured in HTTPS Server
+|_http-server-header: nginx/1.24.0 (Ubuntu)
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+Nmap done: 1 IP address (1 host up) scanned in 20.71 seconds
+
+Result: DISCREPANCY (provisional, pending 9.2) - conflicts with Step 4, where the named host
+returned HSTS and a bare "Server: nginx". nmap requested by IP address (no SNI / Host header),
+so it likely reached nginx's default server block, which appears to lack the security headers
+and to expose "nginx/1.24.0 (Ubuntu)". Low severity (version disclosure; headers missing only
+on IP-based access), but worth aligning the default server block.
+
